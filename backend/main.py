@@ -1,0 +1,58 @@
+"""
+College Timetable Generator — FastAPI Application Entry Point
+"""
+
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from models.schemas import HealthResponse
+from routers import class_sections, departments, generate, rooms, subjects, teachers
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: nothing special — Alembic manages migrations separately.
+    yield
+    # Shutdown
+
+
+app = FastAPI(
+    title="College Timetable Generator API",
+    description="REST API for managing college timetable data and triggering generation.",
+    version="0.1.0",
+    lifespan=lifespan,
+)
+
+# ---------------------------------------------------------------------------
+# CORS — allow the Vite dev server
+# ---------------------------------------------------------------------------
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",  # Vite dev
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ---------------------------------------------------------------------------
+# Routers
+# ---------------------------------------------------------------------------
+app.include_router(departments.router, prefix="/api/v1")
+app.include_router(teachers.router, prefix="/api/v1")
+app.include_router(subjects.router, prefix="/api/v1")
+app.include_router(rooms.router, prefix="/api/v1")
+app.include_router(class_sections.router, prefix="/api/v1")
+app.include_router(generate.router, prefix="/api/v1")
+
+
+# ---------------------------------------------------------------------------
+# Health check
+# ---------------------------------------------------------------------------
+@app.get("/health", response_model=HealthResponse, tags=["Health"])
+async def health():
+    return {"status": "ok", "version": app.version}
