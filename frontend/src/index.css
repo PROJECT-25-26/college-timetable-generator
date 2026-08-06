@@ -1,0 +1,116 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Design tokens ─────────────────────────────────────────── */
+:root {
+  --sidebar-width: 240px;
+  --topbar-height: 64px;
+}
+
+/* ─── Base resets ────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  @apply bg-gray-950 text-gray-100 antialiased;
+}
+
+/* ─── Scrollbar styling ──────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { @apply bg-gray-900; }
+::-webkit-scrollbar-thumb { @apply bg-gray-700 rounded-full; }
+::-webkit-scrollbar-thumb:hover { @apply bg-gray-500; }
+
+/* ─── Layout ─────────────────────────────────────────────────── */
+.app-shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) 1fr;
+  grid-template-rows: var(--topbar-height) 1fr;
+  grid-template-areas:
+    "sidebar topbar"
+    "sidebar main";
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app-sidebar  { grid-area: sidebar; }
+.app-topbar   { grid-area: topbar;  }
+.app-main     { grid-area: main; overflow-y: auto; }
+
+/* ─── Glassmorphism card ─────────────────────────────────────── */
+.glass-card {
+  @apply bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl;
+}
+
+/* ─── Gradient text ──────────────────────────────────────────── */
+.gradient-text {
+  @apply bg-gradient-to-r from-brand-400 to-purple-400 bg-clip-text text-transparent;
+}
+
+/* ─── Nav item active state ──────────────────────────────────── */
+.nav-item-active {
+  @apply bg-brand-600/20 text-brand-300 border-l-2 border-brand-400;
+}
+
+/* ─── Animations ─────────────────────────────────────────────── */
+.animate-fade-in  { animation: fadeIn  0.3s ease-out; }
+.animate-slide-in { animation: slideIn 0.25s ease-out; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0);    }
+}
+
+/* ─── Pulse dot (for status indicators) ─────────────────────── */
+.pulse-dot {
+  @apply inline-block w-2 h-2 rounded-full;
+  animation: pulse-ring 1.5s ease-in-out infinite;
+}
+@keyframes pulse-ring {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.8); }
+}
+
+/* ─── Form elements ──────────────────────────────────────────── */
+.form-input {
+  @apply w-full px-3 py-2 text-sm rounded-xl
+         bg-white/5 border border-white/10 text-gray-200
+         placeholder-gray-600
+         focus:outline-none focus:border-brand-500/60 focus:bg-white/10
+         transition-colors;
+}
+
+.form-input.error {
+  @apply border-red-500/60 focus:border-red-500/80;
+}
+
+.form-label {
+  @apply block text-xs font-medium text-gray-400 mb-1.5;
+}
+
+.form-error {
+  @apply text-xs text-red-400 mt-1;
+}
+
+/* ─── Toggle switch ──────────────────────────────────────────── */
+.toggle-track {
+  @apply relative inline-flex w-10 h-5 rounded-full transition-colors duration-200 cursor-pointer;
+}
+.toggle-thumb {
+  @apply absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200;
+}
+
+/* ─── Hover bg for table rows ────────────────────────────────── */
+.hover\:bg-white\/3:hover { background-color: rgb(255 255 255 / 0.03); }
+
