@@ -5,7 +5,7 @@ from sqlalchemy.orm import selectinload
 
 from database import get_db
 from models.orm import Teacher, TeacherSubject, TeacherUnavailableSlot
-from models.schemas import MessageResponse, TeacherCreate, TeacherOut, TeacherUpdate
+from models.schemas import MessageResponse, SubjectPreferencesUpdate, TeacherCreate, TeacherOut, TeacherUpdate
 
 router = APIRouter(prefix="/teachers", tags=["Teachers"])
 
@@ -27,6 +27,7 @@ async def _get_or_404(teacher_id: str, db: AsyncSession) -> Teacher:
     return teacher
 
 
+@router.get("", response_model=list[TeacherOut])
 @router.get("/", response_model=list[TeacherOut])
 async def list_teachers(db: AsyncSession = Depends(get_db)):
     result = await db.execute(
@@ -35,6 +36,7 @@ async def list_teachers(db: AsyncSession = Depends(get_db)):
     return result.scalars().all()
 
 
+@router.post("", response_model=TeacherOut, status_code=status.HTTP_201_CREATED)
 @router.post("/", response_model=TeacherOut, status_code=status.HTTP_201_CREATED)
 async def create_teacher(payload: TeacherCreate, db: AsyncSession = Depends(get_db)):
     data = payload.model_dump(exclude={"subject_links", "unavailable_slots"})
@@ -51,11 +53,13 @@ async def create_teacher(payload: TeacherCreate, db: AsyncSession = Depends(get_
 
 
 @router.get("/{teacher_id}", response_model=TeacherOut)
+@router.get("/{teacher_id}/", response_model=TeacherOut)
 async def get_teacher(teacher_id: str, db: AsyncSession = Depends(get_db)):
     return await _get_or_404(teacher_id, db)
 
 
 @router.patch("/{teacher_id}", response_model=TeacherOut)
+@router.patch("/{teacher_id}/", response_model=TeacherOut)
 async def update_teacher(
     teacher_id: str, payload: TeacherUpdate, db: AsyncSession = Depends(get_db)
 ):
@@ -88,7 +92,31 @@ async def update_teacher(
     return await _get_or_404(teacher.id, db)
 
 
+@router.patch("/{teacher_id}/subject-preferences", response_model=TeacherOut)
+@router.patch("/{teacher_id}/subject-preferences/", response_model=TeacherOut)
+async def update_subject_preferences(
+    teacher_id: str,
+    payload: SubjectPreferencesUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    """Replace a teacher's subject preference links without touching other fields."""
+    teacher = await _get_or_404(teacher_id, db)
+
+    for link in teacher.subject_links:
+        await db.delete(link)
+    teacher.subject_links.clear()
+
+    for link in payload.subject_links:
+        teacher.subject_links.append(
+            TeacherSubject(teacher_id=teacher.id, **link.model_dump())
+        )
+
+    await db.flush()
+    return await _get_or_404(teacher.id, db)
+
+
 @router.delete("/{teacher_id}", response_model=MessageResponse)
+@router.delete("/{teacher_id}/", response_model=MessageResponse)
 async def delete_teacher(teacher_id: str, db: AsyncSession = Depends(get_db)):
     teacher = await _get_or_404(teacher_id, db)
     await db.delete(teacher)

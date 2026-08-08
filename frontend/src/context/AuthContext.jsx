@@ -52,15 +52,19 @@ export function AuthProvider({ children }) {
 
     try {
       const { data: teachers } = await axios.get('/api/v1/teachers')
-      // Match on email prefix (part before @)
-      const match = teachers.find(t => {
-        if (!t.email) return false
-        const prefix = t.email.split('@')[0].toLowerCase()
-        return prefix === username.trim().toLowerCase()
-      })
+
+      if (!teachers || teachers.length === 0) {
+        return { ok: false, error: 'No teacher profiles exist yet. Please ask an administrator to add teachers first.' }
+      }
+
+      const search = username.trim().toLowerCase()
+
+      const match = teachers.find(
+        (t) => t.email && t.email.toLowerCase() === search
+      )
 
       if (!match) {
-        return { ok: false, error: 'No teacher account found for that username.' }
+        return { ok: false, error: 'No teacher account found with that email.' }
       }
 
       const teacherUser = {

@@ -11,7 +11,7 @@ import { useAuth } from '../context/AuthContext'
 
 const ROLES = [
   { id: 'admin',   label: 'Administrator', icon: ShieldCheck,    hint: 'username: admin  •  password: admin123'      },
-  { id: 'teacher', label: 'Teacher',        icon: GraduationCap, hint: 'username: <email-prefix>  •  password: teacher123' },
+  { id: 'teacher', label: 'Teacher',        icon: GraduationCap, hint: 'email: teacher\'s email  •  password: teacher123' },
 ]
 
 export default function Login() {
@@ -94,18 +94,20 @@ export default function Login() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Username */}
+            {/* Username / Email */}
             <div>
-              <label htmlFor="login-username" className="form-label">Username</label>
+              <label htmlFor="login-username" className="form-label">
+                {selectedRole === 'admin' ? 'Username' : 'Email Address'}
+              </label>
               <div className="relative">
                 <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
                 <input
                   id="login-username"
-                  type="text"
-                  autoComplete="username"
+                  type={selectedRole === 'admin' ? 'text' : 'email'}
+                  autoComplete={selectedRole === 'admin' ? 'username' : 'email'}
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  placeholder={selectedRole === 'admin' ? 'admin' : 'e.g. john.doe'}
+                  placeholder={selectedRole === 'admin' ? 'admin' : 'jane@college.edu'}
                   className="form-input pl-9"
                   required
                 />

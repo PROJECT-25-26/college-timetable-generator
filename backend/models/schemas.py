@@ -9,6 +9,11 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
+# ---------------------------------------------------------------------------
+# Subject preference type
+# ---------------------------------------------------------------------------
+PreferenceType = Literal["preferred", "willing", "avoid"]
+
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
@@ -95,6 +100,7 @@ class SubjectOut(_TimestampMixin):
 class TeacherSubjectIn(BaseModel):
     subject_id: str
     preference_rank: int = Field(1, ge=1)
+    preference_type: PreferenceType = "willing"
 
 
 class TeacherSubjectOut(BaseModel):
@@ -102,7 +108,13 @@ class TeacherSubjectOut(BaseModel):
 
     subject_id: str
     preference_rank: int
+    preference_type: str
     subject: SubjectOut | None = None
+
+
+class SubjectPreferencesUpdate(BaseModel):
+    """Payload for PATCH /teachers/{id}/subject-preferences"""
+    subject_links: list[TeacherSubjectIn]
 
 
 # ---------------------------------------------------------------------------

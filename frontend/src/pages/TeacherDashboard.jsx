@@ -3,7 +3,7 @@
  *
  * Displays:
  *   1. Welcome card with teacher info
- *   2. Assigned subjects (fetched from /api/v1/teachers/:id)
+ *   2. Assigned subjects with preference badges (editable inline)
  *   3. Unavailable slots list
  *   4. Schedule Change Request form
  *   5. Request history (from shared AuthContext)
@@ -12,10 +12,12 @@
 import { useEffect, useState } from 'react'
 import {
   BookOpen, Clock, SendHorizonal, CheckCircle2, XCircle, Loader2,
-  CalendarDays, AlertCircle, ClipboardList, User
+  CalendarDays, AlertCircle, ClipboardList, User, Star, Check, X,
+  Pencil, Save, RotateCcw,
 } from 'lucide-react'
 import axios from 'axios'
 import { useAuth } from '../context/AuthContext'
+import { teachersApi, subjectsApi } from '../api'
 
 const DAYS    = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const PERIODS = Array.from({ length: 8 }, (_, i) => `Period ${i + 1}`)
@@ -26,34 +28,200 @@ const STATUS_CONFIG = {
   rejected: { label: 'Rejected', color: 'text-red-400',    bg: 'bg-red-500/10    border-red-500/20'    },
 }
 
+/* ──────────────────────────────────────────────
+   Preference type config
+────────────────────────────────────────────── */
+const PREF_CONFIG = {
+  preferred: {
+    label: 'Preferred',
+    Icon: Star,
+    badgeClass: 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300',
+    btnActive: 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300',
+    btnInactive: 'bg-white/4 border-white/10 text-gray-500 hover:text-emerald-400 hover:border-emerald-500/30',
+  },
+  willing: {
+    label: 'Willing',
+    Icon: Check,
+    badgeClass: 'bg-brand-500/15 border-brand-500/30 text-brand-300',
+    btnActive: 'bg-brand-500/20 border-brand-500/50 text-brand-300',
+    btnInactive: 'bg-white/4 border-white/10 text-gray-500 hover:text-brand-400 hover:border-brand-500/30',
+  },
+  avoid: {
+    label: 'Avoid',
+    Icon: X,
+    badgeClass: 'bg-red-500/15 border-red-500/30 text-red-300',
+    btnActive: 'bg-red-500/20 border-red-500/50 text-red-300',
+    btnInactive: 'bg-white/4 border-white/10 text-gray-500 hover:text-red-400 hover:border-red-500/30',
+  },
+}
+
+/* ──────────────────────────────────────────────
+   Preference badge (read-only)
+────────────────────────────────────────────── */
+function PrefBadge({ type }) {
+  const cfg = PREF_CONFIG[type] ?? PREF_CONFIG.willing
+  const { Icon } = cfg
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${cfg.badgeClass}`}
+    >
+      <Icon size={10} />
+      {cfg.label}
+    </span>
+  )
+}
+
+/* ──────────────────────────────────────────────
+   Inline preference editor row
+────────────────────────────────────────────── */
+function PrefToggle({ value, onChange }) {
+  return (
+    <div className="flex items-center gap-1">
+      {Object.entries(PREF_CONFIG).map(([key, cfg]) => {
+        const { Icon } = cfg
+        const active = value === key
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => onChange(key)}
+            className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-medium transition-all ${
+              active ? cfg.btnActive : cfg.btnInactive
+            }`}
+            title={cfg.label}
+          >
+            <Icon size={10} />
+            {cfg.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function TeacherDashboard() {
   const { user, requests, addRequest } = useAuth()
 
   const [teacher, setTeacher]   = useState(null)
+  const [allSubjects, setAllSubjects] = useState([])
   const [loadErr, setLoadErr]   = useState(null)
   const [busy,    setBusy]      = useState(true)
 
-  // Form state
+  // Edit-preferences state
+  const [editingPrefs, setEditingPrefs] = useState(false)
+  const [prefLinks, setPrefLinks]       = useState([])
+  const [savingPrefs, setSavingPrefs]   = useState(false)
+
+  // Form state (schedule change request)
   const [form, setForm]     = useState({ day: '0', period: '0', reason: '' })
   const [sending, setSend]  = useState(false)
   const [sent,    setSent]  = useState(false)
 
-  // Fetch teacher detail
+  // Fetch teacher detail + all subjects with fallback matching
   useEffect(() => {
-    if (!user?.id) return
-    axios.get(`/api/v1/teachers/${user.id}`)
-      .then(r => setTeacher(r.data))
-      .catch(() => setLoadErr('Could not load your profile.'))
-      .finally(() => setBusy(false))
-  }, [user?.id])
+    async function loadData() {
+      setBusy(true)
+      setLoadErr(null)
+      try {
+        const subjectsRes = await subjectsApi.list()
+        setAllSubjects(subjectsRes.data)
+
+        let activeTeacher = null
+
+        // 1. Try fetching by user.id if available
+        if (user?.id && user.id !== 'admin') {
+          try {
+            const tRes = await teachersApi.get(user.id)
+            activeTeacher = tRes.data
+          } catch {
+            // ID lookup failed (e.g. 404), fall through to list search
+          }
+        }
+
+        // 2. Fallback: fetch teachers list and find matching profile
+        if (!activeTeacher) {
+          const teachListRes = await teachersApi.list()
+          const list = teachListRes.data ?? []
+          if (list.length > 0) {
+            activeTeacher =
+              list.find((t) => t.id === user?.id) ||
+              list.find((t) => t.email && user?.email && t.email.toLowerCase() === user.email.toLowerCase()) ||
+              list.find((t) => user?.name && t.name.toLowerCase().includes(user.name.toLowerCase())) ||
+              list[0]
+          }
+        }
+
+        if (activeTeacher) {
+          setTeacher(activeTeacher)
+          setPrefLinks(
+            (activeTeacher.subject_links ?? []).map((l) => ({
+              subject_id: l.subject_id,
+              preference_rank: l.preference_rank,
+              preference_type: l.preference_type ?? 'willing',
+            }))
+          )
+        } else {
+          setLoadErr('No teacher profiles exist in the system yet. Please ask an administrator to add teachers in the Teachers page.')
+        }
+      } catch (err) {
+        console.error('Failed to load teacher profile:', err)
+        const msg = err.message === 'Network Error' || err.code === 'ERR_NETWORK'
+          ? 'Network error: Cannot reach backend server. Please ensure backend service is running.'
+          : (err.message ?? 'Could not load your profile.')
+        setLoadErr(msg)
+      } finally {
+        setBusy(false)
+      }
+    }
+
+    loadData()
+  }, [user?.id, user?.email, user?.name])
 
   const myRequests = requests.filter(r => r.teacherId === user?.id)
 
+  /* ── Preference save ── */
+  async function savePreferences() {
+    setSavingPrefs(true)
+    try {
+      const res = await teachersApi.updatePreferences(user.id, { subject_links: prefLinks })
+      setTeacher(res.data)
+      setPrefLinks(
+        (res.data.subject_links ?? []).map((l) => ({
+          subject_id: l.subject_id,
+          preference_rank: l.preference_rank,
+          preference_type: l.preference_type ?? 'willing',
+        }))
+      )
+      setEditingPrefs(false)
+    } catch {
+      // surface error inline — user can retry
+    } finally {
+      setSavingPrefs(false)
+    }
+  }
+
+  function cancelEdit() {
+    setPrefLinks(
+      (teacher?.subject_links ?? []).map((l) => ({
+        subject_id: l.subject_id,
+        preference_rank: l.preference_rank,
+        preference_type: l.preference_type ?? 'willing',
+      }))
+    )
+    setEditingPrefs(false)
+  }
+
+  function updatePrefType(subjectId, newType) {
+    setPrefLinks((prev) =>
+      prev.map((l) => l.subject_id === subjectId ? { ...l, preference_type: newType } : l)
+    )
+  }
+
+  /* ── Request submit ── */
   const handleRequestSubmit = async (e) => {
     e.preventDefault()
     if (!form.reason.trim()) return
     setSend(true)
-    // Simulate a brief async call
     await new Promise(r => setTimeout(r, 600))
     addRequest({
       teacherId:   user.id,
@@ -102,15 +270,82 @@ export default function TeacherDashboard() {
 
       {teacher && (
         <>
-          {/* Assigned subjects */}
+          {/* Subject Preferences section */}
           <section className="glass-card p-6">
             <div className="flex items-center gap-2 mb-4">
               <BookOpen size={17} className="text-brand-400" />
-              <h3 className="text-sm font-semibold text-gray-200">Assigned Subjects</h3>
+              <h3 className="text-sm font-semibold text-gray-200">Subject Preferences</h3>
+              <div className="ml-auto flex items-center gap-2">
+                {editingPrefs ? (
+                  <>
+                    <button
+                      onClick={cancelEdit}
+                      disabled={savingPrefs}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-xs text-gray-400 hover:text-gray-200 transition-colors disabled:opacity-50"
+                    >
+                      <RotateCcw size={12} />
+                      Cancel
+                    </button>
+                    <button
+                      onClick={savePreferences}
+                      disabled={savingPrefs}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-xs text-white font-medium transition-colors disabled:opacity-50"
+                    >
+                      {savingPrefs
+                        ? <Loader2 size={12} className="animate-spin" />
+                        : <Save size={12} />}
+                      {savingPrefs ? 'Saving…' : 'Save'}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setEditingPrefs(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+                  >
+                    <Pencil size={12} />
+                    Edit Preferences
+                  </button>
+                )}
+              </div>
             </div>
+
             {teacher.subject_links.length === 0 ? (
               <p className="text-gray-500 text-sm">No subjects assigned yet.</p>
+            ) : editingPrefs ? (
+              /* ── Edit mode: show each subject with toggle buttons ── */
+              <div className="space-y-3">
+                <p className="text-xs text-gray-500 mb-3">
+                  Toggle your preference for each assigned subject. Changes apply when you click Save.
+                </p>
+                {prefLinks.map((link) => {
+                  const subject = allSubjects.find((s) => s.id === link.subject_id)
+                    ?? teacher.subject_links.find((l) => l.subject_id === link.subject_id)?.subject
+                  return (
+                    <div
+                      key={link.subject_id}
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/10"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500/30 to-purple-500/30 flex items-center justify-center shrink-0">
+                        <BookOpen size={14} className="text-brand-300" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-200 truncate">
+                          {subject?.name ?? link.subject_id}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {subject?.code} · {subject?.weekly_periods} periods/wk
+                        </p>
+                      </div>
+                      <PrefToggle
+                        value={link.preference_type}
+                        onChange={(val) => updatePrefType(link.subject_id, val)}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
             ) : (
+              /* ── Read-only mode: subjects with preference badges ── */
               <div className="grid gap-3 sm:grid-cols-2">
                 {teacher.subject_links.map(link => (
                   <div
@@ -120,15 +355,15 @@ export default function TeacherDashboard() {
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500/30 to-purple-500/30 flex items-center justify-center shrink-0">
                       <BookOpen size={14} className="text-brand-300" />
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-gray-200 truncate">
                         {link.subject?.name ?? link.subject_id}
                       </p>
                       <p className="text-xs text-gray-500">
                         {link.subject?.code} · {link.subject?.weekly_periods} periods/wk
-                        {link.preference_rank > 1 && ` · Preference rank ${link.preference_rank}`}
                       </p>
                     </div>
+                    <PrefBadge type={link.preference_type ?? 'willing'} />
                   </div>
                 ))}
               </div>

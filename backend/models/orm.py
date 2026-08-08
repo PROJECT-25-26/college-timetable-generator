@@ -141,7 +141,7 @@ class Teacher(Base):
 
 
 # ---------------------------------------------------------------------------
-# TeacherSubject  (join: teacher ↔ subject with preference rank)
+# TeacherSubject  (join: teacher ↔ subject with preference rank + type)
 # ---------------------------------------------------------------------------
 class TeacherSubject(Base):
     __tablename__ = "teacher_subjects"
@@ -154,6 +154,15 @@ class TeacherSubject(Base):
     )
     # 1 = most preferred, higher = less preferred
     preference_rank: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=1)
+    # Categorical preference: 'preferred' | 'willing' | 'avoid'
+    preference_type: Mapped[str] = mapped_column(String(20), nullable=False, default="willing")
+
+    __table_args__ = (
+        CheckConstraint(
+            "preference_type IN ('preferred', 'willing', 'avoid')",
+            name="ck_teacher_subject_preference_type",
+        ),
+    )
 
     teacher: Mapped["Teacher"] = relationship("Teacher", back_populates="subject_links")
     subject: Mapped["Subject"] = relationship("Subject", back_populates="teacher_links")

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, UserCircle2 } from 'lucide-react'
+import { Plus, Trash2, Star, Check, X } from 'lucide-react'
 import { teachersApi, departmentsApi, subjectsApi } from '../api'
 import { useToast } from '../hooks/useToast'
 import DataTable from '../components/DataTable'
@@ -12,6 +12,36 @@ import Badge from '../components/Badge'
 ────────────────────────────────────────────── */
 const DAYS   = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
 const PERIODS = Array.from({ length: 8 }, (_, i) => i) // P0–P7
+
+const PREF_TYPES = [
+  {
+    value: 'preferred',
+    label: 'Preferred',
+    icon: Star,
+    activeClass: 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300',
+    inactiveClass: 'bg-white/4 border-white/10 text-gray-500 hover:text-emerald-400 hover:border-emerald-500/30',
+  },
+  {
+    value: 'willing',
+    label: 'Willing',
+    icon: Check,
+    activeClass: 'bg-brand-500/20 border-brand-500/50 text-brand-300',
+    inactiveClass: 'bg-white/4 border-white/10 text-gray-500 hover:text-brand-400 hover:border-brand-500/30',
+  },
+  {
+    value: 'avoid',
+    label: 'Avoid',
+    icon: X,
+    activeClass: 'bg-red-500/20 border-red-500/50 text-red-300',
+    inactiveClass: 'bg-white/4 border-white/10 text-gray-500 hover:text-red-400 hover:border-red-500/30',
+  },
+]
+
+const PREF_BADGE = {
+  preferred: { variant: 'success', label: 'Preferred' },
+  willing:   { variant: 'brand',   label: 'Willing'   },
+  avoid:     { variant: 'danger',  label: 'Avoid'     },
+}
 
 const EMPTY_FORM = () => ({
   name: '',
@@ -26,7 +56,7 @@ const EMPTY_FORM = () => ({
 function slotKey(day, period) { return `${day}-${period}` }
 
 /* ──────────────────────────────────────────────
-   Subject-Links list builder
+   Subject-Links list builder  (enhanced)
 ────────────────────────────────────────────── */
 function SubjectLinks({ links, subjects, onChange }) {
   const usedIds = new Set(links.map((l) => l.subject_id))
@@ -34,59 +64,110 @@ function SubjectLinks({ links, subjects, onChange }) {
 
   function addLink() {
     if (available.length === 0) return
-    onChange([...links, { subject_id: available[0].id, preference_rank: links.length + 1 }])
+    onChange([
+      ...links,
+      { subject_id: available[0].id, preference_rank: links.length + 1, preference_type: 'willing' },
+    ])
   }
   function removeLink(idx) {
     onChange(links.filter((_, i) => i !== idx))
   }
   function updateLink(idx, field, value) {
-    onChange(links.map((l, i) => i === idx ? { ...l, [field]: value } : l))
+    onChange(links.map((l, i) => (i === idx ? { ...l, [field]: value } : l)))
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
+      {subjects.length === 0 ? (
+        <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs">
+          No subjects exist in the system yet. Please create subjects in the <strong>Subjects</strong> page first before assigning preferences.
+        </div>
+      ) : links.length === 0 ? (
+        <p className="text-xs text-gray-400 italic">No subjects assigned yet. Click "+ Add subject & preference" below to select a subject.</p>
+      ) : null}
+
       {links.map((link, idx) => {
         const subject = subjects.find((s) => s.id === link.subject_id)
         return (
-          <div key={idx} className="flex items-center gap-2">
-            <select
-              value={link.subject_id}
-              onChange={(e) => updateLink(idx, 'subject_id', e.target.value)}
-              className="form-input flex-1"
-            >
-              {subject && <option value={subject.id}>{subject.name} ({subject.code})</option>}
-              {available.map((s) => (
-                <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
-              ))}
-            </select>
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-gray-500 whitespace-nowrap">Rank</span>
-              <input
-                type="number"
-                min={1}
-                value={link.preference_rank}
-                onChange={(e) => updateLink(idx, 'preference_rank', Number(e.target.value))}
-                className="form-input w-16 text-center"
-              />
+          <div
+            key={idx}
+            className="flex flex-col gap-2.5 p-3 rounded-xl bg-white/5 border border-white/10"
+          >
+            {/* Row 1: subject select + rank + delete */}
+            <div className="flex items-center gap-2">
+              <select
+                value={link.subject_id}
+                onChange={(e) => updateLink(idx, 'subject_id', e.target.value)}
+                className="form-input flex-1 text-sm"
+              >
+                <option value={link.subject_id}>
+                  {subject ? `${subject.name} (${subject.code})` : 'Select a subject...'}
+                </option>
+                {available.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
+                ))}
+              </select>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-xs text-gray-400 whitespace-nowrap">Rank</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={link.preference_rank}
+                  onChange={(e) => updateLink(idx, 'preference_rank', Math.max(1, Number(e.target.value)))}
+                  className="form-input w-16 text-center text-sm"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => removeLink(idx)}
+                className="p-1.5 text-gray-400 hover:text-red-400 transition-colors shrink-0"
+                title="Remove subject"
+              >
+                <Trash2 size={15} />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => removeLink(idx)}
-              className="p-1.5 text-gray-500 hover:text-red-400 transition-colors"
-            >
-              <Trash2 size={14} />
-            </button>
+
+            {/* Row 2: preference type toggle */}
+            <div className="flex items-center gap-2 pt-1 border-t border-white/5">
+              <span className="text-xs font-medium text-gray-400 mr-1">Preference Level:</span>
+              <div className="flex items-center gap-1.5">
+                {PREF_TYPES.map((pt) => {
+                  const Icon = pt.icon
+                  const active = link.preference_type === pt.value
+                  return (
+                    <button
+                      key={pt.value}
+                      type="button"
+                      onClick={() => updateLink(idx, 'preference_type', pt.value)}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-medium transition-all ${
+                        active ? pt.activeClass : pt.inactiveClass
+                      }`}
+                      title={`Set preference level to ${pt.label}`}
+                    >
+                      <Icon size={12} />
+                      {pt.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
           </div>
         )
       })}
-      <button
-        type="button"
-        onClick={addLink}
-        disabled={available.length === 0}
-        className="text-xs text-brand-400 hover:text-brand-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-      >
-        + Add subject
-      </button>
+
+      {subjects.length > 0 && available.length === 0 && links.length > 0 && (
+        <p className="text-xs text-gray-500 italic">All available subjects have been assigned to this teacher.</p>
+      )}
+
+      {subjects.length > 0 && available.length > 0 && (
+        <button
+          type="button"
+          onClick={addLink}
+          className="flex items-center gap-1 text-xs font-medium text-brand-400 hover:text-brand-300 transition-colors pt-1"
+        >
+          + Add subject & preference
+        </button>
+      )}
     </div>
   )
 }
@@ -219,9 +300,14 @@ function TeacherForm({ form, errors, onChange, departments, subjects }) {
         </div>
       </div>
 
-      {/* Separator */}
+      {/* Subject preferences */}
       <div className="border-t border-white/10 pt-4">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Subject Preferences</p>
+        <div className="flex items-center gap-2 mb-3">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
+            Subject Preferences
+          </p>
+          <span className="text-xs text-gray-600">— set preferred ★, willing ✓, or avoid ✗ per subject</span>
+        </div>
         <SubjectLinks
           links={form.subject_links}
           subjects={subjects}
@@ -257,10 +343,25 @@ function SubjectPills({ links }) {
   if (!links?.length) return <span className="text-gray-600 text-xs">—</span>
   const show = links.slice(0, 3)
   const more = links.length - show.length
+
+  const prefColor = (type) => {
+    if (type === 'preferred') return 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300'
+    if (type === 'avoid')     return 'bg-red-500/15 border border-red-500/30 text-red-300'
+    return 'bg-brand-500/15 border border-brand-500/30 text-brand-300'
+  }
+
   return (
     <div className="flex flex-wrap gap-1">
       {show.map((l) => (
-        <Badge key={l.subject_id} variant="brand">{l.subject?.code ?? '…'}</Badge>
+        <span
+          key={l.subject_id}
+          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${prefColor(l.preference_type)}`}
+          title={l.preference_type ?? 'willing'}
+        >
+          {l.preference_type === 'preferred' && <Star size={9} />}
+          {l.preference_type === 'avoid'     && <X    size={9} />}
+          {l.subject?.code ?? '…'}
+        </span>
       ))}
       {more > 0 && <Badge variant="default">+{more}</Badge>}
     </div>
@@ -343,6 +444,7 @@ export default function Teachers() {
       subject_links: (row.subject_links ?? []).map((l) => ({
         subject_id: l.subject_id,
         preference_rank: l.preference_rank,
+        preference_type: l.preference_type ?? 'willing',
       })),
       unavailable_slots: (row.unavailable_slots ?? []).map((s) => ({
         day_of_week: s.day_of_week,
@@ -377,7 +479,11 @@ export default function Teachers() {
       }
       setModalOpen(false)
     } catch (err) {
-      toast.error(err.message ?? 'Save failed')
+      console.error('Save teacher failed:', err)
+      const msg = err.message === 'Network Error' || err.code === 'ERR_NETWORK'
+        ? 'Network error: Cannot reach backend server. Please verify backend service is running.'
+        : (err.message ?? 'Save failed')
+      toast.error(msg)
     } finally {
       setSaving(false)
     }

@@ -9,11 +9,12 @@ export const departmentsApi = {
 }
 
 export const teachersApi = {
-  list:   ()           => api.get('/teachers'),
-  get:    (id)         => api.get(`/teachers/${id}`),
-  create: (data)       => api.post('/teachers', data),
-  update: (id, data)   => api.patch(`/teachers/${id}`, data),
-  remove: (id)         => api.delete(`/teachers/${id}`),
+  list:               ()           => api.get('/teachers'),
+  get:                (id)         => api.get(`/teachers/${id}`),
+  create:             (data)       => api.post('/teachers', data),
+  update:             (id, data)   => api.patch(`/teachers/${id}`, data),
+  remove:             (id)         => api.delete(`/teachers/${id}`),
+  updatePreferences:  (id, data)   => api.patch(`/teachers/${id}/subject-preferences`, data),
 }
 
 export const subjectsApi = {
