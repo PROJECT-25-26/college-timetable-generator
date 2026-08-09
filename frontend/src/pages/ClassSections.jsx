@@ -14,6 +14,14 @@ const EMPTY_FORM = () => ({
   subject_links: [],
 })
 
+function subjectWeeklyPeriods(subject) {
+  if (!subject) return 0
+  if (subject.lab) {
+    return (subject.weekly_lab_sessions ?? 0) * (subject.lab_consecutive_periods ?? 0)
+  }
+  return subject.weekly_periods ?? 0
+}
+
 /* ──────────────────────────────────────────────
    Subject links list builder (with period override)
 ────────────────────────────────────────────── */
@@ -23,7 +31,7 @@ function SectionSubjectLinks({ links, subjects, onChange }) {
 
   const totalPeriods = links.reduce((sum, l) => {
     const subject = subjects.find((s) => s.id === l.subject_id)
-    return sum + (l.weekly_periods_override ?? subject?.weekly_periods ?? 0)
+    return sum + (l.weekly_periods_override ?? subjectWeeklyPeriods(subject))
   }, 0)
 
   function addLink() {
@@ -49,7 +57,7 @@ function SectionSubjectLinks({ links, subjects, onChange }) {
 
       {links.map((link, idx) => {
         const subject = subjects.find((s) => s.id === link.subject_id)
-        const defaultPeriods = subject?.weekly_periods ?? 3
+        const defaultPeriods = subjectWeeklyPeriods(subject) || 3
         return (
           <div key={idx} className="flex items-center gap-2 p-2.5 rounded-xl bg-white/5 border border-white/10">
             <select

@@ -29,15 +29,18 @@ This document is the canonical reference for all entity field names shared betwe
 
 ## Subject
 
-| Field            | Type      | Notes                          |
-|------------------|-----------|--------------------------------|
-| `id`             | `string`  | UUID                           |
-| `name`           | `string`  | max 120 chars                  |
-| `code`           | `string`  | max 20 chars, unique           |
-| `weekly_periods` | `integer` | default 3, range 1–30          |
-| `requires_lab`   | `boolean` | default false                  |
-| `created_at`     | `string`  | ISO 8601 datetime              |
-| `updated_at`     | `string`  | ISO 8601 datetime              |
+| Field                     | Type               | Notes                                          |
+|---------------------------|--------------------|------------------------------------------------|
+| `id`                      | `string`           | UUID                                           |
+| `name`                    | `string`           | max 120 chars                                  |
+| `code`                    | `string`           | max 20 chars, unique                           |
+| `lab`                     | `boolean`          | default false — true if this is a lab subject  |
+| `weekly_periods`          | `integer`          | total weekly periods (auto-computed for labs)  |
+| `max_periods_per_day`     | `integer \| null`  | non-lab only, range 1–10                       |
+| `lab_consecutive_periods` | `integer \| null`  | lab only — consecutive periods per session     |
+| `weekly_lab_sessions`     | `integer \| null`  | lab only — number of lab sessions per week     |
+| `created_at`              | `string`           | ISO 8601 datetime                              |
+| `updated_at`              | `string`           | ISO 8601 datetime                              |
 
 ---
 

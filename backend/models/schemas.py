@@ -14,7 +14,7 @@ from typing import Literal
 # ---------------------------------------------------------------------------
 PreferenceType = Literal["preferred", "willing", "avoid"]
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 
 # ---------------------------------------------------------------------------
@@ -73,15 +73,63 @@ class StaffRoomOut(BaseModel):
 class SubjectCreate(BaseModel):
     name: str = Field(..., max_length=120)
     code: str = Field(..., max_length=20)
-    weekly_periods: int = Field(3, ge=1, le=30)
-    requires_lab: bool = False
+    lab: bool = False
+    weekly_periods: int | None = Field(None, ge=1, le=30)
+    max_periods_per_day: int | None = Field(None, ge=1, le=10)
+    lab_consecutive_periods: int | None = Field(None, ge=1, le=10)
+    weekly_lab_sessions: int | None = Field(None, ge=1, le=30)
+
+    @model_validator(mode="after")
+    def validate_scheduling_fields(self) -> "SubjectCreate":
+        if self.lab:
+            if self.lab_consecutive_periods is None:
+                raise ValueError("lab_consecutive_periods is required for lab subjects")
+            if self.weekly_lab_sessions is None:
+                raise ValueError("weekly_lab_sessions is required for lab subjects")
+            self.max_periods_per_day = None
+            self.weekly_periods = (
+                self.lab_consecutive_periods * self.weekly_lab_sessions
+            )
+        else:
+            if self.weekly_periods is None:
+                self.weekly_periods = 3
+            if self.max_periods_per_day is None:
+                raise ValueError("max_periods_per_day is required for non-lab subjects")
+            self.lab_consecutive_periods = None
+            self.weekly_lab_sessions = None
+        return self
 
 
 class SubjectUpdate(BaseModel):
     name: str | None = Field(None, max_length=120)
     code: str | None = Field(None, max_length=20)
+    lab: bool | None = None
     weekly_periods: int | None = Field(None, ge=1, le=30)
-    requires_lab: bool | None = None
+    max_periods_per_day: int | None = Field(None, ge=1, le=10)
+    lab_consecutive_periods: int | None = Field(None, ge=1, le=10)
+    weekly_lab_sessions: int | None = Field(None, ge=1, le=30)
+
+    @model_validator(mode="after")
+    def validate_scheduling_fields(self) -> "SubjectUpdate":
+        if self.lab is None:
+            return self
+        if self.lab:
+            if self.lab_consecutive_periods is None:
+                raise ValueError("lab_consecutive_periods is required for lab subjects")
+            if self.weekly_lab_sessions is None:
+                raise ValueError("weekly_lab_sessions is required for lab subjects")
+            self.max_periods_per_day = None
+            self.weekly_periods = (
+                self.lab_consecutive_periods * self.weekly_lab_sessions
+            )
+        else:
+            if self.weekly_periods is None:
+                raise ValueError("weekly_periods is required for non-lab subjects")
+            if self.max_periods_per_day is None:
+                raise ValueError("max_periods_per_day is required for non-lab subjects")
+            self.lab_consecutive_periods = None
+            self.weekly_lab_sessions = None
+        return self
 
 
 class SubjectOut(_TimestampMixin):
@@ -90,8 +138,11 @@ class SubjectOut(_TimestampMixin):
     id: str
     name: str
     code: str
+    lab: bool
     weekly_periods: int
-    requires_lab: bool
+    max_periods_per_day: int | None
+    lab_consecutive_periods: int | None
+    weekly_lab_sessions: int | None
 
 
 # ---------------------------------------------------------------------------

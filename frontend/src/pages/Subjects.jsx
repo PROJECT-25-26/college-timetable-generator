@@ -7,7 +7,15 @@ import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Badge from '../components/Badge'
 
-const EMPTY = { name: '', code: '', weekly_periods: 3, requires_lab: false }
+const EMPTY = {
+  name: '',
+  code: '',
+  lab: false,
+  weekly_periods: 3,
+  max_periods_per_day: 2,
+  lab_consecutive_periods: 2,
+  weekly_lab_sessions: 1,
+}
 
 function Toggle({ checked, onChange }) {
   return (
@@ -20,6 +28,27 @@ function Toggle({ checked, onChange }) {
     >
       <span className={`toggle-thumb ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
     </button>
+  )
+}
+
+function PeriodSlider({ label, value, onChange, min = 1, max = 30 }) {
+  return (
+    <div>
+      <label className="form-label">{label}</label>
+      <div className="flex items-center gap-3">
+        <input
+          type="range"
+          min={min}
+          max={max}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="flex-1 accent-brand-500"
+        />
+        <span className="w-10 text-center text-sm font-semibold text-brand-300 bg-brand-500/10 border border-brand-500/20 rounded-lg py-1">
+          {value}
+        </span>
+      </div>
+    </div>
   )
 }
 
@@ -49,31 +78,56 @@ function SubjectForm({ form, errors, onChange }) {
         />
         {errors.code && <p className="form-error">{errors.code}</p>}
       </div>
-      <div>
-        <label className="form-label">Weekly Periods (1–30)</label>
-        <div className="flex items-center gap-3">
-          <input
-            type="range"
-            min={1} max={30}
-            value={form.weekly_periods}
-            onChange={(e) => onChange('weekly_periods', Number(e.target.value))}
-            className="flex-1 accent-brand-500"
-          />
-          <span className="w-10 text-center text-sm font-semibold text-brand-300 bg-brand-500/10 border border-brand-500/20 rounded-lg py-1">
-            {form.weekly_periods}
-          </span>
-        </div>
-      </div>
+
       <div className="flex items-center justify-between py-2 px-3 bg-white/3 rounded-xl border border-white/8">
         <div className="flex items-center gap-2">
           <FlaskConical size={15} className="text-amber-400" />
-          <span className="text-sm text-gray-300">Requires Lab</span>
+          <span className="text-sm text-gray-300">Lab</span>
         </div>
         <Toggle
-          checked={form.requires_lab}
-          onChange={(v) => onChange('requires_lab', v)}
+          checked={form.lab}
+          onChange={(v) => onChange('lab', v)}
         />
       </div>
+
+      {form.lab ? (
+        <>
+          <PeriodSlider
+            label="Consecutive Periods per Lab Session (1–10)"
+            value={form.lab_consecutive_periods}
+            onChange={(v) => onChange('lab_consecutive_periods', v)}
+            max={10}
+          />
+          {errors.lab_consecutive_periods && (
+            <p className="form-error">{errors.lab_consecutive_periods}</p>
+          )}
+          <PeriodSlider
+            label="Weekly Lab Sessions Required (1–30)"
+            value={form.weekly_lab_sessions}
+            onChange={(v) => onChange('weekly_lab_sessions', v)}
+          />
+          {errors.weekly_lab_sessions && (
+            <p className="form-error">{errors.weekly_lab_sessions}</p>
+          )}
+        </>
+      ) : (
+        <>
+          <PeriodSlider
+            label="Max Periods per Day (1–10)"
+            value={form.max_periods_per_day}
+            onChange={(v) => onChange('max_periods_per_day', v)}
+            max={10}
+          />
+          {errors.max_periods_per_day && (
+            <p className="form-error">{errors.max_periods_per_day}</p>
+          )}
+          <PeriodSlider
+            label="Weekly Periods (1–30)"
+            value={form.weekly_periods}
+            onChange={(v) => onChange('weekly_periods', v)}
+          />
+        </>
+      )}
     </div>
   )
 }
@@ -82,7 +136,28 @@ function validate(form) {
   const e = {}
   if (!form.name.trim()) e.name = 'Name is required'
   if (!form.code.trim()) e.code = 'Code is required'
+  if (form.lab) {
+    if (!form.lab_consecutive_periods || form.lab_consecutive_periods < 1) {
+      e.lab_consecutive_periods = 'Consecutive periods is required'
+    }
+    if (!form.weekly_lab_sessions || form.weekly_lab_sessions < 1) {
+      e.weekly_lab_sessions = 'Weekly lab sessions is required'
+    }
+  } else {
+    if (!form.max_periods_per_day || form.max_periods_per_day < 1) {
+      e.max_periods_per_day = 'Max periods per day is required'
+    }
+  }
   return e
+}
+
+function subjectPeriodSummary(row) {
+  if (row.lab) {
+    const sessions = row.weekly_lab_sessions ?? 0
+    const consecutive = row.lab_consecutive_periods ?? 0
+    return `${sessions} lab${sessions !== 1 ? 's' : ''}/wk · ${consecutive} consecutive`
+  }
+  return `${row.weekly_periods} per week · max ${row.max_periods_per_day ?? '—'}/day`
 }
 
 const COLUMNS = [
@@ -90,11 +165,13 @@ const COLUMNS = [
   { key: 'code', label: 'Code', render: (v) => <Badge variant="brand">{v}</Badge> },
   {
     key: 'weekly_periods',
-    label: 'Periods / Week',
-    render: (v) => <span className="text-gray-400">{v} per week</span>,
+    label: 'Scheduling',
+    render: (_, row) => (
+      <span className="text-gray-400 text-xs">{subjectPeriodSummary(row)}</span>
+    ),
   },
   {
-    key: 'requires_lab',
+    key: 'lab',
     label: 'Lab',
     render: (v) => v
       ? <Badge variant="warning"><FlaskConical size={10} className="inline mr-1" />Lab</Badge>
@@ -133,7 +210,15 @@ export default function Subjects() {
   }
   function openEdit(row) {
     setEditing(row)
-    setForm({ name: row.name, code: row.code, weekly_periods: row.weekly_periods, requires_lab: row.requires_lab })
+    setForm({
+      name: row.name,
+      code: row.code,
+      lab: row.lab,
+      weekly_periods: row.weekly_periods,
+      max_periods_per_day: row.max_periods_per_day ?? 2,
+      lab_consecutive_periods: row.lab_consecutive_periods ?? 2,
+      weekly_lab_sessions: row.weekly_lab_sessions ?? 1,
+    })
     setErrors({}); setModalOpen(true)
   }
   function handleChange(field, value) {

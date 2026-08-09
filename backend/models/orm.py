@@ -89,7 +89,10 @@ class Subject(Base):
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     code: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
     weekly_periods: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=3)
-    requires_lab: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    lab: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    lab_consecutive_periods: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    weekly_lab_sessions: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    max_periods_per_day: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
