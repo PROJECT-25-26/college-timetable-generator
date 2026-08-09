@@ -38,24 +38,34 @@ function SectionSubjectLinks({ links, subjects, onChange }) {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
+      {subjects.length === 0 ? (
+        <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs">
+          No subjects exist in the system yet. Please create subjects in the <strong>Subjects</strong> page first before assigning them to a class section.
+        </div>
+      ) : links.length === 0 ? (
+        <p className="text-xs text-gray-400 italic">No subjects assigned to this section yet. Click "+ Add subject to section" below.</p>
+      ) : null}
+
       {links.map((link, idx) => {
         const subject = subjects.find((s) => s.id === link.subject_id)
         const defaultPeriods = subject?.weekly_periods ?? 3
         return (
-          <div key={idx} className="flex items-center gap-2">
+          <div key={idx} className="flex items-center gap-2 p-2.5 rounded-xl bg-white/5 border border-white/10">
             <select
               value={link.subject_id}
               onChange={(e) => updateLink(idx, 'subject_id', e.target.value)}
-              className="form-input flex-1"
+              className="form-input flex-1 text-sm"
             >
-              {subject && <option value={subject.id}>{subject.name} ({subject.code})</option>}
+              <option value={link.subject_id}>
+                {subject ? `${subject.name} (${subject.code})` : 'Select a subject...'}
+              </option>
               {available.map((s) => (
                 <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
               ))}
             </select>
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-gray-500 whitespace-nowrap">Periods</span>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-xs text-gray-400 whitespace-nowrap">Periods/wk</span>
               <input
                 type="number"
                 min={1}
@@ -66,32 +76,39 @@ function SectionSubjectLinks({ links, subjects, onChange }) {
                   const v = e.target.value === '' ? null : Number(e.target.value)
                   updateLink(idx, 'weekly_periods_override', v)
                 }}
-                className="form-input w-20 text-center"
-                title={`Default: ${defaultPeriods}/week — leave blank to use default`}
+                className="form-input w-20 text-center text-sm"
+                title={`Default: ${defaultPeriods}/week — leave blank to use subject default`}
               />
             </div>
             <button
               type="button"
               onClick={() => removeLink(idx)}
-              className="p-1.5 text-gray-500 hover:text-red-400 transition-colors"
+              className="p-1.5 text-gray-400 hover:text-red-400 transition-colors shrink-0"
+              title="Remove subject from section"
             >
-              <Trash2 size={14} />
+              <Trash2 size={15} />
             </button>
           </div>
         )
       })}
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={addLink}
-          disabled={available.length === 0}
-          className="text-xs text-brand-400 hover:text-brand-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-        >
-          + Add subject
-        </button>
+
+      {subjects.length > 0 && available.length === 0 && links.length > 0 && (
+        <p className="text-xs text-gray-500 italic">All available subjects have been assigned to this section.</p>
+      )}
+
+      <div className="flex items-center justify-between pt-1">
+        {subjects.length > 0 && available.length > 0 && (
+          <button
+            type="button"
+            onClick={addLink}
+            className="flex items-center gap-1 text-xs font-medium text-brand-400 hover:text-brand-300 transition-colors"
+          >
+            + Add subject to section
+          </button>
+        )}
         {links.length > 0 && (
-          <span className="text-xs text-gray-500">
-            Total: <span className="text-brand-300 font-semibold">{totalPeriods}</span> periods/week
+          <span className="text-xs text-gray-400 ml-auto">
+            Total: <span className="text-brand-300 font-semibold">{totalPeriods}</span> weekly periods
           </span>
         )}
       </div>
@@ -254,7 +271,11 @@ export default function ClassSections() {
       }
       setModalOpen(false)
     } catch (err) {
-      toast.error(err.message ?? 'Save failed')
+      console.error('Save class section failed:', err)
+      const msg = err.message === 'Network Error' || err.code === 'ERR_NETWORK'
+        ? 'Network error: Cannot reach backend server. Please verify backend service is running.'
+        : (err.message ?? 'Save failed')
+      toast.error(msg)
     } finally {
       setSaving(false)
     }

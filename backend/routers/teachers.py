@@ -12,6 +12,7 @@ router = APIRouter(prefix="/teachers", tags=["Teachers"])
 _LOAD_OPTIONS = [
     selectinload(Teacher.subject_links).selectinload(TeacherSubject.subject),
     selectinload(Teacher.unavailable_slots),
+    selectinload(Teacher.department),
 ]
 
 

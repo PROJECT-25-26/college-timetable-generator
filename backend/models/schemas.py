@@ -169,6 +169,7 @@ class TeacherOut(_TimestampMixin):
 
     id: str
     department_id: str | None
+    department: DepartmentOut | None = None
     name: str
     email: str | None
     max_periods_per_day: int

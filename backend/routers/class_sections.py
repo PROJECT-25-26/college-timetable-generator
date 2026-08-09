@@ -31,6 +31,7 @@ async def _get_or_404(section_id: str, db: AsyncSession) -> ClassSection:
     return section
 
 
+@router.get("", response_model=list[ClassSectionOut])
 @router.get("/", response_model=list[ClassSectionOut])
 async def list_sections(db: AsyncSession = Depends(get_db)):
     result = await db.execute(
@@ -39,6 +40,7 @@ async def list_sections(db: AsyncSession = Depends(get_db)):
     return result.scalars().all()
 
 
+@router.post("", response_model=ClassSectionOut, status_code=status.HTTP_201_CREATED)
 @router.post("/", response_model=ClassSectionOut, status_code=status.HTTP_201_CREATED)
 async def create_section(payload: ClassSectionCreate, db: AsyncSession = Depends(get_db)):
     data = payload.model_dump(exclude={"subject_links"})
@@ -53,11 +55,13 @@ async def create_section(payload: ClassSectionCreate, db: AsyncSession = Depends
 
 
 @router.get("/{section_id}", response_model=ClassSectionOut)
+@router.get("/{section_id}/", response_model=ClassSectionOut)
 async def get_section(section_id: str, db: AsyncSession = Depends(get_db)):
     return await _get_or_404(section_id, db)
 
 
 @router.patch("/{section_id}", response_model=ClassSectionOut)
+@router.patch("/{section_id}/", response_model=ClassSectionOut)
 async def update_section(
     section_id: str, payload: ClassSectionUpdate, db: AsyncSession = Depends(get_db)
 ):
@@ -81,6 +85,7 @@ async def update_section(
 
 
 @router.delete("/{section_id}", response_model=MessageResponse)
+@router.delete("/{section_id}/", response_model=MessageResponse)
 async def delete_section(section_id: str, db: AsyncSession = Depends(get_db)):
     section = await _get_or_404(section_id, db)
     await db.delete(section)

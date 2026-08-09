@@ -3,7 +3,7 @@
  *
  * Displays:
  *   1. Welcome card with teacher info
- *   2. Assigned subjects with preference badges (editable inline)
+ *   2. Subject Preferences — add, edit preference, delete (inline editor)
  *   3. Unavailable slots list
  *   4. Schedule Change Request form
  *   5. Request history (from shared AuthContext)
@@ -13,9 +13,8 @@ import { useEffect, useState } from 'react'
 import {
   BookOpen, Clock, SendHorizonal, CheckCircle2, XCircle, Loader2,
   CalendarDays, AlertCircle, ClipboardList, User, Star, Check, X,
-  Pencil, Save, RotateCcw,
+  Pencil, Save, RotateCcw, Plus, Trash2,
 } from 'lucide-react'
-import axios from 'axios'
 import { useAuth } from '../context/AuthContext'
 import { teachersApi, subjectsApi } from '../api'
 
@@ -71,33 +70,6 @@ function PrefBadge({ type }) {
   )
 }
 
-/* ──────────────────────────────────────────────
-   Inline preference editor row
-────────────────────────────────────────────── */
-function PrefToggle({ value, onChange }) {
-  return (
-    <div className="flex items-center gap-1">
-      {Object.entries(PREF_CONFIG).map(([key, cfg]) => {
-        const { Icon } = cfg
-        const active = value === key
-        return (
-          <button
-            key={key}
-            type="button"
-            onClick={() => onChange(key)}
-            className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-medium transition-all ${
-              active ? cfg.btnActive : cfg.btnInactive
-            }`}
-            title={cfg.label}
-          >
-            <Icon size={10} />
-            {cfg.label}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
 
 export default function TeacherDashboard() {
   const { user, requests, addRequest } = useAuth()
@@ -111,6 +83,7 @@ export default function TeacherDashboard() {
   const [editingPrefs, setEditingPrefs] = useState(false)
   const [prefLinks, setPrefLinks]       = useState([])
   const [savingPrefs, setSavingPrefs]   = useState(false)
+  const [prefSaveErr, setPrefSaveErr]   = useState(null)
 
   // Form state (schedule change request)
   const [form, setForm]     = useState({ day: '0', period: '0', reason: '' })
@@ -179,11 +152,33 @@ export default function TeacherDashboard() {
 
   const myRequests = requests.filter(r => r.teacherId === user?.id)
 
-  /* ── Preference save ── */
+  /* ── Preference helpers ── */
+  const usedSubjectIds = new Set(prefLinks.map((l) => l.subject_id))
+  const availableSubjects = allSubjects.filter((s) => !usedSubjectIds.has(s.id))
+
+  function addSubjectLink() {
+    if (availableSubjects.length === 0) return
+    setPrefLinks((prev) => [
+      ...prev,
+      { subject_id: availableSubjects[0].id, preference_rank: prev.length + 1, preference_type: 'willing' },
+    ])
+  }
+
+  function removeSubjectLink(subjectId) {
+    setPrefLinks((prev) => prev.filter((l) => l.subject_id !== subjectId))
+  }
+
+  function updatePrefLink(subjectId, field, value) {
+    setPrefLinks((prev) =>
+      prev.map((l) => l.subject_id === subjectId ? { ...l, [field]: value } : l)
+    )
+  }
+
   async function savePreferences() {
     setSavingPrefs(true)
+    setPrefSaveErr(null)
     try {
-      const res = await teachersApi.updatePreferences(user.id, { subject_links: prefLinks })
+      const res = await teachersApi.updatePreferences(teacher.id, { subject_links: prefLinks })
       setTeacher(res.data)
       setPrefLinks(
         (res.data.subject_links ?? []).map((l) => ({
@@ -193,8 +188,8 @@ export default function TeacherDashboard() {
         }))
       )
       setEditingPrefs(false)
-    } catch {
-      // surface error inline — user can retry
+    } catch (err) {
+      setPrefSaveErr(err.message ?? 'Failed to save preferences. Please try again.')
     } finally {
       setSavingPrefs(false)
     }
@@ -208,13 +203,8 @@ export default function TeacherDashboard() {
         preference_type: l.preference_type ?? 'willing',
       }))
     )
+    setPrefSaveErr(null)
     setEditingPrefs(false)
-  }
-
-  function updatePrefType(subjectId, newType) {
-    setPrefLinks((prev) =>
-      prev.map((l) => l.subject_id === subjectId ? { ...l, preference_type: newType } : l)
-    )
   }
 
   /* ── Request submit ── */
@@ -247,8 +237,8 @@ export default function TeacherDashboard() {
         <div>
           <h2 className="text-xl font-bold text-white">Welcome, {user?.name}</h2>
           <p className="text-gray-400 text-sm mt-0.5">
-            {teacher?.department_id
-              ? `Department ID: ${teacher.department_id}`
+            {teacher?.department?.name
+              ? `Department: ${teacher.department.name} (${teacher.department.code})`
               : 'No department assigned'} · {teacher?.email ?? user?.email}
           </p>
         </div>
@@ -270,7 +260,7 @@ export default function TeacherDashboard() {
 
       {teacher && (
         <>
-          {/* Subject Preferences section */}
+          {/* ─── Subject Preferences section ─── */}
           <section className="glass-card p-6">
             <div className="flex items-center gap-2 mb-4">
               <BookOpen size={17} className="text-brand-400" />
@@ -291,15 +281,13 @@ export default function TeacherDashboard() {
                       disabled={savingPrefs}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-xs text-white font-medium transition-colors disabled:opacity-50"
                     >
-                      {savingPrefs
-                        ? <Loader2 size={12} className="animate-spin" />
-                        : <Save size={12} />}
-                      {savingPrefs ? 'Saving…' : 'Save'}
+                      {savingPrefs ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                      {savingPrefs ? 'Saving…' : 'Save changes'}
                     </button>
                   </>
                 ) : (
                   <button
-                    onClick={() => setEditingPrefs(true)}
+                    onClick={() => { setPrefSaveErr(null); setEditingPrefs(true) }}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-xs text-gray-400 hover:text-gray-200 transition-colors"
                   >
                     <Pencil size={12} />
@@ -309,64 +297,151 @@ export default function TeacherDashboard() {
               </div>
             </div>
 
-            {teacher.subject_links.length === 0 ? (
-              <p className="text-gray-500 text-sm">No subjects assigned yet.</p>
-            ) : editingPrefs ? (
-              /* ── Edit mode: show each subject with toggle buttons ── */
+            {/* Save error banner */}
+            {prefSaveErr && (
+              <div className="flex items-center gap-2 mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
+                <AlertCircle size={14} className="shrink-0" />
+                {prefSaveErr}
+              </div>
+            )}
+
+            {editingPrefs ? (
+              /* ── Edit mode: add / change preference / remove ── */
               <div className="space-y-3">
-                <p className="text-xs text-gray-500 mb-3">
-                  Toggle your preference for each assigned subject. Changes apply when you click Save.
-                </p>
+                {allSubjects.length === 0 && (
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs">
+                    No subjects exist yet. Ask an administrator to add subjects first.
+                  </div>
+                )}
+
+                {prefLinks.length === 0 && allSubjects.length > 0 && (
+                  <p className="text-xs text-gray-400 italic">No subjects assigned yet. Click "+ Add subject" below.</p>
+                )}
+
                 {prefLinks.map((link) => {
-                  const subject = allSubjects.find((s) => s.id === link.subject_id)
-                    ?? teacher.subject_links.find((l) => l.subject_id === link.subject_id)?.subject
+                  const subject =
+                    allSubjects.find((s) => s.id === link.subject_id) ??
+                    teacher.subject_links.find((l) => l.subject_id === link.subject_id)?.subject
+                  const otherUsed = new Set(prefLinks.filter((l) => l.subject_id !== link.subject_id).map((l) => l.subject_id))
+                  const selectOptions = allSubjects.filter((s) => !otherUsed.has(s.id))
+
                   return (
                     <div
                       key={link.subject_id}
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/10"
+                      className="flex flex-col gap-2.5 p-3 rounded-xl bg-white/5 border border-white/10"
+                    >
+                      {/* Row 1: subject selector + rank + delete */}
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={link.subject_id}
+                          onChange={(e) => updatePrefLink(link.subject_id, 'subject_id', e.target.value)}
+                          className="form-input flex-1 text-sm"
+                        >
+                          {selectOptions.map((s) => (
+                            <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
+                          ))}
+                        </select>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="text-xs text-gray-400">Rank</span>
+                          <input
+                            type="number"
+                            min={1}
+                            value={link.preference_rank}
+                            onChange={(e) => updatePrefLink(link.subject_id, 'preference_rank', Math.max(1, Number(e.target.value)))}
+                            className="form-input w-14 text-center text-sm"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeSubjectLink(link.subject_id)}
+                          className="p-1.5 text-gray-400 hover:text-red-400 transition-colors shrink-0"
+                          title="Remove this subject"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+
+                      {/* Row 2: preference type toggle */}
+                      <div className="flex items-center gap-2 pt-1 border-t border-white/5">
+                        <span className="text-xs text-gray-400 font-medium">Preference:</span>
+                        <div className="flex items-center gap-1">
+                          {Object.entries(PREF_CONFIG).map(([key, cfg]) => {
+                            const { Icon } = cfg
+                            const active = link.preference_type === key
+                            return (
+                              <button
+                                key={key}
+                                type="button"
+                                onClick={() => updatePrefLink(link.subject_id, 'preference_type', key)}
+                                className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-medium transition-all ${
+                                  active ? cfg.btnActive : cfg.btnInactive
+                                }`}
+                                title={cfg.label}
+                              >
+                                <Icon size={10} />
+                                {cfg.label}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {/* Add subject button */}
+                {availableSubjects.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={addSubjectLink}
+                    className="flex items-center gap-1.5 text-xs font-medium text-brand-400 hover:text-brand-300 transition-colors pt-1"
+                  >
+                    <Plus size={13} />
+                    Add subject
+                  </button>
+                )}
+                {availableSubjects.length === 0 && prefLinks.length > 0 && allSubjects.length > 0 && (
+                  <p className="text-xs text-gray-500 italic">All available subjects are already assigned.</p>
+                )}
+              </div>
+            ) : (
+              /* ── Read-only mode: subjects with preference badges ── */
+              teacher.subject_links.length === 0 ? (
+                <div className="flex flex-col items-center gap-3 py-6 text-center">
+                  <BookOpen size={32} className="text-gray-700" />
+                  <p className="text-gray-500 text-sm">No subjects assigned yet.</p>
+                  <button
+                    onClick={() => { setPrefSaveErr(null); setEditingPrefs(true) }}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand-600/20 border border-brand-500/30 text-brand-300 text-xs font-medium hover:bg-brand-600/30 transition-colors"
+                  >
+                    <Plus size={13} />
+                    Add your first subject
+                  </button>
+                </div>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {teacher.subject_links.map(link => (
+                    <div
+                      key={link.subject_id}
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/8 transition-colors"
                     >
                       <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500/30 to-purple-500/30 flex items-center justify-center shrink-0">
                         <BookOpen size={14} className="text-brand-300" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-gray-200 truncate">
-                          {subject?.name ?? link.subject_id}
+                          {link.subject?.name ?? link.subject_id}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {subject?.code} · {subject?.weekly_periods} periods/wk
+                          {link.subject?.code} · {link.subject?.weekly_periods} periods/wk
+                          {link.preference_rank > 0 && ` · Rank ${link.preference_rank}`}
                         </p>
                       </div>
-                      <PrefToggle
-                        value={link.preference_type}
-                        onChange={(val) => updatePrefType(link.subject_id, val)}
-                      />
+                      <PrefBadge type={link.preference_type ?? 'willing'} />
                     </div>
-                  )
-                })}
-              </div>
-            ) : (
-              /* ── Read-only mode: subjects with preference badges ── */
-              <div className="grid gap-3 sm:grid-cols-2">
-                {teacher.subject_links.map(link => (
-                  <div
-                    key={link.subject_id}
-                    className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/10 group hover:bg-white/8 transition-colors"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500/30 to-purple-500/30 flex items-center justify-center shrink-0">
-                      <BookOpen size={14} className="text-brand-300" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-gray-200 truncate">
-                        {link.subject?.name ?? link.subject_id}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {link.subject?.code} · {link.subject?.weekly_periods} periods/wk
-                      </p>
-                    </div>
-                    <PrefBadge type={link.preference_type ?? 'willing'} />
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )
             )}
           </section>
 
@@ -377,7 +452,7 @@ export default function TeacherDashboard() {
               <h3 className="text-sm font-semibold text-gray-200">My Unavailable Slots</h3>
             </div>
             {teacher.unavailable_slots.length === 0 ? (
-              <p className="text-gray-500 text-sm">No unavailable slots recorded.</p>
+              <p className="text-gray-500 text-sm">No unavailable slots recorded. Contact your admin to update these.</p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {teacher.unavailable_slots.map(slot => (
