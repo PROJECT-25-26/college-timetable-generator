@@ -77,6 +77,7 @@ async def update_teacher(
         for link in teacher.subject_links:
             await db.delete(link)
         teacher.subject_links.clear()
+        await db.flush()
         for link in payload.subject_links:
             teacher.subject_links.append(TeacherSubject(teacher_id=teacher.id, **link.model_dump()))
 
@@ -84,6 +85,7 @@ async def update_teacher(
         for slot in teacher.unavailable_slots:
             await db.delete(slot)
         teacher.unavailable_slots.clear()
+        await db.flush()
         for slot in payload.unavailable_slots:
             teacher.unavailable_slots.append(
                 TeacherUnavailableSlot(teacher_id=teacher.id, **slot.model_dump())
@@ -106,6 +108,7 @@ async def update_subject_preferences(
     for link in teacher.subject_links:
         await db.delete(link)
     teacher.subject_links.clear()
+    await db.flush()
 
     for link in payload.subject_links:
         teacher.subject_links.append(

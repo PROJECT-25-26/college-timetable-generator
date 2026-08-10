@@ -75,6 +75,7 @@ async def update_section(
         for link in section.subject_links:
             await db.delete(link)
         section.subject_links.clear()
+        await db.flush()
         for link in payload.subject_links:
             section.subject_links.append(
                 ClassSectionSubject(section_id=section.id, **link.model_dump())

@@ -19,6 +19,7 @@ class GenerateResponse(BaseModel):
     message: str
 
 
+@router.post("", response_model=GenerateResponse)
 @router.post("/", response_model=GenerateResponse)
 async def trigger_generation(payload: GenerateRequest):
     """

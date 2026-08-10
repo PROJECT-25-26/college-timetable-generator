@@ -9,12 +9,14 @@ from models.schemas import MessageResponse, RoomCreate, RoomOut, RoomUpdate
 router = APIRouter(prefix="/rooms", tags=["Rooms"])
 
 
+@router.get("", response_model=list[RoomOut])
 @router.get("/", response_model=list[RoomOut])
 async def list_rooms(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Room).order_by(Room.name))
     return result.scalars().all()
 
 
+@router.post("", response_model=RoomOut, status_code=status.HTTP_201_CREATED)
 @router.post("/", response_model=RoomOut, status_code=status.HTTP_201_CREATED)
 async def create_room(payload: RoomCreate, db: AsyncSession = Depends(get_db)):
     room = Room(**payload.model_dump())
@@ -25,6 +27,7 @@ async def create_room(payload: RoomCreate, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/{room_id}", response_model=RoomOut)
+@router.get("/{room_id}/", response_model=RoomOut)
 async def get_room(room_id: str, db: AsyncSession = Depends(get_db)):
     room = await db.get(Room, room_id)
     if not room:
@@ -33,6 +36,7 @@ async def get_room(room_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.patch("/{room_id}", response_model=RoomOut)
+@router.patch("/{room_id}/", response_model=RoomOut)
 async def update_room(room_id: str, payload: RoomUpdate, db: AsyncSession = Depends(get_db)):
     room = await db.get(Room, room_id)
     if not room:
@@ -45,9 +49,11 @@ async def update_room(room_id: str, payload: RoomUpdate, db: AsyncSession = Depe
 
 
 @router.delete("/{room_id}", response_model=MessageResponse)
+@router.delete("/{room_id}/", response_model=MessageResponse)
 async def delete_room(room_id: str, db: AsyncSession = Depends(get_db)):
     room = await db.get(Room, room_id)
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
     await db.delete(room)
+    await db.flush()
     return {"message": f"Room '{room.name}' deleted"}
