@@ -47,7 +47,6 @@ const EMPTY_FORM = () => ({
   name: '',
   email: '',
   department_id: '',
-  max_periods_per_day: 6,
   max_periods_per_week: 25,
   subject_links: [],
   unavailable_slots: [],
@@ -274,29 +273,16 @@ function TeacherForm({ form, errors, onChange, departments, subjects }) {
             ))}
           </select>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="form-label">Max Periods / Day</label>
-            <input
-              type="number"
-              min={1}
-              className={`form-input ${errors.max_periods_per_day ? 'error' : ''}`}
-              value={form.max_periods_per_day}
-              onChange={(e) => onChange('max_periods_per_day', Number(e.target.value))}
-            />
-            {errors.max_periods_per_day && <p className="form-error">{errors.max_periods_per_day}</p>}
-          </div>
-          <div>
-            <label className="form-label">Max Periods / Week</label>
-            <input
-              type="number"
-              min={1}
-              className={`form-input ${errors.max_periods_per_week ? 'error' : ''}`}
-              value={form.max_periods_per_week}
-              onChange={(e) => onChange('max_periods_per_week', Number(e.target.value))}
-            />
-            {errors.max_periods_per_week && <p className="form-error">{errors.max_periods_per_week}</p>}
-          </div>
+        <div>
+          <label className="form-label">Max Periods / Week</label>
+          <input
+            type="number"
+            min={1}
+            className={`form-input ${errors.max_periods_per_week ? 'error' : ''}`}
+            value={form.max_periods_per_week}
+            onChange={(e) => onChange('max_periods_per_week', Number(e.target.value))}
+          />
+          {errors.max_periods_per_week && <p className="form-error">{errors.max_periods_per_week}</p>}
         </div>
       </div>
 
@@ -330,9 +316,7 @@ function TeacherForm({ form, errors, onChange, departments, subjects }) {
 function validate(form) {
   const e = {}
   if (!form.name.trim()) e.name = 'Name is required'
-  if (form.max_periods_per_day < 1) e.max_periods_per_day = 'Must be at least 1'
-  if (form.max_periods_per_week < form.max_periods_per_day)
-    e.max_periods_per_week = `Must be ≥ max/day (${form.max_periods_per_day})`
+  if (form.max_periods_per_week < 1) e.max_periods_per_week = 'Must be at least 1'
   return e
 }
 
@@ -379,10 +363,10 @@ const COLUMNS = (departments) => [
     },
   },
   {
-    key: 'max_periods_per_day',
+    key: 'max_periods_per_week',
     label: 'Max Periods',
-    render: (v, row) => (
-      <span className="text-gray-400 text-xs">{v}/day · {row.max_periods_per_week}/week</span>
+    render: (v) => (
+      <span className="text-gray-400 text-xs">{v}/week</span>
     ),
   },
   {
@@ -439,7 +423,6 @@ export default function Teachers() {
       name: row.name,
       email: row.email ?? '',
       department_id: row.department_id ?? '',
-      max_periods_per_day: row.max_periods_per_day,
       max_periods_per_week: row.max_periods_per_week,
       subject_links: (row.subject_links ?? []).map((l) => ({
         subject_id: l.subject_id,

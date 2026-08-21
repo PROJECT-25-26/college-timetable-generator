@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from database import get_db
-from models.orm import ClassSection, ClassSectionSubject
+from models.orm import ClassSection, ClassSectionSubject, Room
 from models.schemas import (
     ClassSectionCreate,
     ClassSectionOut,
@@ -16,6 +16,7 @@ router = APIRouter(prefix="/class-sections", tags=["Class Sections"])
 
 _LOAD_OPTIONS = [
     selectinload(ClassSection.subject_links).selectinload(ClassSectionSubject.subject),
+    selectinload(ClassSection.homeroom),
 ]
 
 
@@ -70,6 +71,10 @@ async def update_section(
     scalar_fields = payload.model_dump(exclude={"subject_links"}, exclude_none=True)
     for field, value in scalar_fields.items():
         setattr(section, field, value)
+
+    # Allow explicitly clearing homeroom by passing homeroom_id=null
+    if "homeroom_id" in payload.model_fields_set and payload.homeroom_id is None:
+        section.homeroom_id = None
 
     if payload.subject_links is not None:
         for link in section.subject_links:

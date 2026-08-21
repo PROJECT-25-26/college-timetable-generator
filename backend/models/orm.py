@@ -92,7 +92,6 @@ class Subject(Base):
     lab: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     lab_consecutive_periods: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     weekly_lab_sessions: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
-    max_periods_per_day: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -120,7 +119,6 @@ class Teacher(Base):
     )
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     email: Mapped[str | None] = mapped_column(String(200), nullable=True, unique=True)
-    max_periods_per_day: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=6)
     max_periods_per_week: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=25)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -130,8 +128,7 @@ class Teacher(Base):
     )
 
     __table_args__ = (
-        CheckConstraint("max_periods_per_day >= 1", name="ck_teacher_max_day_min"),
-        CheckConstraint("max_periods_per_week >= max_periods_per_day", name="ck_teacher_max_week_gte_day"),
+        CheckConstraint("max_periods_per_week >= 1", name="ck_teacher_max_week_min"),
     )
 
     department: Mapped["Department | None"] = relationship("Department", back_populates="teachers")
@@ -232,6 +229,11 @@ class ClassSection(Base):
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     code: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
     strength: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
+    # Fixed homeroom where all non-lab periods are taught (teachers come here).
+    # Labs are assigned dynamically from available lab rooms at generation time.
+    homeroom_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("rooms.id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -243,6 +245,7 @@ class ClassSection(Base):
         CheckConstraint("strength > 0", name="ck_section_strength_positive"),
     )
 
+    homeroom: Mapped["Room | None"] = relationship("Room", foreign_keys=[homeroom_id])
     subject_links: Mapped[list["ClassSectionSubject"]] = relationship(
         "ClassSectionSubject", back_populates="section", cascade="all, delete-orphan"
     )

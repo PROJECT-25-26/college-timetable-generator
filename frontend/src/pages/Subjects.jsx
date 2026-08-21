@@ -12,7 +12,6 @@ const EMPTY = {
   code: '',
   lab: false,
   weekly_periods: 3,
-  max_periods_per_day: 2,
   lab_consecutive_periods: 2,
   weekly_lab_sessions: 1,
 }
@@ -82,7 +81,7 @@ function SubjectForm({ form, errors, onChange }) {
       <div className="flex items-center justify-between py-2 px-3 bg-white/3 rounded-xl border border-white/8">
         <div className="flex items-center gap-2">
           <FlaskConical size={15} className="text-amber-400" />
-          <span className="text-sm text-gray-300">Lab</span>
+          <span className="text-sm text-gray-300">Lab Subject</span>
         </div>
         <Toggle
           checked={form.lab}
@@ -109,24 +108,17 @@ function SubjectForm({ form, errors, onChange }) {
           {errors.weekly_lab_sessions && (
             <p className="form-error">{errors.weekly_lab_sessions}</p>
           )}
+          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs">
+            <FlaskConical size={12} className="inline mr-1" />
+            Lab rooms are assigned <strong>dynamically</strong> at generation time based on availability.
+          </div>
         </>
       ) : (
-        <>
-          <PeriodSlider
-            label="Max Periods per Day (1–10)"
-            value={form.max_periods_per_day}
-            onChange={(v) => onChange('max_periods_per_day', v)}
-            max={10}
-          />
-          {errors.max_periods_per_day && (
-            <p className="form-error">{errors.max_periods_per_day}</p>
-          )}
-          <PeriodSlider
-            label="Weekly Periods (1–30)"
-            value={form.weekly_periods}
-            onChange={(v) => onChange('weekly_periods', v)}
-          />
-        </>
+        <PeriodSlider
+          label="Weekly Periods (1–30)"
+          value={form.weekly_periods}
+          onChange={(v) => onChange('weekly_periods', v)}
+        />
       )}
     </div>
   )
@@ -143,10 +135,6 @@ function validate(form) {
     if (!form.weekly_lab_sessions || form.weekly_lab_sessions < 1) {
       e.weekly_lab_sessions = 'Weekly lab sessions is required'
     }
-  } else {
-    if (!form.max_periods_per_day || form.max_periods_per_day < 1) {
-      e.max_periods_per_day = 'Max periods per day is required'
-    }
   }
   return e
 }
@@ -157,7 +145,7 @@ function subjectPeriodSummary(row) {
     const consecutive = row.lab_consecutive_periods ?? 0
     return `${sessions} lab${sessions !== 1 ? 's' : ''}/wk · ${consecutive} consecutive`
   }
-  return `${row.weekly_periods} per week · max ${row.max_periods_per_day ?? '—'}/day`
+  return `${row.weekly_periods} periods/week`
 }
 
 const COLUMNS = [
@@ -172,10 +160,10 @@ const COLUMNS = [
   },
   {
     key: 'lab',
-    label: 'Lab',
+    label: 'Type',
     render: (v) => v
       ? <Badge variant="warning"><FlaskConical size={10} className="inline mr-1" />Lab</Badge>
-      : <span className="text-gray-600 text-xs">—</span>,
+      : <Badge variant="default">Theory</Badge>,
   },
 ]
 
@@ -215,7 +203,6 @@ export default function Subjects() {
       code: row.code,
       lab: row.lab,
       weekly_periods: row.weekly_periods,
-      max_periods_per_day: row.max_periods_per_day ?? 2,
       lab_consecutive_periods: row.lab_consecutive_periods ?? 2,
       weekly_lab_sessions: row.weekly_lab_sessions ?? 1,
     })
