@@ -56,5 +56,15 @@ export const classSectionsApi = {
 }
 
 export const generateApi = {
-  trigger: (data)      => api.post('/generate', data),
+  /**
+   * POST /api/v1/generate-timetable
+   * Accepts a TimetableRequest JSON body; returns TimetableResponse.
+   */
+  generate: (data) => api.post('/generate-timetable', data),
+
+  /**
+   * GET /api/v1/generate-timetable/health
+   * Quick sanity-check that the solver service is up and ortools is loaded.
+   */
+  health: () => api.get('/generate-timetable/health'),
 }
