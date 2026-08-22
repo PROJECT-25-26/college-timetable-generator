@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Star, Check, X } from 'lucide-react'
+import { Plus, Trash2, Star, Check, X, Upload } from 'lucide-react'
 import { teachersApi, departmentsApi, subjectsApi } from '../api'
 import { useToast } from '../hooks/useToast'
 import DataTable from '../components/DataTable'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Badge from '../components/Badge'
+import CsvImportModal from '../components/CsvImportModal'
 
 /* ──────────────────────────────────────────────
    Constants / helpers
@@ -51,6 +52,19 @@ const EMPTY_FORM = () => ({
   subject_links: [],
   unavailable_slots: [],
 })
+
+/* ──────────────────────────────────────────────
+   Teacher CSV template (shown in import wizard)
+────────────────────────────────────────────── */
+const TEACHER_CSV_TEMPLATE = `name,email,department_code,max_periods_per_week,SUBJECT_CODE:level,...
+Dr. Alice,alice@college.edu,CS,20,MATH101:preferred,PHY201:willing
+Dr. Bob,,EE,25,EE101:preferred,MATH101:willing,PHY201:avoid
+`
+
+const TEACHER_CSV_HINT =
+  'Columns: name (required), email, department_code, max_periods_per_week, ' +
+  'then any number of subject columns in the format SUBJECT_CODE:preferred|willing|avoid. ' +
+  'Preference rank is determined by column order (left = rank 1).'
 
 function slotKey(day, period) { return `${day}-${period}` }
 
@@ -393,6 +407,7 @@ export default function Teachers() {
   const [saving, setSaving]       = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting]         = useState(false)
+  const [csvOpen, setCsvOpen]           = useState(false)
 
   async function load() {
     setLoading(true)
@@ -494,14 +509,24 @@ export default function Teachers() {
           <h2 className="text-lg font-semibold text-gray-100">Teachers</h2>
           <p className="text-xs text-gray-500 mt-0.5">Manage staff, subject preferences, and availability</p>
         </div>
-        <button
-          id="teacher-add-btn"
-          onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-white bg-brand-600 hover:bg-brand-500 transition-colors"
-        >
-          <Plus size={16} />
-          Add Teacher
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            id="teacher-import-csv-btn"
+            onClick={() => setCsvOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-gray-300 bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+          >
+            <Upload size={15} />
+            Import CSV
+          </button>
+          <button
+            id="teacher-add-btn"
+            onClick={openCreate}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-white bg-brand-600 hover:bg-brand-500 transition-colors"
+          >
+            <Plus size={16} />
+            Add Teacher
+          </button>
+        </div>
       </div>
 
       <DataTable
@@ -542,6 +567,17 @@ export default function Teachers() {
         entityName={deleteTarget?.name ?? ''}
         entityType="teacher"
         loading={deleting}
+      />
+
+      <CsvImportModal
+        open={csvOpen}
+        onClose={() => setCsvOpen(false)}
+        onSuccess={() => { setCsvOpen(false); load() }}
+        importFn={teachersApi.importCsv}
+        title="Import Teachers from CSV"
+        hint={TEACHER_CSV_HINT}
+        templateRows={TEACHER_CSV_TEMPLATE}
+        templateFilename="teachers_template.csv"
       />
     </div>
   )

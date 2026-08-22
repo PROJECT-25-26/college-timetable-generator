@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Home, FlaskConical } from 'lucide-react'
+import { Plus, Trash2, Home, FlaskConical, Upload } from 'lucide-react'
 import { classSectionsApi, subjectsApi, roomsApi } from '../api'
 import { useToast } from '../hooks/useToast'
 import DataTable from '../components/DataTable'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Badge from '../components/Badge'
+import CsvImportModal from '../components/CsvImportModal'
 
 const EMPTY_FORM = () => ({
   name: '',
@@ -14,6 +15,19 @@ const EMPTY_FORM = () => ({
   homeroom_id: '',
   subject_links: [],
 })
+
+/* ──────────────────────────────────────────────
+   ClassSection CSV template
+────────────────────────────────────────────── */
+const SECTION_CSV_TEMPLATE = `name,code,strength,homeroom_code,SUBJECT_CODE[:periods_override],...
+CS Batch 1,CS-B1,60,R101,MATH101,PHY201:5,CHEM101:3
+EE Batch 2,EE-B2,55,,EE101,MATH101:4
+`
+
+const SECTION_CSV_HINT =
+  'Columns: name (required), code (required), strength (default 60), homeroom_code (optional), ' +
+  'then any number of subject columns. Each subject column is either SUBJECT_CODE or ' +
+  'SUBJECT_CODE:periods_override (1–30). Leave homeroom_code blank if not assigned.'
 
 function subjectWeeklyPeriods(subject) {
   if (!subject) return 0
@@ -278,6 +292,7 @@ export default function ClassSections() {
   const [saving, setSaving]       = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting]         = useState(false)
+  const [csvOpen, setCsvOpen]           = useState(false)
 
   async function load() {
     setLoading(true)
@@ -419,14 +434,24 @@ export default function ClassSections() {
             Define class batches, assign a fixed homeroom, and map their subjects
           </p>
         </div>
-        <button
-          id="section-add-btn"
-          onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-white bg-brand-600 hover:bg-brand-500 transition-colors"
-        >
-          <Plus size={16} />
-          Add Section
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            id="section-import-csv-btn"
+            onClick={() => setCsvOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-gray-300 bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+          >
+            <Upload size={15} />
+            Import CSV
+          </button>
+          <button
+            id="section-add-btn"
+            onClick={openCreate}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-white bg-brand-600 hover:bg-brand-500 transition-colors"
+          >
+            <Plus size={16} />
+            Add Section
+          </button>
+        </div>
       </div>
 
       {/* Homeroom model info banner */}
@@ -480,6 +505,17 @@ export default function ClassSections() {
         entityName={deleteTarget?.name ?? ''}
         entityType="class section"
         loading={deleting}
+      />
+
+      <CsvImportModal
+        open={csvOpen}
+        onClose={() => setCsvOpen(false)}
+        onSuccess={() => { setCsvOpen(false); load() }}
+        importFn={classSectionsApi.importCsv}
+        title="Import Class Sections from CSV"
+        hint={SECTION_CSV_HINT}
+        templateRows={SECTION_CSV_TEMPLATE}
+        templateFilename="class_sections_template.csv"
       />
     </div>
   )

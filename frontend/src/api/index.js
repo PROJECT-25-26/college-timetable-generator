@@ -15,6 +15,13 @@ export const teachersApi = {
   update:             (id, data)   => api.patch(`/teachers/${id}`, data),
   remove:             (id)         => api.delete(`/teachers/${id}`),
   updatePreferences:  (id, data)   => api.patch(`/teachers/${id}/subject-preferences`, data),
+  importCsv: (file) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api.post('/teachers/import-csv', fd, {
+      headers: { 'Content-Type': undefined },
+    })
+  },
 }
 
 export const subjectsApi = {
@@ -39,6 +46,13 @@ export const classSectionsApi = {
   create: (data)       => api.post('/class-sections', data),
   update: (id, data)   => api.patch(`/class-sections/${id}`, data),
   remove: (id)         => api.delete(`/class-sections/${id}`),
+  importCsv: (file) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api.post('/class-sections/import-csv', fd, {
+      headers: { 'Content-Type': undefined },
+    })
+  },
 }
 
 export const generateApi = {
