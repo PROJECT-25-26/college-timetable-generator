@@ -5,20 +5,28 @@ Endpoint:
   POST /generate-timetable        – submit a full dataset, get a timetable back
   GET  /generate-timetable/health – verify the solver library is importable
 
-The solver logic is a placeholder (returns an empty slot list).
-Real constraint-solving using OR-Tools CP-SAT will replace the body
-of _run_solver() in a subsequent phase.
+Solver phases:
+  ✅  Phase 1 — Schema contract locked (TimetableRequest / TimetableResponse)
+  ✅  Phase 2 — CP-SAT variables created (NonLabKey / LabKey via build_variables)
+  🔲  Phase 3 — Hard constraints (coverage, no double-booking, lab blocks)
+  🔲  Phase 4 — Soft objectives (preference weights, even spread)
+  🔲  Phase 5 — Solution extraction → TimetableSlot list
 """
 
 from __future__ import annotations
 
 import importlib.metadata
+import logging
+import time
 
 from fastapi import APIRouter
+from ortools.sat.python import cp_model
 from pydantic import BaseModel
 
 from models.solver_schemas import TimetableRequest, TimetableResponse
+from solver import build_variables
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/generate-timetable", tags=["Generate"])
 
 
@@ -84,55 +92,67 @@ async def generate_timetable(payload: TimetableRequest) -> TimetableResponse:
     - `solver_wall_time_ms`  – actual wall-clock time used by the solver (ms)
     - `message`              – optional human-readable note
 
-    > ⚠️ **Placeholder**: The solver body is not yet implemented.
-    > The endpoint validates the full request payload and returns an empty slot list.
+    > ⚠️ **Phase 2 / placeholder**: Variables are created and counted;
+    > constraint solving and slot extraction are not yet implemented.
     """
     result = _run_solver(payload)
     return result
 
 
 # ---------------------------------------------------------------------------
-# Solver stub — replace this function body in the next phase
+# Solver — currently Phase 2: variable creation only
 # ---------------------------------------------------------------------------
 def _run_solver(req: TimetableRequest) -> TimetableResponse:
     """
-    Placeholder solver.  Will be replaced with an OR-Tools CP-SAT implementation.
+    Build CP-SAT model, create all decision variables, return placeholder.
 
-    Contract (guaranteed by this stub and the real solver alike):
-    - Returns TimetableResponse with status in {"ok", "infeasible", "timeout"}
+    Phase 2 behaviour:
+    - Creates the CP-SAT model and calls build_variables() to instantiate all
+      structurally valid BoolVars (NonLabKey and LabKey).
+    - Does NOT add constraints or call model.solve() yet.
+    - Returns status="ok", slots=[] with a message reporting variable counts.
+
+    Contract upheld by every phase:
+    - Returns TimetableResponse with status ∈ {"ok", "infeasible", "timeout"}
     - slots is [] when status != "ok"
-    - solver_wall_time_ms reflects actual CPU time (0 here)
+    - solver_wall_time_ms reflects real elapsed time
     """
-    # ── Future implementation outline ─────────────────────────────────────
-    # 1. Build CP-SAT model variables:
-    #      assignment[section, subject, teacher, room, day, period] ∈ {0,1}
-    # 2. Add hard constraints:
-    #      - Each (section, subject) pair gets exactly weekly_periods slots
-    #      - No teacher double-booked in the same (day, period)
-    #      - No room double-booked in the same (day, period)
-    #      - No section double-booked in the same (day, period)
-    #      - Lab subjects use consecutive-period blocks of lab_consecutive_periods
-    #      - Teacher unavailable_slots are blocked
-    #      - Lab subjects are assigned to lab rooms only
-    # 3. Add soft objectives:
-    #      - Maximise preferred-subject assignments
-    #      - Minimise avoid-subject assignments
-    #      - Spread periods evenly across the week
-    # 4. Solve with a wall-clock time limit
-    # 5. Extract solution into TimetableSlot list
-    # ──────────────────────────────────────────────────────────────────────
+    t0 = time.perf_counter()
+
+    # ── Phase 2: Build CP-SAT model and variables ────────────────────────────
+    model = cp_model.CpModel()
+    var_sets = build_variables(model, req)
+
+    elapsed_ms = int((time.perf_counter() - t0) * 1000)
+
+    n_non_lab = len(var_sets.non_lab)
+    n_lab     = len(var_sets.lab)
+    n_total   = n_non_lab + n_lab
+
+    logger.info(
+        "generate_timetable: %d non-lab + %d lab-block = %d vars created in %dms",
+        n_non_lab, n_lab, n_total, elapsed_ms,
+    )
+
+    # ── Phases 3-5 placeholder ───────────────────────────────────────────────
+    # TODO Phase 3: add hard constraints (constraints.py)
+    # TODO Phase 4: add soft objectives (objectives.py)
+    # TODO Phase 5: solve + extract slots (extractor.py)
 
     return TimetableResponse(
         status="ok",
         slots=[],
-        solver_wall_time_ms=0,
+        solver_wall_time_ms=elapsed_ms,
         message=(
-            f"Solver not yet implemented — placeholder response. "
-            f"Received {len(req.class_sections)} section(s), "
+            f"[Phase 2 — variables only] "
+            f"{n_non_lab} non-lab vars + {n_lab} lab-block vars = {n_total} total. "
+            f"Input: {len(req.class_sections)} section(s), "
             f"{len(req.teachers)} teacher(s), "
             f"{len(req.subjects)} subject(s), "
-            f"{len(req.rooms)} room(s) over a "
-            f"{req.time_grid.periods_per_day}-period × "
-            f"{len(req.time_grid.working_days)}-day grid."
+            f"{len(req.rooms)} room(s), "
+            f"{req.time_grid.periods_per_day} periods/day × "
+            f"{len(req.time_grid.working_days)} days. "
+            f"Constraint solving not yet implemented."
         ),
     )
+
