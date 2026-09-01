@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Plus, FlaskConical } from 'lucide-react'
+import { Plus, FlaskConical, Upload } from 'lucide-react'
 import { subjectsApi } from '../api'
 import { useToast } from '../hooks/useToast'
 import DataTable from '../components/DataTable'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Badge from '../components/Badge'
+import CsvImportModal from '../components/CsvImportModal'
 
 const EMPTY = {
   name: '',
@@ -15,6 +16,18 @@ const EMPTY = {
   lab_consecutive_periods: 2,
   weekly_lab_sessions: 1,
 }
+
+const SUBJ_CSV_TEMPLATE = `name,code,weekly_periods,lab,lab_consecutive_periods,weekly_lab_sessions
+Data Structures,CS201,3,false,,
+Algorithms,CS202,4,false,,
+Programming Lab,CS203L,0,true,3,1
+Physics Lab,PHY101L,0,true,2,2
+`
+
+const SUBJ_CSV_HINT =
+  'Columns: name, code, weekly_periods (default 3), lab (true/false, default false), ' +
+  'lab_consecutive_periods (required if lab=true), weekly_lab_sessions (required if lab=true). ' +
+  'Leave lab_consecutive_periods and weekly_lab_sessions blank for theory subjects.'
 
 function Toggle({ checked, onChange }) {
   return (
@@ -178,6 +191,7 @@ export default function Subjects() {
   const [saving, setSaving]       = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting]         = useState(false)
+  const [csvOpen, setCsvOpen]           = useState(false)
 
   async function load() {
     setLoading(true)
@@ -257,14 +271,24 @@ export default function Subjects() {
           <h2 className="text-lg font-semibold text-gray-100">Subjects</h2>
           <p className="text-xs text-gray-500 mt-0.5">Define subjects and their weekly period requirements</p>
         </div>
-        <button
-          id="subject-add-btn"
-          onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-white bg-brand-600 hover:bg-brand-500 transition-colors"
-        >
-          <Plus size={16} />
-          Add Subject
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            id="subject-import-btn"
+            onClick={() => setCsvOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-gray-200 bg-white/8 border border-white/10 hover:bg-white/12 transition-colors"
+          >
+            <Upload size={15} />
+            Import CSV
+          </button>
+          <button
+            id="subject-add-btn"
+            onClick={openCreate}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-white bg-brand-600 hover:bg-brand-500 transition-colors"
+          >
+            <Plus size={16} />
+            Add Subject
+          </button>
+        </div>
       </div>
 
       <DataTable
@@ -298,6 +322,17 @@ export default function Subjects() {
         entityName={deleteTarget?.name ?? ''}
         entityType="subject"
         loading={deleting}
+      />
+
+      <CsvImportModal
+        open={csvOpen}
+        onClose={() => setCsvOpen(false)}
+        onSuccess={() => load()}
+        importFn={subjectsApi.importCsv}
+        title="Import Subjects"
+        hint={SUBJ_CSV_HINT}
+        templateRows={SUBJ_CSV_TEMPLATE}
+        templateFilename="subjects_template.csv"
       />
     </div>
   )

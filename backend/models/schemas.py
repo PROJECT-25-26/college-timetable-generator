@@ -296,3 +296,47 @@ class MessageResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     version: str
+
+
+# ---------------------------------------------------------------------------
+# Timetable schemas
+# ---------------------------------------------------------------------------
+class TimetableSlotOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id:           str
+    section_id:   str | None = None
+    subject_id:   str | None = None
+    teacher_id:   str | None = None
+    room_id:      str | None = None
+    day_of_week:  int
+    period_index: int
+
+
+class TimetableOut(BaseModel):
+    """Full timetable run including all slots."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id:             str
+    label:          str | None = None
+    status:         str
+    solver_wall_ms: int | None = None
+    message:        str | None = None
+    created_at:     datetime
+    slots:          list[TimetableSlotOut] = []
+
+
+class TimetableSummaryOut(BaseModel):
+    """Lightweight listing response — slots excluded for performance."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id:             str
+    label:          str | None = None
+    status:         str
+    solver_wall_ms: int | None = None
+    slot_count:     int = 0          # populated manually by the router
+    created_at:     datetime
+
+
+class TimetableLabelUpdate(BaseModel):
+    label: str | None = Field(None, max_length=120)

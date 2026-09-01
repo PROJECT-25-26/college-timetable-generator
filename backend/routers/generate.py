@@ -1,16 +1,17 @@
 """
 Generate router — timetable generation endpoint.
 
-Endpoint:
-  POST /generate-timetable        – submit a full dataset, get a timetable back
-  GET  /generate-timetable/health – verify the solver library is importable
+Endpoints:
+  GET  /generate-timetable/health    — verify the solver library is importable
+  GET  /generate-timetable/payload   — assemble & return a ready-to-submit TimetableRequest
+  POST /generate-timetable           — run solver, save result, return TimetableResponse
 
-Solver phases:
+Solver phases (all implemented):
   ✅  Phase 1 — Schema contract locked (TimetableRequest / TimetableResponse)
   ✅  Phase 2 — CP-SAT variables created (NonLabKey / LabKey via build_variables)
   ✅  Phase 3 — Hard constraints (coverage, no double-booking, unavailability, cap)
-  🔲  Phase 4 — Soft objectives (preference weights, even spread)
-  ✅  Phase 5 — Solution extraction → TimetableSlot list
+  ✅  Phase 4 — Soft objectives (O1 even spread + O2 preference scoring)
+  ✅  Phase 5 — Solution extraction → TimetableSlot list + DB persistence
 """
 
 from __future__ import annotations
@@ -19,142 +20,310 @@ import importlib.metadata
 import logging
 import time
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException
 from ortools.sat.python import cp_model
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from models.solver_schemas import TimetableRequest, TimetableResponse
-from solver import build_variables, build_constraints, extract_solution
+from database import get_db
+from models.orm import (
+    ClassSection,
+    ClassSectionSubject,
+    Room,
+    Subject,
+    Teacher,
+    TeacherSubject,
+    TeacherUnavailableSlot,
+    Timetable,
+    TimetableSlot as TimetableSlotORM,
+)
+from models.schemas import TimetableOut
+from models.solver_schemas import (
+    SolverClassSection,
+    SolverRoom,
+    SolverSectionSubjectLink,
+    SolverSubject,
+    SolverTeacher,
+    SolverTeacherSubjectLink,
+    SolverUnavailableSlot,
+    TimeGrid,
+    TimetableRequest,
+    TimetableResponse,
+    TimetableSlot,
+)
+from solver import build_constraints, build_objectives, build_variables, extract_solution
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/generate-timetable", tags=["Generate"])
 
 # Maximum wall-clock seconds the solver is allowed to run.
-# Increase for very large problems; decrease for tighter SLA requirements.
 _SOLVER_TIMEOUT_SECONDS = 60.0
+
+# SQLAlchemy eager-load options for the payload query.
+_TEACHER_LOAD = [
+    selectinload(Teacher.subject_links),
+    selectinload(Teacher.unavailable_slots),
+]
+_SECTION_LOAD = [
+    selectinload(ClassSection.subject_links),
+]
 
 
 # ---------------------------------------------------------------------------
-# Health check — confirms OR-Tools is installed and importable
+# Health check
 # ---------------------------------------------------------------------------
 class GenerateHealthResponse(BaseModel):
     status: str
     ortools_version: str
 
 
-@router.get(
-    "/health",
-    response_model=GenerateHealthResponse,
-    summary="Solver health check",
-)
-@router.get(
-    "/health/",
-    response_model=GenerateHealthResponse,
-    include_in_schema=False,
-)
+@router.get("/health", response_model=GenerateHealthResponse, summary="Solver health check")
+@router.get("/health/", response_model=GenerateHealthResponse, include_in_schema=False)
 async def generate_health():
-    """
-    Returns HTTP 200 with the installed OR-Tools version.
-    If OR-Tools is missing this endpoint itself will fail to load,
-    surfacing the misconfiguration at startup rather than at solve time.
-    """
+    """Returns HTTP 200 with the installed OR-Tools version."""
     try:
         version = importlib.metadata.version("ortools")
     except importlib.metadata.PackageNotFoundError:
         version = "not-installed"
-
     return GenerateHealthResponse(status="ok", ortools_version=version)
 
 
 # ---------------------------------------------------------------------------
-# Main generation endpoint
+# Payload assembly (Option B) — GET /generate-timetable/payload
 # ---------------------------------------------------------------------------
-@router.post(
-    "",
-    response_model=TimetableResponse,
-    summary="Generate a weekly timetable",
+@router.get(
+    "/payload",
+    response_model=TimetableRequest,
+    summary="Assemble solver payload from current DB state",
 )
-@router.post(
-    "/",
-    response_model=TimetableResponse,
-    include_in_schema=False,
-)
-async def generate_timetable(payload: TimetableRequest) -> TimetableResponse:
+@router.get("/payload/", response_model=TimetableRequest, include_in_schema=False)
+async def get_payload(
+    periods_per_day: int = 8,
+    working_days: str = "0,1,2,3,4",
+    db: AsyncSession = Depends(get_db),
+):
     """
-    Accepts the complete scheduling dataset and returns a timetable.
+    Query all teachers, subjects, rooms, and class sections from the database
+    and return a fully-formed ``TimetableRequest`` ready for the solver.
 
-    **Request body** (`TimetableRequest`):
-    - `subjects`       – full list of subjects (id, code, weekly_periods, lab flags)
-    - `teachers`       – full list of teachers with subject preferences and unavailability
-    - `rooms`          – full list of rooms (classroom / lab / seminar)
-    - `class_sections` – full list of sections with homeroom and subject assignments
-    - `time_grid`      – periods per day + list of working day indices (0=Mon … 6=Sun)
+    **Query parameters** (time grid — the only runtime config):
+    - `periods_per_day` (default 8)
+    - `working_days`    (default \"0,1,2,3,4\" = Mon–Fri, comma-separated 0-based ints)
 
-    **Response** (`TimetableResponse`):
-    - `status`               – `ok` | `infeasible` | `timeout`
-    - `slots`                – list of `TimetableSlot` objects
-    - `solver_wall_time_ms`  – actual wall-clock time used by the solver (ms)
-    - `message`              – optional human-readable note
-
-    **Solver status meanings**:
-    - `ok`         — a valid timetable was found; `slots` is fully populated
-    - `infeasible` — the hard constraints cannot be simultaneously satisfied
-                     (e.g. not enough teachers, lab rooms, or time slots)
-    - `timeout`    — solver exceeded the time limit without finding a solution
+    Returns HTTP 422 if any critical cross-reference issues are detected
+    (e.g. a section has no homeroom, or no teacher is eligible for a subject).
     """
-    result = _run_solver(payload)
-    return result
+    try:
+        days = [int(d.strip()) for d in working_days.split(",") if d.strip()]
+    except ValueError:
+        raise HTTPException(status_code=422, detail="working_days must be comma-separated integers")
+
+    if not days:
+        raise HTTPException(status_code=422, detail="working_days must not be empty")
+
+    req = await _assemble_payload(db, periods_per_day=periods_per_day, working_days=days)
+    return req
 
 
 # ---------------------------------------------------------------------------
-# Solver — Phases 2 + 3 + 5
+# Generate endpoint — POST /generate-timetable
+# ---------------------------------------------------------------------------
+@router.post("", response_model=TimetableOut, summary="Generate and persist a timetable")
+@router.post("/", response_model=TimetableOut, include_in_schema=False)
+async def generate_timetable(
+    payload: TimetableRequest,
+    db: AsyncSession = Depends(get_db),
+) -> TimetableOut:
+    """
+    Run the CP-SAT solver on the provided ``TimetableRequest``, persist the
+    result to the database, and return the saved ``TimetableOut``.
+
+    Typical usage:
+    1. Call ``GET /generate-timetable/payload`` to get the pre-built request body.
+    2. Optionally adjust ``time_grid`` fields.
+    3. POST the body here.
+    4. The saved timetable (with ``id``) is returned — use it to fetch or
+       display the schedule later via ``GET /timetables/{id}``.
+    """
+    timetable_response = _run_solver(payload)
+    saved = await _persist(db, timetable_response)
+    return saved
+
+
+# ---------------------------------------------------------------------------
+# Payload assembly helper
+# ---------------------------------------------------------------------------
+async def _assemble_payload(
+    db: AsyncSession,
+    *,
+    periods_per_day: int,
+    working_days: list[int],
+) -> TimetableRequest:
+    """Query all entities and map ORM rows to solver schema objects."""
+
+    # ── Subjects ──────────────────────────────────────────────────────────────
+    subj_rows = (await db.execute(select(Subject).order_by(Subject.code))).scalars().all()
+    solver_subjects = [
+        SolverSubject(
+            id=s.id,
+            name=s.name,
+            code=s.code,
+            weekly_periods=s.weekly_periods,
+            lab=s.lab,
+            lab_consecutive_periods=s.lab_consecutive_periods,
+            weekly_lab_sessions=s.weekly_lab_sessions,
+        )
+        for s in subj_rows
+    ]
+
+    # ── Rooms ─────────────────────────────────────────────────────────────────
+    room_rows = (await db.execute(select(Room).order_by(Room.code))).scalars().all()
+    solver_rooms = [
+        SolverRoom(id=r.id, name=r.name, code=r.code, room_type=r.room_type, capacity=r.capacity)
+        for r in room_rows
+    ]
+
+    # ── Teachers (with subject_links + unavailable_slots) ────────────────────
+    teacher_rows = (
+        await db.execute(select(Teacher).options(*_TEACHER_LOAD).order_by(Teacher.name))
+    ).scalars().all()
+
+    solver_teachers = []
+    for t in teacher_rows:
+        subject_links = [
+            SolverTeacherSubjectLink(
+                subject_id=sl.subject_id,
+                preference_type=sl.preference_type or "willing",
+                preference_rank=sl.preference_rank or 1,
+            )
+            for sl in t.subject_links
+        ]
+        unavailable = [
+            SolverUnavailableSlot(
+                day_of_week=u.day_of_week,
+                period_index=u.period_index,
+            )
+            for u in t.unavailable_slots
+        ]
+        solver_teachers.append(
+            SolverTeacher(
+                id=t.id,
+                name=t.name,
+                max_periods_per_week=t.max_periods_per_week,
+                subject_links=subject_links,
+                unavailable_slots=unavailable,
+            )
+        )
+
+    # ── Class sections (with subject_links) ───────────────────────────────────
+    section_rows = (
+        await db.execute(select(ClassSection).options(*_SECTION_LOAD).order_by(ClassSection.name))
+    ).scalars().all()
+
+    solver_sections = []
+    for sec in section_rows:
+        subject_links = [
+            SolverSectionSubjectLink(
+                subject_id=sl.subject_id,
+                weekly_periods_override=sl.weekly_periods_override,
+            )
+            for sl in sec.subject_links
+        ]
+        solver_sections.append(
+            SolverClassSection(
+                id=sec.id,
+                name=sec.name,
+                code=sec.code,
+                strength=sec.strength,
+                homeroom_id=sec.homeroom_id,
+                subject_links=subject_links,
+            )
+        )
+
+    return TimetableRequest(
+        subjects=solver_subjects,
+        teachers=solver_teachers,
+        rooms=solver_rooms,
+        class_sections=solver_sections,
+        time_grid=TimeGrid(
+            periods_per_day=periods_per_day,
+            working_days=working_days,
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Persistence helper
+# ---------------------------------------------------------------------------
+async def _persist(
+    db: AsyncSession,
+    resp: TimetableResponse,
+) -> TimetableOut:
+    """Save the solver result to the database and return the ORM-backed record."""
+    timetable = Timetable(
+        status=resp.status,
+        solver_wall_ms=resp.solver_wall_time_ms,
+        message=resp.message,
+    )
+    db.add(timetable)
+    await db.flush()   # assigns timetable.id
+
+    if resp.slots:
+        for slot in resp.slots:
+            db.add(TimetableSlotORM(
+                timetable_id=timetable.id,
+                section_id=slot.section_id,
+                subject_id=slot.subject_id,
+                teacher_id=slot.teacher_id,
+                room_id=slot.room_id,
+                day_of_week=slot.day_of_week,
+                period_index=slot.period_index,
+            ))
+
+    await db.flush()
+
+    # Reload with slots for response
+    result = await db.execute(
+        select(Timetable)
+        .where(Timetable.id == timetable.id)
+        .options(selectinload(Timetable.slots))
+    )
+    return result.scalar_one()
+
+
+# ---------------------------------------------------------------------------
+# Solver orchestration
 # ---------------------------------------------------------------------------
 def _run_solver(req: TimetableRequest) -> TimetableResponse:
     """
-    Orchestrate all implemented solver phases and return a TimetableResponse.
-
-    Phase 2  — Build CP-SAT variables (build_variables)
-    Phase 3  — Add hard constraints   (build_constraints)
-    Phase 4  — Soft objectives        (TODO: objectives.py)
-    Phase 5  — Solve + extract slots  (CpSolver.solve + extract_solution)
-
-    Contract upheld by every phase:
-    - Returns TimetableResponse with status ∈ {"ok", "infeasible", "timeout"}
-    - slots is [] when status != "ok"
-    - solver_wall_time_ms reflects real elapsed wall-clock time
+    Phase 2 → 3 → 4 → 5 solver pipeline.
+    Returns a TimetableResponse (not yet persisted).
     """
     t0 = time.perf_counter()
 
-    # ── Phase 2: Build CP-SAT model and variables ────────────────────────────
     model    = cp_model.CpModel()
     var_sets = build_variables(model, req)
 
-    n_non_lab = len(var_sets.non_lab)
-    n_lab     = len(var_sets.lab)
     logger.info(
         "_run_solver: %d non-lab + %d lab-block = %d vars",
-        n_non_lab, n_lab, n_non_lab + n_lab,
+        len(var_sets.non_lab), len(var_sets.lab),
+        len(var_sets.non_lab) + len(var_sets.lab),
     )
 
-    # ── Phase 3: Add hard constraints ────────────────────────────────────────
     build_constraints(model, req, var_sets)
+    build_objectives(model, req, var_sets)
 
-    # ── Phase 4: Soft objectives (TODO) ─────────────────────────────────────
-    # TODO: call build_objectives(model, req, var_sets) once objectives.py exists.
-
-    # ── Phase 5: Solve ───────────────────────────────────────────────────────
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = _SOLVER_TIMEOUT_SECONDS
-    # Log search progress at INFO level for operational visibility
     solver.parameters.log_search_progress = False
 
     status_code = solver.solve(model)
     elapsed_ms  = int((time.perf_counter() - t0) * 1000)
-
     status_name = solver.status_name(status_code)
-    logger.info("_run_solver: solver finished in %dms — status=%s", elapsed_ms, status_name)
+    logger.info("_run_solver: %s in %dms", status_name, elapsed_ms)
 
-    # ── Phase 5: Extract solution ────────────────────────────────────────────
     if status_code in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         slots = extract_solution(solver, req, var_sets)
         return TimetableResponse(
@@ -163,10 +332,8 @@ def _run_solver(req: TimetableRequest) -> TimetableResponse:
             solver_wall_time_ms=elapsed_ms,
             message=(
                 f"Timetable generated ({status_name}). "
-                f"{len(slots)} slot(s) scheduled across "
-                f"{len(req.class_sections)} section(s), "
-                f"{len(req.teachers)} teacher(s), "
-                f"{len(req.subjects)} subject(s)."
+                f"{len(slots)} slot(s) across "
+                f"{len(req.class_sections)} section(s)."
             ),
         )
 
@@ -176,21 +343,18 @@ def _run_solver(req: TimetableRequest) -> TimetableResponse:
             slots=[],
             solver_wall_time_ms=elapsed_ms,
             message=(
-                "No feasible timetable exists for the given constraints. "
+                "No feasible timetable exists. "
                 "Common causes: not enough teachers for a subject, "
-                "no lab rooms available, or the weekly period total exceeds "
-                "the available slots in the time grid."
+                "no lab rooms available, or weekly periods exceed the time grid."
             ),
         )
 
-    # UNKNOWN or MODEL_INVALID — typically a timeout with no partial solution
     return TimetableResponse(
         status="timeout",
         slots=[],
         solver_wall_time_ms=elapsed_ms,
         message=(
-            f"Solver did not find a solution within {_SOLVER_TIMEOUT_SECONDS:.0f}s "
-            f"(solver status: {status_name}). "
-            "Try reducing the problem size or increasing the timeout."
+            f"Solver found no solution within {_SOLVER_TIMEOUT_SECONDS:.0f}s "
+            f"(status: {status_name})."
         ),
     )

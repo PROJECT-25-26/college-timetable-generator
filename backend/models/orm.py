@@ -9,6 +9,7 @@ Entity hierarchy:
   Room     (typed rooms, referenced by timetable slots)
   TeacherSubject (join table: teacher ↔ subject with preference rank)
   TeacherUnavailableSlot (blocked slots per teacher)
+  Timetable → TimetableSlot (generated schedule runs)
 """
 
 import uuid
@@ -268,3 +269,52 @@ class ClassSectionSubject(Base):
 
     section: Mapped["ClassSection"] = relationship("ClassSection", back_populates="subject_links")
     subject: Mapped["Subject"] = relationship("Subject", back_populates="section_links")
+
+
+# ---------------------------------------------------------------------------
+# Timetable  (one row per generation run)
+# ---------------------------------------------------------------------------
+class Timetable(Base):
+    __tablename__ = "timetables"
+
+    id:             Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    label:          Mapped[str | None] = mapped_column(String(120), nullable=True)
+    status:         Mapped[str] = mapped_column(String(20), nullable=False)   # ok|infeasible|timeout
+    solver_wall_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    message:        Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at:     Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    slots: Mapped[list["TimetableSlot"]] = relationship(
+        "TimetableSlot", back_populates="timetable", cascade="all, delete-orphan"
+    )
+
+
+# ---------------------------------------------------------------------------
+# TimetableSlot  (one row per scheduled period in a timetable run)
+# ---------------------------------------------------------------------------
+class TimetableSlot(Base):
+    __tablename__ = "timetable_slots"
+
+    id:           Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    timetable_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("timetables.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    # Soft FK: SET NULL so timetable history survives entity deletions
+    section_id:   Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("class_sections.id", ondelete="SET NULL"), nullable=True
+    )
+    subject_id:   Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True
+    )
+    teacher_id:   Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True
+    )
+    room_id:      Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("rooms.id", ondelete="SET NULL"), nullable=True
+    )
+    day_of_week:   Mapped[int] = mapped_column(SmallInteger, nullable=False)   # 0=Mon … 6=Sun
+    period_index:  Mapped[int] = mapped_column(SmallInteger, nullable=False)   # 0-based
+
+    timetable: Mapped["Timetable"] = relationship("Timetable", back_populates="slots")

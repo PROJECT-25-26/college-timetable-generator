@@ -1,11 +1,22 @@
 import { useEffect, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Upload } from 'lucide-react'
 import { departmentsApi } from '../api'
 import { useToast } from '../hooks/useToast'
 import DataTable from '../components/DataTable'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Badge from '../components/Badge'
+import CsvImportModal from '../components/CsvImportModal'
+
+const DEPT_CSV_TEMPLATE = `name,code
+Computer Science,CS
+Electrical Engineering,EE
+Mechanical Engineering,ME
+`
+
+const DEPT_CSV_HINT =
+  'Columns: name (required), code (required, auto-uppercased). ' +
+  'Duplicate codes within the file or already in the database are rejected.'
 
 const EMPTY = { name: '', code: '' }
 
@@ -74,6 +85,7 @@ export default function Departments() {
   const [saving, setSaving]       = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting]         = useState(false)
+  const [csvOpen, setCsvOpen]           = useState(false)
 
   /* ── Fetch ── */
   async function load() {
@@ -158,14 +170,24 @@ export default function Departments() {
           <h2 className="text-lg font-semibold text-gray-100">Departments</h2>
           <p className="text-xs text-gray-500 mt-0.5">Manage academic departments</p>
         </div>
-        <button
-          id="dept-add-btn"
-          onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-white bg-brand-600 hover:bg-brand-500 transition-colors"
-        >
-          <Plus size={16} />
-          Add Department
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            id="dept-import-btn"
+            onClick={() => setCsvOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-gray-200 bg-white/8 border border-white/10 hover:bg-white/12 transition-colors"
+          >
+            <Upload size={15} />
+            Import CSV
+          </button>
+          <button
+            id="dept-add-btn"
+            onClick={openCreate}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-white bg-brand-600 hover:bg-brand-500 transition-colors"
+          >
+            <Plus size={16} />
+            Add Department
+          </button>
+        </div>
       </div>
 
       <DataTable
@@ -201,6 +223,17 @@ export default function Departments() {
         entityName={deleteTarget?.name ?? ''}
         entityType="department"
         loading={deleting}
+      />
+
+      <CsvImportModal
+        open={csvOpen}
+        onClose={() => setCsvOpen(false)}
+        onSuccess={() => load()}
+        importFn={departmentsApi.importCsv}
+        title="Import Departments"
+        hint={DEPT_CSV_HINT}
+        templateRows={DEPT_CSV_TEMPLATE}
+        templateFilename="departments_template.csv"
       />
     </div>
   )

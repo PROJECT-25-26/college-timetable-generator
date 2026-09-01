@@ -56,15 +56,19 @@ const EMPTY_FORM = () => ({
 /* ──────────────────────────────────────────────
    Teacher CSV template (shown in import wizard)
 ────────────────────────────────────────────── */
-const TEACHER_CSV_TEMPLATE = `name,email,department_code,max_periods_per_week,SUBJECT_CODE:level,...
-Dr. Alice,alice@college.edu,CS,20,MATH101:preferred,PHY201:willing
-Dr. Bob,,EE,25,EE101:preferred,MATH101:willing,PHY201:avoid
+const TEACHER_CSV_TEMPLATE = `name,email,department_code,max_periods_per_week,max_periods_per_day,unavailable_slots,subject_1,subject_2,subject_3
+Dr. Alice,alice@college.edu,CS,20,5,,MATH101:preferred,CS101:preferred,PHY201:willing
+Dr. Bob,,EE,25,5,Mon:1,EE101:preferred,MATH101:willing,PHY201:avoid
+Dr. Carol,carol@college.edu,CS,20,5,"Mon:1,Wed:3",CS101:preferred,PHY201:willing,
 `
 
 const TEACHER_CSV_HINT =
   'Columns: name (required), email, department_code, max_periods_per_week, ' +
+  'max_periods_per_day (accepted, ignored), ' +
+  'unavailable_slots (e.g. Mon:1,Wed:3 — leave blank if none), ' +
   'then any number of subject columns in the format SUBJECT_CODE:preferred|willing|avoid. ' +
-  'Preference rank is determined by column order (left = rank 1).'
+  'Preference rank is determined by column order (left = rank 1). ' +
+  'Blank subject cells are skipped.'
 
 function slotKey(day, period) { return `${day}-${period}` }
 

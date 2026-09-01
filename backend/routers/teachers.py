@@ -21,11 +21,63 @@ _VALID_LEVELS = {"preferred", "willing", "avoid"}
 # ---------------------------------------------------------------------------
 # CSV column positions (0-based) for fixed scalar fields
 # ---------------------------------------------------------------------------
-_COL_NAME   = 0
-_COL_EMAIL  = 1
-_COL_DEPT   = 2
-_COL_MAX    = 3
-_FIXED_COLS = 4   # columns 4+ are subject:level pairs
+_COL_NAME     = 0
+_COL_EMAIL    = 1
+_COL_DEPT     = 2
+_COL_MAX_WEEK = 3
+_COL_MAX_DAY  = 4   # accepted but ignored (field removed from schema)
+_COL_UNAVAIL  = 5   # optional: "Mon:1,Wed:3" or "0:1,2:3" (day:period, 1-based)
+_FIXED_COLS   = 6   # columns 6+ are subject:level pairs
+
+# Day name -> int (0=Mon ... 6=Sun)
+_DAY_NAMES = {
+    "mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6,
+    "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
+    "friday": 4, "saturday": 5, "sunday": 6,
+}
+
+
+def _parse_unavailable(raw: str) -> tuple[list[dict], str | None]:
+    """
+    Parse a comma-separated list of day:period pairs.
+    Accepts named days (Mon:1) and numeric (0:1). Periods are 1-based.
+    Returns (slots_list, error_message_or_None).
+    """
+    if not raw.strip():
+        return [], None
+    slots: list[dict] = []
+    for token in raw.split(","):
+        token = token.strip()
+        if not token:
+            continue
+        if ":" not in token:
+            return [], (
+                f"invalid unavailable slot '{token}' "
+                "-- expected format Day:Period e.g. Mon:1"
+            )
+        day_part, period_part = token.split(":", 1)
+        day_part = day_part.strip()
+        period_part = period_part.strip()
+
+        day_int = _DAY_NAMES.get(day_part.lower())
+        if day_int is None:
+            try:
+                day_int = int(day_part)
+            except ValueError:
+                return [], f"unknown day '{day_part}' in '{token}'"
+            if not (0 <= day_int <= 6):
+                return [], f"day value {day_int} out of range (0-6) in '{token}'"
+
+        try:
+            period_int = int(period_part)
+        except ValueError:
+            return [], f"invalid period '{period_part}' in '{token}' -- must be a number"
+        if period_int < 0:
+            return [], f"period must be >= 0 in '{token}'"
+        period_idx = period_int - 1 if period_int >= 1 else 0
+
+        slots.append({"day_of_week": day_int, "period_index": period_idx})
+    return slots, None
 
 
 async def _get_or_404(teacher_id: str, db: AsyncSession) -> Teacher:
@@ -86,13 +138,17 @@ async def import_teachers_csv(
 
     **Expected columns (header row required):**
     ```
-    name, email, department_code, max_periods_per_week, <SUBJ_CODE>:<level>, ...
+    name, email, department_code, max_periods_per_week, max_periods_per_day, unavailable_slots, SUBJ_CODE:level, ...
     ```
     * `name` is required; all other fixed columns are optional.
-    * Subject columns (column 5 onward) use the format `CODE:preferred|willing|avoid`.
-    * `preference_rank` is auto-assigned by column order (leftmost = rank 1).
+    * `max_periods_per_day` column is accepted but ignored (field was removed).
+    * `unavailable_slots`: comma-separated Day:Period pairs e.g. ``Mon:1,Wed:3``.
+      Leave blank if none. Periods are 1-based.
+    * Subject columns (column 7 onward) use the format ``CODE:preferred|willing|avoid``.
+      Omitting the level defaults to ``willing``. Blank cells are skipped.
+    * ``preference_rank`` is auto-assigned by column order (leftmost = rank 1).
 
-    All rows are validated before any data is written.  On any error the
+    All rows are validated before any data is written. On any error the
     endpoint returns HTTP 422 with a per-row error report and saves **nothing**.
     """
     content = await file.read()
@@ -125,9 +181,11 @@ async def import_teachers_csv(
         if not name.strip():
             err("name", "name is required")
 
-        email_raw  = cells[_COL_EMAIL].strip()  if len(cells) > _COL_EMAIL else ""
-        dept_code  = cells[_COL_DEPT].strip().upper() if len(cells) > _COL_DEPT else ""
-        max_raw    = cells[_COL_MAX].strip()  if len(cells) > _COL_MAX  else ""
+        email_raw   = cells[_COL_EMAIL].strip()        if len(cells) > _COL_EMAIL    else ""
+        dept_code   = cells[_COL_DEPT].strip().upper() if len(cells) > _COL_DEPT     else ""
+        max_raw     = cells[_COL_MAX_WEEK].strip()     if len(cells) > _COL_MAX_WEEK else ""
+        # _COL_MAX_DAY is accepted but ignored
+        unavail_raw = cells[_COL_UNAVAIL].strip()      if len(cells) > _COL_UNAVAIL  else ""
 
         dept_id: str | None = None
         if dept_code:
@@ -140,7 +198,12 @@ async def import_teachers_csv(
         if max_periods is None:
             err("max_periods_per_week", f"'{max_raw}' is not a valid integer")
         elif max_periods < 1:
-            err("max_periods_per_week", "max_periods_per_week must be ≥ 1")
+            err("max_periods_per_week", "max_periods_per_week must be >= 1")
+
+        unavail_slots, unavail_err = _parse_unavailable(unavail_raw)
+        if unavail_err:
+            err("unavailable_slots", unavail_err)
+            unavail_slots = []
 
         # -- Subject columns (variable, from index _FIXED_COLS onward) -------
         subject_links: list[dict] = []
@@ -180,6 +243,7 @@ async def import_teachers_csv(
                 "department_id":        dept_id,
                 "max_periods_per_week": max_periods,
                 "subject_links":        subject_links,
+                "unavailable_slots":    unavail_slots,
             })
 
     # ── Bail out if any row had errors ──────────────────────────────────────
@@ -188,10 +252,13 @@ async def import_teachers_csv(
     # ── All rows valid — commit atomically ──────────────────────────────────
     created_count = 0
     for data in validated:
-        links = data.pop("subject_links")
+        links         = data.pop("subject_links")
+        unavail_slots = data.pop("unavailable_slots")
         teacher = Teacher(**data)
         for link in links:
             teacher.subject_links.append(TeacherSubject(**link))
+        for slot in unavail_slots:
+            teacher.unavailable_slots.append(TeacherUnavailableSlot(**slot))
         db.add(teacher)
         created_count += 1
 

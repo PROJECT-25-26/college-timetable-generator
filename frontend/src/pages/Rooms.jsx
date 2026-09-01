@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Upload } from 'lucide-react'
 import { roomsApi } from '../api'
 import { useToast } from '../hooks/useToast'
 import DataTable from '../components/DataTable'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Badge from '../components/Badge'
+import CsvImportModal from '../components/CsvImportModal'
 
 const EMPTY = { name: '', code: '', room_type: 'classroom', capacity: 60 }
 
@@ -14,6 +15,17 @@ const ROOM_TYPES = [
   { value: 'lab',       label: 'Lab',       variant: 'warning' },
   { value: 'seminar',   label: 'Seminar',   variant: 'purple' },
 ]
+
+const ROOM_CSV_TEMPLATE = `name,code,room_type,capacity
+Main Lecture Hall,LH-01,classroom,120
+Computer Lab A,CL-A,lab,40
+Seminar Room 1,SR-01,seminar,30
+Physics Lab,PL-01,lab,35
+`
+
+const ROOM_CSV_HINT =
+  'Columns: name (required), code (required), room_type (classroom/lab/seminar, default: classroom), ' +
+  'capacity (positive integer, default: 60). Duplicate codes are rejected.'
 
 function RoomTypeSegment({ value, onChange }) {
   return (
@@ -121,6 +133,7 @@ export default function Rooms() {
   const [saving, setSaving]       = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting]         = useState(false)
+  const [csvOpen, setCsvOpen]           = useState(false)
 
   async function load() {
     setLoading(true)
@@ -193,14 +206,24 @@ export default function Rooms() {
           <h2 className="text-lg font-semibold text-gray-100">Rooms</h2>
           <p className="text-xs text-gray-500 mt-0.5">Classrooms, labs, and seminar halls</p>
         </div>
-        <button
-          id="room-add-btn"
-          onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-white bg-brand-600 hover:bg-brand-500 transition-colors"
-        >
-          <Plus size={16} />
-          Add Room
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            id="room-import-btn"
+            onClick={() => setCsvOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-gray-200 bg-white/8 border border-white/10 hover:bg-white/12 transition-colors"
+          >
+            <Upload size={15} />
+            Import CSV
+          </button>
+          <button
+            id="room-add-btn"
+            onClick={openCreate}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-white bg-brand-600 hover:bg-brand-500 transition-colors"
+          >
+            <Plus size={16} />
+            Add Room
+          </button>
+        </div>
       </div>
 
       <DataTable
@@ -234,6 +257,17 @@ export default function Rooms() {
         entityName={deleteTarget?.name ?? ''}
         entityType="room"
         loading={deleting}
+      />
+
+      <CsvImportModal
+        open={csvOpen}
+        onClose={() => setCsvOpen(false)}
+        onSuccess={() => load()}
+        importFn={roomsApi.importCsv}
+        title="Import Rooms"
+        hint={ROOM_CSV_HINT}
+        templateRows={ROOM_CSV_TEMPLATE}
+        templateFilename="rooms_template.csv"
       />
     </div>
   )
