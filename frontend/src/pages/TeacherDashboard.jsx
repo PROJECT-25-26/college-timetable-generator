@@ -13,10 +13,11 @@ import { useEffect, useState } from 'react'
 import {
   BookOpen, Clock, SendHorizonal, CheckCircle2, XCircle, Loader2,
   CalendarDays, AlertCircle, ClipboardList, User, Star, Check, X,
-  Pencil, Save, RotateCcw, Plus, Trash2,
+  Pencil, Save, RotateCcw, Plus, Trash2, Calendar,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { teachersApi, subjectsApi } from '../api'
+import { teachersApi, subjectsApi, timetablesApi, classSectionsApi, roomsApi } from '../api'
+import TimetableViewGrid from '../components/TimetableViewGrid'
 
 const DAYS    = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const PERIODS = Array.from({ length: 8 }, (_, i) => `Period ${i + 1}`)
@@ -90,6 +91,17 @@ export default function TeacherDashboard() {
   const [sending, setSend]  = useState(false)
   const [sent,    setSent]  = useState(false)
 
+  // Timetable state (My Timetable section)
+  const [timetable,     setTimetable]     = useState(null)   // TimetableOut | null
+  const [ttLoading,     setTtLoading]     = useState(true)
+  const [ttErr,         setTtErr]         = useState(null)
+  const [subjectMap,    setSubjectMap]    = useState({})
+  const [sectionMap,    setSectionMap]    = useState({})
+  const [roomMap,       setRoomMap]       = useState({})
+  const [teacherMap,    setTeacherMap]    = useState({})
+  const [workingDays,   setWorkingDays]   = useState([0, 1, 2, 3, 4])
+  const [periodsPerDay, setPeriodsPerDay] = useState(8)
+
   // Fetch teacher detail + all subjects with fallback matching
   useEffect(() => {
     async function loadData() {
@@ -149,6 +161,62 @@ export default function TeacherDashboard() {
 
     loadData()
   }, [user?.id, user?.email, user?.name])
+
+  // Fetch latest timetable + entity maps for "My Timetable" section
+  useEffect(() => {
+    async function loadTimetable() {
+      setTtLoading(true)
+      setTtErr(null)
+      try {
+        const [subRes, secRes, rmRes, tchRes] = await Promise.all([
+          subjectsApi.list(),
+          classSectionsApi.list(),
+          roomsApi.list(),
+          teachersApi.list(),
+        ])
+        setSubjectMap(Object.fromEntries(
+          subRes.data.map(s => [s.id, { name: s.name, code: s.code, lab: s.lab, lab_consecutive_periods: s.lab_consecutive_periods }])
+        ))
+        setSectionMap(Object.fromEntries(secRes.data.map(s => [s.id, { name: s.name, code: s.code }])))
+        setRoomMap(Object.fromEntries(rmRes.data.map(r => [r.id, { code: r.code, name: r.name }])))
+        setTeacherMap(Object.fromEntries(tchRes.data.map(t => [t.id, { name: t.name }])))
+
+        // Fetch timetable — try latest() first, fallback to list() -> get(id)
+        let ttData = null
+        try {
+          const ttRes = await timetablesApi.latest()
+          ttData = ttRes.data
+        } catch {
+          // Fallback: list runs and grab the latest one
+          const listRes = await timetablesApi.list()
+          const runs = listRes.data ?? []
+          const okRun = runs.find(r => r.status === 'ok') || runs[0]
+          if (okRun) {
+            const runRes = await timetablesApi.get(okRun.id)
+            ttData = runRes.data
+          }
+        }
+
+        if (!ttData) {
+          setTtErr('no_timetable')
+        } else {
+          setTimetable(ttData)
+          const slots = ttData.slots ?? []
+          if (slots.length > 0) {
+            const days = [...new Set(slots.map(s => s.day_of_week))].sort((a, b) => a - b)
+            const maxPeriod = Math.max(...slots.map(s => s.period_index))
+            setWorkingDays(days)
+            setPeriodsPerDay(maxPeriod + 1)
+          }
+        }
+      } catch (err) {
+        setTtErr('fetch_failed')
+      } finally {
+        setTtLoading(false)
+      }
+    }
+    loadTimetable()
+  }, [])
 
   const myRequests = requests.filter(r => r.teacherId === user?.id)
 
@@ -227,7 +295,7 @@ export default function TeacherDashboard() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl animate-fade-in">
+    <div className="space-y-6 max-w-5xl animate-fade-in">
 
       {/* Welcome banner */}
       <div className="glass-card p-6 flex items-center gap-5">
@@ -243,6 +311,73 @@ export default function TeacherDashboard() {
           </p>
         </div>
       </div>
+
+      {/* ─── My Timetable section ─── */}
+      <section className="glass-card p-6">
+        <div className="flex items-center gap-2 mb-5">
+          <Calendar size={17} className="text-brand-400" />
+          <h3 className="text-sm font-semibold text-gray-200">My Timetable</h3>
+          {timetable && (
+            <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+              {timetable.slots?.filter(s => s.teacher_id === (teacher?.id || user?.id)).length ?? 0} periods/week
+            </span>
+          )}
+        </div>
+
+        {ttLoading && (
+          <div className="flex items-center justify-center gap-3 py-10 text-gray-500">
+            <Loader2 size={18} className="animate-spin" />
+            <span className="text-sm">Loading your schedule…</span>
+          </div>
+        )}
+
+        {!ttLoading && ttErr === 'no_timetable' && (
+          <div className="flex flex-col items-center gap-3 py-10 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+              <Calendar size={22} className="text-gray-600" />
+            </div>
+            <p className="text-gray-400 text-sm font-medium">No timetable generated yet</p>
+            <p className="text-gray-600 text-xs max-w-xs">
+              Ask your administrator to generate a timetable. Your personal schedule will appear here.
+            </p>
+          </div>
+        )}
+
+        {!ttLoading && ttErr === 'fetch_failed' && (
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
+            <AlertCircle size={14} className="shrink-0" />
+            Could not load timetable. Please check your connection.
+          </div>
+        )}
+
+        {!ttLoading && !ttErr && timetable && (
+          (() => {
+            const tId = teacher?.id || user?.id
+            const hasSlots = timetable.slots?.some(s => s.teacher_id === tId)
+            if (!hasSlots) {
+              return (
+                <div className="flex flex-col items-center gap-3 py-10 text-center">
+                  <Calendar size={24} className="text-gray-600" />
+                  <p className="text-gray-400 text-sm">You have no classes assigned in the current timetable.</p>
+                </div>
+              )
+            }
+            return (
+              <TimetableViewGrid
+                result={timetable}
+                subjectMap={subjectMap}
+                teacherMap={teacherMap}
+                sectionMap={sectionMap}
+                roomMap={roomMap}
+                workingDays={workingDays}
+                periodsPerDay={periodsPerDay}
+                viewMode="teacher"
+                filterById={tId}
+              />
+            )
+          })()
+        )}
+      </section>
 
       {busy && (
         <div className="glass-card p-10 flex items-center justify-center gap-3 text-gray-400">

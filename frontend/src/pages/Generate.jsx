@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
-  Zap, Play, Clock, Calendar, CheckCircle2, XCircle, AlertTriangle,
-  Trash2, Download, RefreshCw, ChevronRight, History, Settings,
-  Loader2, X,
+  Zap, CheckCircle2, XCircle, AlertTriangle,
+  Trash2, Download, RefreshCw, History, Settings,
+  Loader2, X, Users, DoorOpen, LayoutGrid,
 } from 'lucide-react'
 import { generateApi, timetablesApi, subjectsApi, teachersApi, classSectionsApi, roomsApi } from '../api'
 import { useToast } from '../hooks/useToast'
+import TimetableViewGrid from '../components/TimetableViewGrid'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const DAY_LABELS  = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -184,150 +185,12 @@ function StatusBanner({ result, onExport }) {
   )
 }
 
-function TimetableGrid({ result, subjectMap, teacherMap, sectionMap, roomMap, workingDays, periodsPerDay }) {
-  const sections = [...new Set(result.slots.map(s => s.section_id).filter(Boolean))]
-  const [activeSection, setActiveSection] = useState(sections[0] ?? null)
-
-  // Build palette map: subject_id → colour object
-  const paletteMap = useRef({})
-  let paletteIdx = 0
-  for (const s of result.slots) {
-    if (s.subject_id && !(s.subject_id in paletteMap.current)) {
-      paletteMap.current[s.subject_id] = PALETTES[paletteIdx % PALETTES.length]
-      paletteIdx++
-    }
-  }
-
-  // Slots for active section indexed by (day, period)
-  const sectionSlots = result.slots.filter(s => s.section_id === activeSection)
-  const slotAt = (day, period) => sectionSlots.find(
-    s => s.day_of_week === day && s.period_index === period
-  )
-
-  // For lab merging: which (day, period) cells are "covered" (should be skipped)
-  const covered = new Set()
-  for (const s of sectionSlots) {
-    const blockSize = subjectMap[s.subject_id]?.lab_consecutive_periods ?? 1
-    if (blockSize > 1) {
-      for (let o = 1; o < blockSize; o++) {
-        covered.add(`${s.day_of_week}:${s.period_index + o}`)
-      }
-    }
-  }
-
-  const periods = Array.from({ length: periodsPerDay }, (_, i) => i)
-
-  if (sections.length === 0) {
-    return (
-      <p className="text-sm text-gray-500 text-center py-8">No slots in this timetable.</p>
-    )
-  }
-
-  return (
-    <div>
-      {/* Section tabs */}
-      <div className="flex gap-2 flex-wrap mb-4">
-        {sections.map(secId => {
-          const sec = sectionMap[secId]
-          const active = secId === activeSection
-          return (
-            <button
-              key={secId}
-              onClick={() => setActiveSection(secId)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
-                active
-                  ? 'bg-brand-600 border-brand-500 text-white shadow-sm shadow-brand-500/30'
-                  : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200'
-              }`}
-            >
-              {sec?.name ?? secId}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Grid */}
-      <div className="overflow-x-auto rounded-xl border border-white/10">
-        <table className="w-full border-collapse text-xs">
-          <thead>
-            <tr>
-              <th className="w-14 py-2 px-2 text-left text-gray-500 font-medium bg-white/5 border-b border-r border-white/10">
-                #
-              </th>
-              {workingDays.map(d => (
-                <th
-                  key={d}
-                  className="py-2 px-2 text-center font-semibold text-gray-300 bg-white/5 border-b border-r border-white/10 last:border-r-0"
-                >
-                  {DAY_LABELS[d]}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {periods.map(p => (
-              <tr key={p} className={p % 2 === 0 ? '' : 'bg-white/[0.02]'}>
-                {/* Period label */}
-                <td className="py-1.5 px-2 text-center text-gray-600 font-mono border-r border-b border-white/10 bg-white/3">
-                  P{p + 1}
-                </td>
-
-                {workingDays.map(d => {
-                  const key = `${d}:${p}`
-                  if (covered.has(key)) return null   // merged cell handled by rowspan above
-
-                  const slot = slotAt(d, p)
-                  if (!slot) {
-                    return (
-                      <td
-                        key={d}
-                        className="py-1.5 px-1 border-r border-b border-white/10 last:border-r-0 align-top min-w-[90px]"
-                      />
-                    )
-                  }
-
-                  const subj      = subjectMap[slot.subject_id]
-                  const teacher   = teacherMap[slot.teacher_id]
-                  const blockSize = subj?.lab_consecutive_periods ?? 1
-                  const isLab     = (subj?.lab && blockSize > 1)
-                  const pal       = paletteMap.current[slot.subject_id] ?? PALETTES[0]
-
-                  return (
-                    <td
-                      key={d}
-                      rowSpan={isLab ? blockSize : 1}
-                      className="py-1 px-1 border-r border-b border-white/10 last:border-r-0 align-top min-w-[90px]"
-                    >
-                      <div
-                        className="relative rounded-lg px-2 py-1.5 border h-full"
-                        style={{ background: pal.bg, borderColor: pal.bd }}
-                      >
-                        {isLab && (
-                          <span
-                            className="absolute top-1 right-1 text-[9px] font-bold px-1 rounded"
-                            style={{ background: pal.bd, color: pal.tx }}
-                          >
-                            LAB
-                          </span>
-                        )}
-                        <p className="font-semibold leading-tight truncate pr-4" style={{ color: pal.tx }}>
-                          {subj?.name ?? subj?.code ?? '—'}
-                        </p>
-                        {teacher && (
-                          <p className="text-[10px] text-gray-500 truncate mt-0.5">{teacher.name}</p>
-                        )}
-                      </div>
-                    </td>
-                  )
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-}
+// ── View-mode tab config ──────────────────────────────────────────────────────
+const VIEW_MODES = [
+  { key: 'section', label: 'Class',   Icon: LayoutGrid },
+  { key: 'teacher', label: 'Teacher', Icon: Users      },
+  { key: 'room',    label: 'Room',    Icon: DoorOpen   },
+]
 
 // ── Main page ────────────────────────────────────────────────────────────────
 export default function Generate() {
@@ -342,11 +205,14 @@ export default function Generate() {
   const [phase,   setPhase]   = useState('idle')   // 'idle' | 'solving' | 'done'
   const [result,  setResult]  = useState(null)      // TimetableOut
 
+  // View mode for result grid
+  const [viewMode, setViewMode] = useState('section')  // 'section' | 'teacher' | 'room'
+
   // Entity maps for display
   const [subjectMap, setSubjectMap] = useState({})  // id → {name, code, lab, lab_consecutive_periods}
   const [teacherMap, setTeacherMap] = useState({})  // id → {name}
   const [sectionMap, setSectionMap] = useState({})  // id → {name, code}
-  const [roomMap,    setRoomMap]    = useState({})   // id → {code}
+  const [roomMap,    setRoomMap]    = useState({})   // id → {code, name}
 
   // Past runs
   const [pastRuns,  setPastRuns]  = useState([])
@@ -367,7 +233,7 @@ export default function Generate() {
       ))
       setTeacherMap(Object.fromEntries(tch.data.map(t => [t.id, { name: t.name }])))
       setSectionMap(Object.fromEntries(secs.data.map(s => [s.id, { name: s.name, code: s.code }])))
-      setRoomMap(Object.fromEntries(rms.data.map(r => [r.id, { code: r.code }])))
+      setRoomMap(Object.fromEntries(rms.data.map(r => [r.id, { code: r.code, name: r.name }])))
     }).catch(() => {})
   }, [])
 
@@ -608,15 +474,40 @@ export default function Generate() {
             <StatusBanner result={result} onExport={handleExport} />
 
             {result.status === 'ok' && result.slots?.length > 0 && (
-              <TimetableGrid
-                result={result}
-                subjectMap={subjectMap}
-                teacherMap={teacherMap}
-                sectionMap={sectionMap}
-                roomMap={roomMap}
-                workingDays={workingDays}
-                periodsPerDay={periodsPerDay}
-              />
+              <div>
+                {/* ── View-mode tab bar ─────────────────────────────── */}
+                <div className="flex items-center gap-1 mb-4 p-1 rounded-xl bg-white/5 border border-white/10 w-fit">
+                  {VIEW_MODES.map(({ key, label, Icon }) => {
+                    const active = viewMode === key
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => setViewMode(key)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                          active
+                            ? 'bg-brand-600 text-white shadow-sm shadow-brand-500/30'
+                            : 'text-gray-400 hover:text-gray-200 hover:bg-white/10'
+                        }`}
+                      >
+                        <Icon size={12} />
+                        {label}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* ── Grid ──────────────────────────────────────────── */}
+                <TimetableViewGrid
+                  result={result}
+                  subjectMap={subjectMap}
+                  teacherMap={teacherMap}
+                  sectionMap={sectionMap}
+                  roomMap={roomMap}
+                  workingDays={workingDays}
+                  periodsPerDay={periodsPerDay}
+                  viewMode={viewMode}
+                />
+              </div>
             )}
           </div>
         )}
