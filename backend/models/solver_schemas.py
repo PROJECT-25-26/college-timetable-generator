@@ -45,6 +45,8 @@ class SolverSubject(BaseModel):
     lab_consecutive_periods: int | None = Field(None, ge=1, le=10)
     # For lab subjects: how many separate lab blocks per week
     weekly_lab_sessions: int | None = Field(None, ge=1, le=30)
+    # Optional lab category filter (e.g. "programming", "electronics")
+    required_lab_type: str | None = None
 
     @model_validator(mode="after")
     def _validate_lab_fields(self) -> "SolverSubject":
@@ -53,6 +55,8 @@ class SolverSubject(BaseModel):
                 raise ValueError("lab_consecutive_periods is required for lab subjects")
             if self.weekly_lab_sessions is None:
                 raise ValueError("weekly_lab_sessions is required for lab subjects")
+        else:
+            self.required_lab_type = None
         return self
 
 
@@ -92,6 +96,7 @@ class SolverRoom(BaseModel):
     name: str
     code: str
     room_type: RoomType = "classroom"
+    lab_type: str | None = None
     capacity: int = Field(60, ge=1)
 
 

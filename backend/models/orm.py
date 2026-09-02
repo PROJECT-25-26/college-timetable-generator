@@ -93,6 +93,7 @@ class Subject(Base):
     lab: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     lab_consecutive_periods: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     weekly_lab_sessions: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    required_lab_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -204,6 +205,7 @@ class Room(Base):
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     code: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
     room_type: Mapped[str] = mapped_column(String(30), nullable=False, default="classroom")
+    lab_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     capacity: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

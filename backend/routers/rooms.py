@@ -45,11 +45,12 @@ async def import_rooms_csv(
 
     **Expected columns (header row required):**
     ```
-    name, code, room_type, capacity
+    name, code, room_type, capacity, lab_type
     ```
     * `name` and `code` are required.
     * `room_type` must be one of: `classroom`, `lab`, `seminar`. Defaults to **classroom**.
     * `capacity` must be a positive integer. Defaults to **60**.
+    * `lab_type` is optional (category for lab rooms, e.g. programming, electronics).
     * All rows validated before any data is saved (all-or-nothing).
     """
     content = await file.read()
@@ -106,12 +107,17 @@ async def import_rooms_csv(
         elif capacity < 1:
             err("capacity", "capacity must be at least 1")
 
+        # lab_type (column index 4 or optional cell)
+        lab_type_raw = cell(4)
+        lab_type = (lab_type_raw.strip().lower() or None) if room_type == "lab" else None
+
         errors.extend(row_errors)
         if not row_errors:
             validated.append({
                 "name": name,
                 "code": code,
                 "room_type": room_type,
+                "lab_type": lab_type,
                 "capacity": capacity,
             })
 

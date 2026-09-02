@@ -340,10 +340,17 @@ def build_variables(
                     )
                     continue
 
+                # Filter lab rooms matching the subject's required_lab_type (if specified).
+                # Structurally omits mismatched room-subject combinations to shrink search space.
+                eligible_lab_rooms = [
+                    r for r in lab_rooms
+                    if subject.required_lab_type is None or r.lab_type == subject.required_lab_type
+                ]
+
                 for teacher in eligible_teachers:
                     for day in working_days:
                         for start_period in range(max_start + 1):
-                            for lab_room in lab_rooms:
+                            for lab_room in eligible_lab_rooms:
                                 key = LabKey(
                                     teacher_id=teacher.id,
                                     day=day,

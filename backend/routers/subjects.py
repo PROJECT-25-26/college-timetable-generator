@@ -24,6 +24,7 @@ _PERIODS_ALIASES = {"weeklyperiods", "periods", "weeklyperiod"}
 _LAB_ALIASES     = {"lab", "islab", "type", "subjecttype", "labsubject"}
 _LAB_CONS_ALIASES = {"labconsecutiveperiods", "consecutiveperiods", "consecutive", "labconsecutive"}
 _LAB_SESS_ALIASES = {"weeklylabsessions", "labsessions", "sessions"}
+_REQUIRED_LAB_TYPE_ALIASES = {"requiredlabtype", "labtype", "labcategory", "requiredlabcategory"}
 
 
 def _normalise_header(h: str) -> str:
@@ -67,25 +68,10 @@ async def import_subjects_csv(
     Import multiple subjects from a CSV file.
 
     **Header row is required.** Columns are matched by name (order does not matter).
-    Extra columns (e.g. department_code) are silently ignored.
 
     **Required columns:**  ``name``, ``code``
 
-    **Optional columns and their accepted aliases:**
-
-    | Field                    | Accepted header names                          | Default  |
-    |--------------------------|------------------------------------------------|----------|
-    | weekly_periods           | weekly_periods, periods                        | 3 (or auto) |
-    | lab                      | lab, type, subject_type, is_lab                | false    |
-    | lab_consecutive_periods  | lab_consecutive_periods, consecutive_periods   | —        |
-    | weekly_lab_sessions      | weekly_lab_sessions, lab_sessions, sessions    | —        |
-
-    **lab field** accepts: ``true/false``, ``yes/no``, ``1/0``, ``lab/theory``.
-
-    For lab subjects ``weekly_periods`` is auto-computed as
-    ``lab_consecutive_periods × weekly_lab_sessions`` if left blank.
-
-    All rows are validated before any data is saved (all-or-nothing).
+    **Optional columns:** ``weekly_periods``, ``lab``, ``lab_consecutive_periods``, ``weekly_lab_sessions``, ``required_lab_type``
     """
     content = await file.read()
     header, rows = parse_csv_bytes(content)
@@ -102,12 +88,13 @@ async def import_subjects_csv(
                 return i
         return None
 
-    col_name    = col(_NAME_ALIASES)
-    col_code    = col(_CODE_ALIASES)
-    col_periods = col(_PERIODS_ALIASES)
-    col_lab     = col(_LAB_ALIASES)
-    col_cons    = col(_LAB_CONS_ALIASES)
-    col_sess    = col(_LAB_SESS_ALIASES)
+    col_name     = col(_NAME_ALIASES)
+    col_code     = col(_CODE_ALIASES)
+    col_periods  = col(_PERIODS_ALIASES)
+    col_lab      = col(_LAB_ALIASES)
+    col_cons     = col(_LAB_CONS_ALIASES)
+    col_sess     = col(_LAB_SESS_ALIASES)
+    col_lab_type = col(_REQUIRED_LAB_TYPE_ALIASES)
 
     if col_name is None:
         raise HTTPException(status_code=400, detail="CSV is missing a 'name' column.")
@@ -152,34 +139,25 @@ async def import_subjects_csv(
         else:
             seen_codes.add(code)
 
-        # lab flag (default false; accepts theory/lab/true/false/yes/no/1/0)
+        # lab flag
         lab_raw = get_cell(cells, col_lab)
         lab = _parse_bool(lab_raw) if lab_raw else False
-        if lab is None:
-            err("lab", (
-                f"'{lab_raw}' is not recognised — "
-                "use: lab/theory, true/false, yes/no, or 1/0"
-            ))
+        if lab_raw and lab is None:
+            err("lab", f"'{lab_raw}' is not recognised as a valid boolean")
             lab = False
 
-        # weekly_periods (ignored for lab — auto-computed later)
+        # weekly_periods (for non-lab)
         wp_raw = get_cell(cells, col_periods)
-        if lab:
-            # for lab subjects, default to 0 here; real value set below
-            weekly_periods = parse_int_field(wp_raw) if wp_raw else 0
-            if weekly_periods is None:
-                weekly_periods = 0  # will be overridden by auto-compute
-        else:
-            weekly_periods = parse_int_field(wp_raw) if wp_raw else 3
-            if weekly_periods is None:
-                err("weekly_periods", f"'{wp_raw}' is not a valid integer")
+        weekly_periods = parse_int_field(wp_raw) if wp_raw else 3
+        if not lab:
+            if weekly_periods is None or not (1 <= weekly_periods <= 30):
+                err("weekly_periods", "weekly_periods must be an integer between 1 and 30")
                 weekly_periods = 3
-            elif not (1 <= weekly_periods <= 60):
-                err("weekly_periods", f"weekly_periods {weekly_periods} out of range (1-60)")
 
         # lab-specific fields
         lab_consecutive: int | None = None
         weekly_lab_sessions_val: int | None = None
+        req_lab_type: str | None = None
 
         if lab:
             lc_raw = get_cell(cells, col_cons)
@@ -200,11 +178,13 @@ async def import_subjects_csv(
                 err("weekly_lab_sessions",
                     f"weekly_lab_sessions {weekly_lab_sessions_val} out of range (1-30)")
 
+            req_lt_raw = get_cell(cells, col_lab_type)
+            req_lab_type = (req_lt_raw.lower() or None) if req_lt_raw else None
+
             # Auto-compute weekly_periods
             if lab_consecutive and weekly_lab_sessions_val:
                 weekly_periods = lab_consecutive * weekly_lab_sessions_val
 
-            # Ensure weekly_periods is valid after auto-compute
             if not row_errors and not (1 <= weekly_periods <= 60):
                 err("weekly_periods", f"computed weekly_periods {weekly_periods} out of range (1-60)")
 
@@ -217,6 +197,7 @@ async def import_subjects_csv(
                 "lab": lab,
                 "lab_consecutive_periods": lab_consecutive,
                 "weekly_lab_sessions": weekly_lab_sessions_val,
+                "required_lab_type": req_lab_type,
             })
 
     raise_if_errors(errors)

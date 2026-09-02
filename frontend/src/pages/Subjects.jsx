@@ -15,19 +15,22 @@ const EMPTY = {
   weekly_periods: 3,
   lab_consecutive_periods: 2,
   weekly_lab_sessions: 1,
+  required_lab_type: '',
 }
 
-const SUBJ_CSV_TEMPLATE = `name,code,weekly_periods,lab,lab_consecutive_periods,weekly_lab_sessions
-Data Structures,CS201,3,false,,
-Algorithms,CS202,4,false,,
-Programming Lab,CS203L,0,true,3,1
-Physics Lab,PHY101L,0,true,2,2
+const COMMON_LAB_TYPES = ['programming', 'electronics', 'workshop', 'chemistry', 'physics']
+
+const SUBJ_CSV_TEMPLATE = `name,code,weekly_periods,lab,lab_consecutive_periods,weekly_lab_sessions,required_lab_type
+Data Structures,CS201,3,false,,,
+Algorithms,CS202,4,false,,,
+Programming Lab,CS203L,0,true,3,1,programming
+Electronics Lab,EC101L,0,true,2,2,electronics
 `
 
 const SUBJ_CSV_HINT =
   'Columns: name, code, weekly_periods (default 3), lab (true/false, default false), ' +
-  'lab_consecutive_periods (required if lab=true), weekly_lab_sessions (required if lab=true). ' +
-  'Leave lab_consecutive_periods and weekly_lab_sessions blank for theory subjects.'
+  'lab_consecutive_periods (required if lab=true), weekly_lab_sessions (required if lab=true), ' +
+  'required_lab_type (optional category for lab subjects e.g. programming, electronics).'
 
 function Toggle({ checked, onChange }) {
   return (
@@ -104,6 +107,34 @@ function SubjectForm({ form, errors, onChange }) {
 
       {form.lab ? (
         <>
+          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 space-y-2">
+            <label className="form-label text-amber-300">Required Lab Category / Type (Optional)</label>
+            <input
+              className="form-input"
+              placeholder="e.g. programming"
+              value={form.required_lab_type}
+              maxLength={50}
+              onChange={(e) => onChange('required_lab_type', e.target.value.toLowerCase())}
+            />
+            <div className="flex items-center gap-1.5 flex-wrap pt-1">
+              <span className="text-[10px] text-gray-400">Suggestions:</span>
+              {COMMON_LAB_TYPES.map((lt) => (
+                <button
+                  key={lt}
+                  type="button"
+                  onClick={() => onChange('required_lab_type', lt)}
+                  className={`px-2 py-0.5 rounded text-[10px] font-medium border transition-colors ${
+                    form.required_lab_type === lt
+                      ? 'bg-amber-500/30 border-amber-500/50 text-amber-200'
+                      : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200'
+                  }`}
+                >
+                  {lt}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <PeriodSlider
             label="Consecutive Periods per Lab Session (1–10)"
             value={form.lab_consecutive_periods}
@@ -123,7 +154,7 @@ function SubjectForm({ form, errors, onChange }) {
           )}
           <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs">
             <FlaskConical size={12} className="inline mr-1" />
-            Lab rooms are assigned <strong>dynamically</strong> at generation time based on availability.
+            Lab rooms matching category <strong>{form.required_lab_type || 'any lab'}</strong> will be assigned at generation time.
           </div>
         </>
       ) : (
@@ -174,8 +205,13 @@ const COLUMNS = [
   {
     key: 'lab',
     label: 'Type',
-    render: (v) => v
-      ? <Badge variant="warning"><FlaskConical size={10} className="inline mr-1" />Lab</Badge>
+    render: (v, r) => v
+      ? (
+        <div className="flex items-center gap-1.5">
+          <Badge variant="warning"><FlaskConical size={10} className="inline mr-1" />Lab</Badge>
+          {r.required_lab_type && <Badge variant="warning">{r.required_lab_type}</Badge>}
+        </div>
+      )
       : <Badge variant="default">Theory</Badge>,
   },
 ]
@@ -219,6 +255,7 @@ export default function Subjects() {
       weekly_periods: row.weekly_periods,
       lab_consecutive_periods: row.lab_consecutive_periods ?? 2,
       weekly_lab_sessions: row.weekly_lab_sessions ?? 1,
+      required_lab_type: row.required_lab_type ?? '',
     })
     setErrors({}); setModalOpen(true)
   }

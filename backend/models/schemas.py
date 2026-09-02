@@ -77,9 +77,12 @@ class SubjectCreate(BaseModel):
     weekly_periods: int | None = Field(None, ge=1, le=30)
     lab_consecutive_periods: int | None = Field(None, ge=1, le=10)
     weekly_lab_sessions: int | None = Field(None, ge=1, le=30)
+    required_lab_type: str | None = Field(None, max_length=50)
 
     @model_validator(mode="after")
     def validate_scheduling_fields(self) -> "SubjectCreate":
+        if self.required_lab_type is not None:
+            self.required_lab_type = self.required_lab_type.strip() or None
         if self.lab:
             if self.lab_consecutive_periods is None:
                 raise ValueError("lab_consecutive_periods is required for lab subjects")
@@ -93,6 +96,7 @@ class SubjectCreate(BaseModel):
                 self.weekly_periods = 3
             self.lab_consecutive_periods = None
             self.weekly_lab_sessions = None
+            self.required_lab_type = None
         return self
 
 
@@ -103,9 +107,12 @@ class SubjectUpdate(BaseModel):
     weekly_periods: int | None = Field(None, ge=1, le=30)
     lab_consecutive_periods: int | None = Field(None, ge=1, le=10)
     weekly_lab_sessions: int | None = Field(None, ge=1, le=30)
+    required_lab_type: str | None = Field(None, max_length=50)
 
     @model_validator(mode="after")
     def validate_scheduling_fields(self) -> "SubjectUpdate":
+        if self.required_lab_type is not None:
+            self.required_lab_type = self.required_lab_type.strip() or None
         if self.lab is None:
             return self
         if self.lab:
@@ -121,6 +128,7 @@ class SubjectUpdate(BaseModel):
                 raise ValueError("weekly_periods is required for non-lab subjects")
             self.lab_consecutive_periods = None
             self.weekly_lab_sessions = None
+            self.required_lab_type = None
         return self
 
 
@@ -134,6 +142,7 @@ class SubjectOut(_TimestampMixin):
     weekly_periods: int
     lab_consecutive_periods: int | None
     weekly_lab_sessions: int | None
+    required_lab_type: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -219,14 +228,32 @@ class RoomCreate(BaseModel):
     name: str = Field(..., max_length=120)
     code: str = Field(..., max_length=20)
     room_type: RoomType = "classroom"
+    lab_type: str | None = Field(None, max_length=50)
     capacity: int = Field(60, ge=1)
+
+    @model_validator(mode="after")
+    def validate_lab_type(self) -> "RoomCreate":
+        if self.lab_type is not None:
+            self.lab_type = self.lab_type.strip() or None
+        if self.room_type != "lab":
+            self.lab_type = None
+        return self
 
 
 class RoomUpdate(BaseModel):
     name: str | None = Field(None, max_length=120)
     code: str | None = Field(None, max_length=20)
     room_type: RoomType | None = None
+    lab_type: str | None = Field(None, max_length=50)
     capacity: int | None = Field(None, ge=1)
+
+    @model_validator(mode="after")
+    def validate_lab_type(self) -> "RoomUpdate":
+        if self.lab_type is not None:
+            self.lab_type = self.lab_type.strip() or None
+        if self.room_type is not None and self.room_type != "lab":
+            self.lab_type = None
+        return self
 
 
 class RoomOut(_TimestampMixin):
@@ -236,6 +263,7 @@ class RoomOut(_TimestampMixin):
     name: str
     code: str
     room_type: str
+    lab_type: str | None = None
     capacity: int
 
 

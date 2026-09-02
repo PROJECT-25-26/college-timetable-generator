@@ -128,6 +128,39 @@ async def get_payload(
 
 
 # ---------------------------------------------------------------------------
+# Pre-solve validation helper
+# ---------------------------------------------------------------------------
+def _validate_request(req: TimetableRequest) -> None:
+    """
+    Validate that all required resources exist before starting the solve.
+    Surfaces data-quality errors (e.g. missing matching lab rooms) upfront as 422.
+    """
+    subject_map = {s.id: s for s in req.subjects}
+    lab_rooms = [r for r in req.rooms if r.room_type == "lab"]
+
+    # Check that for every section-assigned subject requiring a lab_type, at least one matching room exists
+    assigned_subject_ids = {
+        sl.subject_id
+        for sec in req.class_sections
+        for sl in sec.subject_links
+    }
+
+    for subj_id in assigned_subject_ids:
+        subj = subject_map.get(subj_id)
+        if subj and subj.lab and subj.required_lab_type:
+            req_type = subj.required_lab_type
+            matching_rooms = [r for r in lab_rooms if r.lab_type == req_type]
+            if not matching_rooms:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"Subject '{subj.name}' ({subj.code}) requires lab category '{req_type}', "
+                        f"but no lab room with lab_type '{req_type}' exists in the system."
+                    ),
+                )
+
+
+# ---------------------------------------------------------------------------
 # Generate endpoint — POST /generate-timetable
 # ---------------------------------------------------------------------------
 @router.post("", response_model=TimetableOut, summary="Generate and persist a timetable")
@@ -139,14 +172,8 @@ async def generate_timetable(
     """
     Run the CP-SAT solver on the provided ``TimetableRequest``, persist the
     result to the database, and return the saved ``TimetableOut``.
-
-    Typical usage:
-    1. Call ``GET /generate-timetable/payload`` to get the pre-built request body.
-    2. Optionally adjust ``time_grid`` fields.
-    3. POST the body here.
-    4. The saved timetable (with ``id``) is returned — use it to fetch or
-       display the schedule later via ``GET /timetables/{id}``.
     """
+    _validate_request(payload)
     timetable_response = _run_solver(payload)
     saved = await _persist(db, timetable_response)
     return saved
@@ -174,6 +201,7 @@ async def _assemble_payload(
             lab=s.lab,
             lab_consecutive_periods=s.lab_consecutive_periods,
             weekly_lab_sessions=s.weekly_lab_sessions,
+            required_lab_type=s.required_lab_type,
         )
         for s in subj_rows
     ]
@@ -181,7 +209,14 @@ async def _assemble_payload(
     # ── Rooms ─────────────────────────────────────────────────────────────────
     room_rows = (await db.execute(select(Room).order_by(Room.code))).scalars().all()
     solver_rooms = [
-        SolverRoom(id=r.id, name=r.name, code=r.code, room_type=r.room_type, capacity=r.capacity)
+        SolverRoom(
+            id=r.id,
+            name=r.name,
+            code=r.code,
+            room_type=r.room_type,
+            lab_type=r.lab_type,
+            capacity=r.capacity,
+        )
         for r in room_rows
     ]
 
@@ -242,7 +277,7 @@ async def _assemble_payload(
             )
         )
 
-    return TimetableRequest(
+    req = TimetableRequest(
         subjects=solver_subjects,
         teachers=solver_teachers,
         rooms=solver_rooms,
@@ -252,6 +287,8 @@ async def _assemble_payload(
             working_days=working_days,
         ),
     )
+    _validate_request(req)
+    return req
 
 
 # ---------------------------------------------------------------------------
