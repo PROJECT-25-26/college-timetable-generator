@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Zap, CheckCircle2, XCircle, AlertTriangle,
   Trash2, Download, RefreshCw, History, Settings,
-  Loader2, X, Users, DoorOpen, LayoutGrid,
+  Loader2, X, Users, DoorOpen, LayoutGrid, Save, RotateCcw, Undo2,
 } from 'lucide-react'
 import { generateApi, timetablesApi, subjectsApi, teachersApi, classSectionsApi, roomsApi } from '../api'
 import { useToast } from '../hooks/useToast'
@@ -208,17 +207,26 @@ export default function Generate() {
   // View mode for result grid
   const [viewMode, setViewMode] = useState('section')  // 'section' | 'teacher' | 'room'
 
-  // Entity maps for display
-  const [subjectMap, setSubjectMap] = useState({})  // id → {name, code, lab, lab_consecutive_periods}
-  const [teacherMap, setTeacherMap] = useState({})  // id → {name}
-  const [sectionMap, setSectionMap] = useState({})  // id → {name, code}
-  const [roomMap,    setRoomMap]    = useState({})   // id → {code, name}
+  // Entity maps for display & validator
+  const [subjectMap, setSubjectMap]         = useState({})  // id → {name,code,lab,lab_consecutive_periods,required_lab_type}
+  const [teacherMap, setTeacherMap]         = useState({})  // id → {name,max_periods_per_week}
+  const [sectionMap, setSectionMap]         = useState({})  // id → {name,code,homeroom_id}
+  const [roomMap,    setRoomMap]            = useState({})  // id → {code,name,room_type,lab_type}
+  const [teacherUnavailMap, setTeacherUnavailMap] = useState({}) // teacherId → [{day_of_week,period_index}]
+  const [teacherPrefsMap,   setTeacherPrefsMap]   = useState({}) // teacherId → [{subject_id,preference_type}]
+
+  // Manual-edit tracking & undo stack
+  const [pendingEdits, setPendingEdits] = useState(false)
+  const [savingEdits,  setSavingEdits]  = useState(false)
+  const [slotHistory,  setSlotHistory]  = useState([])
+
 
   // Past runs
   const [pastRuns,  setPastRuns]  = useState([])
   const [runsLoading, setRunsLoading] = useState(true)
 
   const abortRef = useRef(null)
+
 
   // ── Load entity name maps once on mount ──────────────────────────────────
   useEffect(() => {
@@ -229,11 +237,37 @@ export default function Generate() {
       roomsApi.list(),
     ]).then(([subs, tch, secs, rms]) => {
       setSubjectMap(Object.fromEntries(
-        subs.data.map(s => [s.id, { name: s.name, code: s.code, lab: s.lab, lab_consecutive_periods: s.lab_consecutive_periods }])
+        subs.data.map(s => [s.id, {
+          name: s.name,
+          code: s.code,
+          lab: s.lab,
+          lab_consecutive_periods: s.lab_consecutive_periods,
+          required_lab_type: s.required_lab_type ?? null,
+        }])
       ))
-      setTeacherMap(Object.fromEntries(tch.data.map(t => [t.id, { name: t.name }])))
-      setSectionMap(Object.fromEntries(secs.data.map(s => [s.id, { name: s.name, code: s.code }])))
-      setRoomMap(Object.fromEntries(rms.data.map(r => [r.id, { code: r.code, name: r.name }])))
+      setTeacherMap(Object.fromEntries(
+        tch.data.map(t => [t.id, { name: t.name, max_periods_per_week: t.max_periods_per_week ?? 25 }])
+      ))
+      setSectionMap(Object.fromEntries(
+        secs.data.map(s => [s.id, { name: s.name, code: s.code, homeroom_id: s.homeroom_id ?? null }])
+      ))
+      setRoomMap(Object.fromEntries(
+        rms.data.map(r => [r.id, { code: r.code, name: r.name, room_type: r.room_type, lab_type: r.lab_type ?? null }])
+      ))
+      const unavailMap = {}
+      const prefMap    = {}
+      for (const t of tch.data) {
+        unavailMap[t.id] = (t.unavailable_slots ?? []).map(u => ({
+          day_of_week:  u.day_of_week,
+          period_index: u.period_index,
+        }))
+        prefMap[t.id] = (t.subject_links ?? []).map(l => ({
+          subject_id:      l.subject_id,
+          preference_type: l.preference_type ?? 'willing',
+        }))
+      }
+      setTeacherUnavailMap(unavailMap)
+      setTeacherPrefsMap(prefMap)
     }).catch(() => {})
   }, [])
 
@@ -273,6 +307,8 @@ export default function Generate() {
       const data = res.data
 
       setResult(data)
+      setPendingEdits(false)
+      setSlotHistory([])
       setPhase('done')
       loadPastRuns()
 
@@ -299,11 +335,93 @@ export default function Generate() {
     try {
       const res = await timetablesApi.get(id)
       setResult(res.data)
+      setPendingEdits(false)
+      setSlotHistory([])
       setPhase('done')
     } catch {
       toast.error('Failed to load run')
     }
   }
+
+  // ── Slot swap callback from grid ──────────────────────────────────────────
+  function handleSlotsChange(newSlots) {
+    if (result?.slots) {
+      setSlotHistory(prev => [...prev, result.slots])
+    }
+    setResult(prev => prev ? { ...prev, slots: newSlots } : prev)
+    setPendingEdits(true)
+  }
+
+  // ── Undo swap action ──────────────────────────────────────────────────────
+  const handleUndoSwap = useCallback(() => {
+    if (slotHistory.length === 0) return
+    const prevSlots = slotHistory[slotHistory.length - 1]
+    const newHistory = slotHistory.slice(0, -1)
+    setSlotHistory(newHistory)
+    setResult(prev => prev ? { ...prev, slots: prevSlots } : prev)
+    if (newHistory.length === 0) {
+      setPendingEdits(false)
+    }
+    toast.info('Swap undone ✓')
+  }, [slotHistory, toast])
+
+  // Ctrl+Z / Cmd+Z keyboard shortcut for Undo
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return
+        if (slotHistory.length > 0) {
+          e.preventDefault()
+          handleUndoSwap()
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [slotHistory, handleUndoSwap])
+
+  // ── Save manual edits to backend DB ──────────────────────────────────────
+  async function handleSaveEdits() {
+    if (!result?.id) return
+    setSavingEdits(true)
+    try {
+      const cleanSlots = (result.slots ?? []).map(s => ({
+        section_id:   s.section_id,
+        subject_id:   s.subject_id,
+        teacher_id:   s.teacher_id,
+        room_id:      s.room_id,
+        day_of_week:  s.day_of_week,
+        period_index: s.period_index,
+      }))
+      const res = await timetablesApi.updateSlots(result.id, cleanSlots)
+      setResult(res.data)
+      setPendingEdits(false)
+      setSlotHistory([])
+      loadPastRuns()
+      toast.success('Timetable changes saved successfully!')
+    } catch (err) {
+      toast.error(err.message ?? 'Failed to save timetable changes')
+    } finally {
+      setSavingEdits(false)
+    }
+  }
+
+  // ── Discard manual edits ──────────────────────────────────────────────────
+  async function handleDiscardEdits() {
+    if (!result?.id) { setPendingEdits(false); setSlotHistory([]); return }
+    try {
+      const res = await timetablesApi.get(result.id)
+      setResult(res.data)
+      setPendingEdits(false)
+      setSlotHistory([])
+      toast.info('Manual edits discarded')
+    } catch {
+      setPendingEdits(false)
+      setSlotHistory([])
+    }
+  }
+
+
 
   // ── Delete a past run ─────────────────────────────────────────────────────
   async function handleDeleteRun(id, e) {
@@ -473,6 +591,46 @@ export default function Generate() {
           <div>
             <StatusBanner result={result} onExport={handleExport} />
 
+            {/* ── Pending manual edits banner ───────────────────── */}
+            {pendingEdits && (
+              <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-amber-500/40 bg-amber-500/10 mb-4 text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <AlertTriangle size={16} className="text-amber-400 shrink-0" />
+                  <p className="text-amber-200">
+                    <span className="font-semibold">Manual timetable edits pending.</span>{' '}
+                    Save your changes to persist them to the database.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={handleUndoSwap}
+                    disabled={savingEdits || slotHistory.length === 0}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 transition-all text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Undo last swap (Ctrl+Z)"
+                  >
+                    <Undo2 size={12} />
+                    Undo ({slotHistory.length})
+                  </button>
+                  <button
+                    onClick={handleDiscardEdits}
+                    disabled={savingEdits}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 transition-all text-xs disabled:opacity-50"
+                  >
+                    <RotateCcw size={12} />
+                    Discard
+                  </button>
+                  <button
+                    onClick={handleSaveEdits}
+                    disabled={savingEdits}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium shadow-sm transition-all text-xs disabled:opacity-50"
+                  >
+                    {savingEdits ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                    {savingEdits ? 'Saving…' : 'Save Changes'}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {result.status === 'ok' && result.slots?.length > 0 && (
               <div>
                 {/* ── View-mode tab bar ─────────────────────────────── */}
@@ -496,7 +654,7 @@ export default function Generate() {
                   })}
                 </div>
 
-                {/* ── Grid ──────────────────────────────────────────── */}
+                {/* ── Grid (with drag-and-drop enabled) ─────────────── */}
                 <TimetableViewGrid
                   result={result}
                   subjectMap={subjectMap}
@@ -506,6 +664,11 @@ export default function Generate() {
                   workingDays={workingDays}
                   periodsPerDay={periodsPerDay}
                   viewMode={viewMode}
+                  onSlotsChange={handleSlotsChange}
+                  teacherUnavailMap={teacherUnavailMap}
+                  teacherPrefsMap={teacherPrefsMap}
+                  onUndo={handleUndoSwap}
+                  canUndo={slotHistory.length > 0}
                 />
               </div>
             )}

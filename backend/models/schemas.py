@@ -368,3 +368,17 @@ class TimetableSummaryOut(BaseModel):
 
 class TimetableLabelUpdate(BaseModel):
     label: str | None = Field(None, max_length=120)
+
+
+class TimetableSlotCreate(BaseModel):
+    section_id:   str
+    subject_id:   str
+    teacher_id:   str
+    room_id:      str
+    day_of_week:  int = Field(..., ge=0, le=6)
+    period_index: int = Field(..., ge=0, le=15)
+
+
+class TimetableSlotsUpdate(BaseModel):
+    slots: list[TimetableSlotCreate]
+

@@ -203,9 +203,11 @@ export default function TeacherDashboard() {
           setTimetable(ttData)
           const slots = ttData.slots ?? []
           if (slots.length > 0) {
-            const days = [...new Set(slots.map(s => s.day_of_week))].sort((a, b) => a - b)
+            const days = [...new Set(slots.map(s => s.day_of_week))]
+              .filter(d => d >= 0 && d <= 4)
+              .sort((a, b) => a - b)
             const maxPeriod = Math.max(...slots.map(s => s.period_index))
-            setWorkingDays(days)
+            setWorkingDays(days.length > 0 ? days : [0, 1, 2, 3, 4])
             setPeriodsPerDay(maxPeriod + 1)
           }
         }

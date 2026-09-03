@@ -9,8 +9,9 @@ Endpoints:
   DELETE /timetables/{id}     — delete run and cascade-delete its slots
 """
 
+import uuid
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -20,12 +21,14 @@ from models.schemas import (
     MessageResponse,
     TimetableLabelUpdate,
     TimetableOut,
+    TimetableSlotsUpdate,
     TimetableSummaryOut,
 )
 
 router = APIRouter(prefix="/timetables", tags=["Timetables"])
 
 _SLOT_LOAD = [selectinload(Timetable.slots)]
+
 
 
 # ── List — lightweight, no slots ─────────────────────────────────────────────
@@ -99,6 +102,40 @@ async def update_timetable_label(
     timetable.label = payload.label
     await db.flush()
     return timetable
+
+
+# ── Update slots ──────────────────────────────────────────────────────────────
+@router.put("/{timetable_id}/slots", response_model=TimetableOut)
+@router.put("/{timetable_id}/slots/", response_model=TimetableOut, include_in_schema=False)
+async def update_timetable_slots(
+    timetable_id: str,
+    payload: TimetableSlotsUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    """Replace all slots in an existing timetable run with updated slots."""
+    timetable = await _get_or_404(timetable_id, db)
+
+    # Delete existing slots for this timetable
+    await db.execute(
+        delete(TimetableSlotORM).where(TimetableSlotORM.timetable_id == timetable_id)
+    )
+
+    # Add updated slots
+    for s in payload.slots:
+        db.add(TimetableSlotORM(
+            id=str(uuid.uuid4()),
+            timetable_id=timetable_id,
+            section_id=s.section_id,
+            subject_id=s.subject_id,
+            teacher_id=s.teacher_id,
+            room_id=s.room_id,
+            day_of_week=s.day_of_week,
+            period_index=s.period_index,
+        ))
+
+    await db.flush()
+    return await _get_or_404(timetable_id, db)
+
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────

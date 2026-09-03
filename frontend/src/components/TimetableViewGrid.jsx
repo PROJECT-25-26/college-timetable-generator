@@ -1,5 +1,5 @@
 /**
- * TimetableViewGrid — reusable timetable grid component.
+ * TimetableViewGrid — reusable timetable grid component with drag-and-drop swap.
  *
  * viewMode:
  *   'section' — tabs = class sections; cell shows subject + teacher
@@ -7,18 +7,27 @@
  *   'room'    — tabs = rooms;           cell shows subject + section + teacher
  *
  * Props:
- *   result         TimetableOut (must have .slots[])
- *   subjectMap     id → { name, code, lab, lab_consecutive_periods }
- *   teacherMap     id → { name }
- *   sectionMap     id → { name, code }
- *   roomMap        id → { code, name }
- *   workingDays    number[]  (0-based, e.g. [0,1,2,3,4])
- *   periodsPerDay  number
- *   viewMode       'section' | 'teacher' | 'room'
- *   filterById     optional string — if set, only that entity's tab is shown (for teacher self-view)
+ *   result              TimetableOut (must have .slots[])
+ *   subjectMap          id → { name, code, lab, lab_consecutive_periods, required_lab_type }
+ *   teacherMap          id → { name, max_periods_per_week }
+ *   sectionMap          id → { name, code, homeroom_id }
+ *   roomMap             id → { code, name, room_type, lab_type }
+ *   workingDays         number[]  (0-based, e.g. [0,1,2,3,4])
+ *   periodsPerDay       number
+ *   viewMode            'section' | 'teacher' | 'room'
+ *   filterById          optional string — if set, only that entity's tab shown
+ *
+ *   Drag-and-drop props (all optional — omit to make grid read-only):
+ *   onSlotsChange       (newSlots: Slot[]) => void  — called after successful swap
+ *   teacherUnavailMap   teacherId → [{day_of_week, period_index}]
+ *   teacherPrefsMap     teacherId → [{subject_id, preference_type}]
  */
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
+import { Undo2 } from 'lucide-react'
+import { useToast } from '../hooks/useToast'
+import { validateSwap, applySwap } from '../utils/swapValidator'
+
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -39,7 +48,6 @@ const PALETTES = [
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Build palette map: subject_id → colour entry */
 function buildPaletteMap(slots) {
   const map = {}
   let idx = 0
@@ -52,25 +60,20 @@ function buildPaletteMap(slots) {
   return map
 }
 
-/** Unique entity IDs for tabs, optionally filtered to one */
 function getTabIds(slots, viewMode, filterById) {
   const seen = new Set()
-  const ids = []
+  const ids  = []
   for (const s of slots) {
     const id =
       viewMode === 'section' ? s.section_id :
       viewMode === 'teacher' ? s.teacher_id :
       /* room */               s.room_id
-    if (id && !seen.has(id)) {
-      seen.add(id)
-      ids.push(id)
-    }
+    if (id && !seen.has(id)) { seen.add(id); ids.push(id) }
   }
   if (filterById) return ids.filter(id => id === filterById)
   return ids
 }
 
-/** Display label for a tab */
 function tabLabel(id, viewMode, sectionMap, teacherMap, roomMap) {
   if (viewMode === 'section') return sectionMap[id]?.name ?? id
   if (viewMode === 'teacher') return teacherMap[id]?.name ?? id
@@ -78,20 +81,10 @@ function tabLabel(id, viewMode, sectionMap, teacherMap, roomMap) {
 }
 
 /**
- * Build grid lookup structures from the activeSlots for one entity tab.
- *
- * The backend saves EACH period of a lab block as a separate slot record
- * (e.g. a 3-period lab block → 3 slot rows with consecutive period_index values).
- * We detect those consecutive same-subject/room/section runs on the same day
- * and merge them into a single rowSpan anchor cell.
- *
- * Returns:
- *   byKey      Map<"day:period", slot>   — slot lookup (all periods)
- *   coveredSet Set<"day:period">         — non-anchor periods of multi-period blocks (skip these)
- *   spanMap    Map<"day:period", number> — rowSpan for each anchor cell (≥2 means lab)
+ * Build grid lookup structures for one entity tab.
+ * Handles lab rowspan merging ONLY for lab subjects.
  */
-function buildGridMaps(activeSlots) {
-  // 1. Index every slot by (day, period)
+function buildGridMaps(activeSlots, subjectMap) {
   const byKey = new Map()
   for (const s of activeSlots) {
     byKey.set(`${s.day_of_week}:${s.period_index}`, s)
@@ -100,19 +93,20 @@ function buildGridMaps(activeSlots) {
   const coveredSet = new Set()
   const spanMap    = new Map()
 
-  // 2. Group by (day | subject_id | room_id | section_id) to find candidates
   const groups = new Map()
   for (const s of activeSlots) {
+    const subj = subjectMap[s.subject_id]
+    // Only lab subjects merge into multi-period blocks
+    if (!subj?.lab) continue
+
     const gk = `${s.day_of_week}|${s.subject_id}|${s.room_id}|${s.section_id}`
     if (!groups.has(gk)) groups.set(gk, { day: s.day_of_week, periods: [] })
     groups.get(gk).periods.push(s.period_index)
   }
 
-  // 3. For each group, find consecutive runs ≥ 2 and mark them
   for (const { day, periods } of groups.values()) {
     if (periods.length < 2) continue
     periods.sort((a, b) => a - b)
-
     let runStart = 0
     for (let i = 1; i <= periods.length; i++) {
       const isEnd = i === periods.length || periods[i] !== periods[i - 1] + 1
@@ -133,48 +127,222 @@ function buildGridMaps(activeSlots) {
   return { byKey, coveredSet, spanMap }
 }
 
+function SwapToast({ message, kind, onDismiss }) {
+  const colours = {
+    error:   'bg-red-500/15 border-red-500/40 text-red-300',
+    warning: 'bg-amber-500/15 border-amber-500/40 text-amber-300',
+    success: 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300',
+  }
+  return (
+    <div
+      className={`flex items-start gap-2 px-3 py-2 rounded-xl border text-xs mb-3 animate-fade-in ${colours[kind] ?? colours.error}`}
+      role="alert"
+    >
+      <span className="flex-1 leading-snug">{message}</span>
+      <button
+        onClick={onDismiss}
+        className="text-current opacity-60 hover:opacity-100 transition-opacity shrink-0 mt-0.5"
+        aria-label="Dismiss"
+      >
+        ✕
+      </button>
+    </div>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 export default function TimetableViewGrid({
   result,
-  subjectMap,
-  teacherMap,
-  sectionMap,
-  roomMap,
-  workingDays,
-  periodsPerDay,
-  viewMode = 'section',
+  subjectMap        = {},
+  teacherMap        = {},
+  sectionMap        = {},
+  roomMap           = {},
+  workingDays       = [0, 1, 2, 3, 4],
+  periodsPerDay     = 8,
+  viewMode          = 'section',
   filterById,
+  // Drag-and-drop & Undo
+  onSlotsChange,
+  teacherUnavailMap = {},
+  teacherPrefsMap   = {},
+  onUndo,
+  canUndo           = false,
 }) {
+  const { toast } = useToast()
   const paletteRef = useRef(null)
   paletteRef.current = buildPaletteMap(result.slots)
+
+  // Ensure workingDays only contains valid 0-4 (Mon-Fri) indices, preventing extra columns after Friday
+  const sanitizedWorkingDays = (
+    workingDays && workingDays.length > 0 ? workingDays : [0, 1, 2, 3, 4]
+  ).filter(d => d >= 0 && d <= 4)
 
   const tabIds = getTabIds(result.slots, viewMode, filterById)
   const [activeId, setActiveId] = useState(() => tabIds[0] ?? null)
 
-  // Keep activeId valid when tabs change (e.g. switching viewMode)
   const resolvedActiveId = tabIds.includes(activeId) ? activeId : (tabIds[0] ?? null)
 
-  // Slots for the active tab entity
-  const activeSlots = result.slots.filter(s => {
+  // Local slot state — diverges from result.slots when user makes manual swaps
+  const [localSlots, setLocalSlots] = useState(result.slots)
+
+  const prevResultRef = useRef(result)
+  if (prevResultRef.current !== result) {
+    prevResultRef.current = result
+    setLocalSlots(result.slots)
+  }
+
+  // Drag-and-drop refs
+  const dragSlotRef    = useRef(null)
+  const dragCellRef    = useRef(null)
+  const [dragOverKey, setDragOverKey]   = useState(null)
+  const [dropHintKind, setDropHintKind] = useState(null)
+
+  const [notification, setNotification] = useState(null)
+
+  const isDnDEnabled = !!onSlotsChange
+
+  const activeSlots = localSlots.filter(s => {
     if (viewMode === 'section') return s.section_id === resolvedActiveId
     if (viewMode === 'teacher') return s.teacher_id === resolvedActiveId
     return s.room_id === resolvedActiveId
   })
 
-  // Build grid lookup maps — handles lab rowspan merging from actual slot data
-  const { byKey, coveredSet, spanMap } = buildGridMaps(activeSlots)
-
+  const { byKey, coveredSet, spanMap } = buildGridMaps(activeSlots, subjectMap)
   const periods = Array.from({ length: periodsPerDay }, (_, i) => i)
 
+  // ── DnD handlers ─────────────────────────────────────────────────────────
+
+  const handleDragStart = useCallback((e, slot, day, period) => {
+    dragSlotRef.current = slot
+    dragCellRef.current = { day_of_week: day, period_index: period }
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', `${day}:${period}`)
+  }, [])
+
+  const handleDragOver = useCallback((e, day, period) => {
+    e.preventDefault()
+    const key = `${day}:${period}`
+    if (dragOverKey !== key) {
+      setDragOverKey(key)
+
+      if (dragSlotRef.current) {
+        const targetSlot = localSlots.find(
+          s => s.day_of_week === day && s.period_index === period
+        ) ?? null
+        const meta = { subjectMap, teacherMap, sectionMap, roomMap, teacherUnavailMap, teacherPrefsMap, workingDays: sanitizedWorkingDays, periodsPerDay }
+        const { ok, violations, warnings } = validateSwap(
+          dragSlotRef.current,
+          targetSlot,
+          { day_of_week: day, period_index: period },
+          localSlots,
+          meta
+        )
+        if (!ok) setDropHintKind('error')
+        else if (warnings.length > 0) setDropHintKind('warn')
+        else setDropHintKind('ok')
+      }
+    }
+    e.dataTransfer.dropEffect = 'move'
+  }, [dragOverKey, localSlots, subjectMap, teacherMap, sectionMap, roomMap, teacherUnavailMap, teacherPrefsMap, sanitizedWorkingDays, periodsPerDay])
+
+  const handleDragLeave = useCallback((e) => {
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDragOverKey(null)
+      setDropHintKind(null)
+    }
+  }, [])
+
+  const handleDragEnd = useCallback(() => {
+    dragSlotRef.current = null
+    dragCellRef.current = null
+    setDragOverKey(null)
+    setDropHintKind(null)
+  }, [])
+
+  const handleDrop = useCallback((e, targetDay, targetPeriod) => {
+    e.preventDefault()
+    setDragOverKey(null)
+    setDropHintKind(null)
+
+    const srcSlot = dragSlotRef.current
+    if (!srcSlot) return
+
+    const targetSlot = localSlots.find(
+      s => s.day_of_week === targetDay && s.period_index === targetPeriod
+    ) ?? null
+
+    const targetCell = { day_of_week: targetDay, period_index: targetPeriod }
+    const meta = { subjectMap, teacherMap, sectionMap, roomMap, teacherUnavailMap, teacherPrefsMap, workingDays: sanitizedWorkingDays, periodsPerDay }
+
+    const { ok, violations, warnings } = validateSwap(srcSlot, targetSlot, targetCell, localSlots, meta)
+
+    if (!ok) {
+      const errMsg = violations[0] ?? 'Swap not allowed due to hard constraint violation'
+      setNotification({ message: errMsg, kind: 'error' })
+      toast.error(errMsg, 6000)
+      dragSlotRef.current = null
+      dragCellRef.current = null
+      return
+    }
+
+    const newSlots = applySwap(srcSlot, targetSlot, targetCell, localSlots, subjectMap)
+    setLocalSlots(newSlots)
+    onSlotsChange?.(newSlots)
+
+    if (warnings.length > 0) {
+      const warnMsg = `Swap applied — ${warnings[0]}`
+      setNotification({ message: warnMsg, kind: 'warning' })
+      toast.warning(warnMsg, 5000)
+    } else {
+      const succMsg = targetSlot ? 'Periods swapped successfully!' : 'Slot moved successfully!'
+      setNotification({ message: succMsg, kind: 'success' })
+      toast.success(succMsg)
+    }
+
+    dragSlotRef.current = null
+    dragCellRef.current = null
+  }, [localSlots, subjectMap, teacherMap, sectionMap, roomMap, teacherUnavailMap, teacherPrefsMap, sanitizedWorkingDays, periodsPerDay, onSlotsChange, toast])
+
+
+  // ── Render ────────────────────────────────────────────────────────────────
+
   if (tabIds.length === 0) {
-    return (
-      <p className="text-sm text-gray-500 text-center py-8">No slots in this timetable.</p>
-    )
+    return <p className="text-sm text-gray-500 text-center py-8">No slots in this timetable.</p>
   }
 
   return (
     <div>
-      {/* ── Entity tabs ──────────────────────────────────────────────────── */}
+      {/* ── Notification banner ──────────────────────────────────────────── */}
+      {notification && (
+        <SwapToast
+          message={notification.message}
+          kind={notification.kind}
+          onDismiss={() => setNotification(null)}
+        />
+      )}
+
+      {/* ── DnD legend & Undo ────────────────────────────────────────────── */}
+      {isDnDEnabled && (
+        <div className="flex items-center justify-between mb-2 gap-2">
+          <p className="text-[10px] text-gray-600 flex items-center gap-1.5">
+            <span className="inline-block w-2 h-2 rounded-full bg-brand-500/60" />
+            Drag a period cell to swap it with another. Lab blocks move together. (Press <kbd className="px-1 py-0.5 rounded bg-white/10 text-gray-400 font-mono text-[9px]">Ctrl+Z</kbd> to undo)
+          </p>
+          {onUndo && (
+            <button
+              onClick={onUndo}
+              disabled={!canUndo}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-white/10 bg-white/5 text-[11px] font-medium text-gray-300 hover:bg-white/10 hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+              title="Undo last swap (Ctrl+Z)"
+            >
+              <Undo2 size={11} />
+              Undo Swap
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ── Entity tabs ───────────────────────────────────────────────────── */}
       <div className="flex gap-2 flex-wrap mb-4">
         {tabIds.map(id => {
           const active = id === resolvedActiveId
@@ -202,7 +370,7 @@ export default function TimetableViewGrid({
               <th className="w-14 py-2 px-2 text-left text-gray-500 font-medium bg-white/5 border-b border-r border-white/10">
                 #
               </th>
-              {workingDays.map(d => (
+              {sanitizedWorkingDays.map(d => (
                 <th
                   key={d}
                   className="py-2 px-2 text-center font-semibold text-gray-300 bg-white/5 border-b border-r border-white/10 last:border-r-0"
@@ -220,58 +388,86 @@ export default function TimetableViewGrid({
                   P{p + 1}
                 </td>
 
-                {workingDays.map(d => {
+                {sanitizedWorkingDays.map(d => {
                   const cellKey = `${d}:${p}`
+                  const isHovered  = dragOverKey === cellKey
+                  const hintKind   = isHovered ? dropHintKind : null
 
-                  // This cell is part of a lab block started in an earlier row — skip it
+                  // IMPORTANT: Non-anchor lab cells MUST ALWAYS return null so no extra td is rendered into table rows
                   if (coveredSet.has(cellKey)) return null
 
-                  const slot = byKey.get(cellKey)
+                  const slot    = byKey.get(cellKey)
+                  const rowSpan = spanMap.get(cellKey) ?? 1
+                  const isLab   = rowSpan > 1
+
+                  // ── Empty cell ──────────────────────────────────────────
                   if (!slot) {
+                    const emptyCellBorder =
+                      hintKind === 'ok'    ? 'ring-2 ring-inset ring-emerald-500/50 bg-emerald-500/5' :
+                      hintKind === 'warn'  ? 'ring-2 ring-inset ring-amber-500/50 bg-amber-500/5' :
+                      hintKind === 'error' ? 'ring-2 ring-inset ring-red-500/50 bg-red-500/5' : ''
+
                     return (
                       <td
                         key={d}
-                        className="py-1.5 px-1 border-r border-b border-white/10 last:border-r-0 align-top min-w-[90px] h-full"
+                        className={`py-1.5 px-1 border-r border-b border-white/10 last:border-r-0 align-top min-w-[90px] h-full transition-all ${emptyCellBorder}`}
+                        onDragOver={isDnDEnabled ? e => handleDragOver(e, d, p) : undefined}
+                        onDragLeave={isDnDEnabled ? handleDragLeave : undefined}
+                        onDrop={isDnDEnabled ? e => handleDrop(e, d, p) : undefined}
                       />
                     )
                   }
 
+                  // ── Occupied cell ───────────────────────────────────────
                   const subj    = subjectMap[slot.subject_id]
                   const teacher = teacherMap[slot.teacher_id]
                   const section = sectionMap[slot.section_id]
                   const room    = roomMap[slot.room_id]
                   const pal     = paletteRef.current[slot.subject_id] ?? PALETTES[0]
 
-                  // rowSpan from detected consecutive same-subject blocks
-                  const rowSpan = spanMap.get(cellKey) ?? 1
-                  const isLab   = rowSpan > 1
-
-                  // Secondary info line depends on view mode
                   let secondaryLine = null
                   if (viewMode === 'section') {
                     secondaryLine = teacher?.name
                   } else if (viewMode === 'teacher') {
                     secondaryLine = section?.name ?? section?.code
                   } else {
-                    // room view: section + teacher
                     const sec = section?.name ?? section?.code
                     const tch = teacher?.name
                     secondaryLine = [sec, tch].filter(Boolean).join(' · ')
                   }
 
-                  // Room code shown as a small hint in section / teacher views
                   const roomLine = viewMode !== 'room' && room ? room.code : null
+
+                  const isDragging =
+                    dragSlotRef.current &&
+                    dragSlotRef.current.day_of_week  === d &&
+                    dragSlotRef.current.period_index === p
+
+                  const cellRing =
+                    hintKind === 'ok'    ? 'ring-2 ring-emerald-500/70' :
+                    hintKind === 'warn'  ? 'ring-2 ring-amber-500/70' :
+                    hintKind === 'error' ? 'ring-2 ring-red-500/70' : ''
+
+                  const labBlockLabel = isLab && blockSizeFromSubject(subjectMap, slot.subject_id)
 
                   return (
                     <td
                       key={d}
                       rowSpan={rowSpan}
-                      className="py-1 px-1 border-r border-b border-white/10 last:border-r-0 align-top min-w-[90px] h-full"
+                      className={`py-1 px-1 border-r border-b border-white/10 last:border-r-0 align-top min-w-[90px] h-full transition-all ${cellRing}`}
                       style={{ height: rowSpan > 1 ? `${rowSpan * 56}px` : '100%' }}
+                      onDragOver={isDnDEnabled ? e => handleDragOver(e, d, p) : undefined}
+                      onDragLeave={isDnDEnabled ? handleDragLeave : undefined}
+                      onDrop={isDnDEnabled ? e => handleDrop(e, d, p) : undefined}
                     >
                       <div
-                        className="relative rounded-lg px-2 py-1.5 border h-full flex flex-col justify-between"
+                        className={`relative rounded-lg px-2 py-1.5 border h-full flex flex-col justify-between transition-all select-none ${
+                          isDnDEnabled ? 'cursor-grab active:cursor-grabbing' : ''
+                        } ${isDragging ? 'opacity-40 border-dashed scale-95' : ''}`}
                         style={{ background: pal.bg, borderColor: pal.bd }}
+                        draggable={isDnDEnabled}
+                        onDragStart={isDnDEnabled ? e => handleDragStart(e, slot, d, p) : undefined}
+                        onDragEnd={isDnDEnabled ? handleDragEnd : undefined}
                       >
                         <div>
                           {/* LAB badge */}
@@ -280,13 +476,13 @@ export default function TimetableViewGrid({
                               className="absolute top-1.5 right-1.5 text-[9px] font-bold px-1 rounded shadow-sm"
                               style={{ background: pal.bd, color: pal.tx }}
                             >
-                              LAB
+                              LAB {labBlockLabel ? `×${labBlockLabel}` : ''}
                             </span>
                           )}
 
                           {/* Subject name */}
                           <p
-                            className="font-semibold leading-tight truncate pr-4"
+                            className="font-semibold leading-tight truncate pr-8"
                             style={{ color: pal.tx }}
                           >
                             {subj?.name ?? subj?.code ?? '—'}
@@ -306,6 +502,17 @@ export default function TimetableViewGrid({
                             {roomLine}
                           </p>
                         )}
+
+                        {/* Drag hint icon */}
+                        {isDnDEnabled && (
+                          <span
+                            className="absolute bottom-1 right-1.5 text-[8px] opacity-0 group-hover:opacity-40 pointer-events-none transition-opacity"
+                            style={{ color: pal.tx }}
+                            aria-hidden="true"
+                          >
+                            ⠿
+                          </span>
+                        )}
                       </div>
                     </td>
                   )
@@ -317,4 +524,9 @@ export default function TimetableViewGrid({
       </div>
     </div>
   )
+}
+
+function blockSizeFromSubject(subjectMap, subjectId) {
+  const s = subjectMap[subjectId]
+  return s?.lab ? (s.lab_consecutive_periods ?? null) : null
 }

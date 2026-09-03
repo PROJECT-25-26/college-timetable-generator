@@ -112,6 +112,10 @@ export const timetablesApi = {
   /** PATCH /api/v1/timetables/{id} — rename label */
   updateLabel: (id, label) => api.patch(`/timetables/${id}`, { label }),
 
+  /** PUT /api/v1/timetables/{id}/slots — update all slots for a run */
+  updateSlots: (id, slots) => api.put(`/timetables/${id}/slots`, { slots }),
+
   /** DELETE /api/v1/timetables/{id} — delete run + cascade slots */
   remove: (id) => api.delete(`/timetables/${id}`),
 }
+
