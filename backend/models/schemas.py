@@ -339,6 +339,7 @@ class TimetableSlotOut(BaseModel):
     room_id:      str | None = None
     day_of_week:  int
     period_index: int
+    is_locked:    bool = False
 
 
 class TimetableOut(BaseModel):
@@ -375,8 +376,9 @@ class TimetableSlotCreate(BaseModel):
     subject_id:   str
     teacher_id:   str
     room_id:      str
-    day_of_week:  int = Field(..., ge=0, le=6)
-    period_index: int = Field(..., ge=0, le=15)
+    day_of_week:  int  = Field(..., ge=0, le=6)
+    period_index: int  = Field(..., ge=0, le=15)
+    is_locked:    bool = False
 
 
 class TimetableSlotsUpdate(BaseModel):

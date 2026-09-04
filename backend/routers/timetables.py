@@ -131,6 +131,7 @@ async def update_timetable_slots(
             room_id=s.room_id,
             day_of_week=s.day_of_week,
             period_index=s.period_index,
+            is_locked=s.is_locked,
         ))
 
     await db.flush()

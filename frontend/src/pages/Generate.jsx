@@ -1,8 +1,9 @@
 import {
   Zap, CheckCircle2, XCircle, AlertTriangle,
   Trash2, Download, RefreshCw, History, Settings,
-  Loader2, X, Users, DoorOpen, LayoutGrid, Save, RotateCcw, Undo2,
+  Loader2, X, Users, DoorOpen, LayoutGrid, Save, RotateCcw, Undo2, Lock, RefreshCcw,
 } from 'lucide-react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { generateApi, timetablesApi, subjectsApi, teachersApi, classSectionsApi, roomsApi } from '../api'
 import { useToast } from '../hooks/useToast'
 import TimetableViewGrid from '../components/TimetableViewGrid'
@@ -220,6 +221,10 @@ export default function Generate() {
   const [savingEdits,  setSavingEdits]  = useState(false)
   const [slotHistory,  setSlotHistory]  = useState([])
 
+  // Lock state — Set of slot IDs the user has pinned for next regeneration
+  const [lockedSlotIds,   setLockedSlotIds]   = useState(() => new Set())
+  const [isRegenerating,  setIsRegenerating]  = useState(false)
+
 
   // Past runs
   const [pastRuns,  setPastRuns]  = useState([])
@@ -309,6 +314,7 @@ export default function Generate() {
       setResult(data)
       setPendingEdits(false)
       setSlotHistory([])
+      setLockedSlotIds(new Set())
       setPhase('done')
       loadPastRuns()
 
@@ -334,7 +340,13 @@ export default function Generate() {
   async function handleLoadRun(id) {
     try {
       const res = await timetablesApi.get(id)
-      setResult(res.data)
+      const data = res.data
+      setResult(data)
+      // Restore locked state from persisted is_locked flags
+      const restoredLocks = new Set(
+        (data.slots ?? []).filter(s => s.is_locked).map(s => s.id)
+      )
+      setLockedSlotIds(restoredLocks)
       setPendingEdits(false)
       setSlotHistory([])
       setPhase('done')
@@ -392,9 +404,16 @@ export default function Generate() {
         room_id:      s.room_id,
         day_of_week:  s.day_of_week,
         period_index: s.period_index,
+        is_locked:    lockedSlotIds.has(s.id),   // persist current lock state
       }))
       const res = await timetablesApi.updateSlots(result.id, cleanSlots)
-      setResult(res.data)
+      const data = res.data
+      setResult(data)
+      // Sync restored locks from persisted is_locked flags
+      const restoredLocks = new Set(
+        (data.slots ?? []).filter(s => s.is_locked).map(s => s.id)
+      )
+      setLockedSlotIds(restoredLocks)
       setPendingEdits(false)
       setSlotHistory([])
       loadPastRuns()
@@ -411,7 +430,12 @@ export default function Generate() {
     if (!result?.id) { setPendingEdits(false); setSlotHistory([]); return }
     try {
       const res = await timetablesApi.get(result.id)
-      setResult(res.data)
+      const data = res.data
+      setResult(data)
+      const restoredLocks = new Set(
+        (data.slots ?? []).filter(s => s.is_locked).map(s => s.id)
+      )
+      setLockedSlotIds(restoredLocks)
       setPendingEdits(false)
       setSlotHistory([])
       toast.info('Manual edits discarded')
@@ -421,9 +445,92 @@ export default function Generate() {
     }
   }
 
+  // ── Toggle lock on a slot (and its lab block siblings) ───────────────────
+  const handleToggleLock = useCallback((slotId, slot, isLabBlock, blockSize) => {
+    setLockedSlotIds(prev => {
+      const next = new Set(prev)
+      const willLock = !next.has(slotId)
+
+      if (isLabBlock && slot && blockSize > 1) {
+        // Lock/unlock the entire lab block together
+        const siblings = (result?.slots ?? []).filter(
+          s =>
+            s.section_id  === slot.section_id &&
+            s.subject_id  === slot.subject_id &&
+            s.day_of_week === slot.day_of_week &&
+            s.room_id     === slot.room_id
+        )
+        for (const s of siblings) {
+          willLock ? next.add(s.id) : next.delete(s.id)
+        }
+      } else {
+        willLock ? next.add(slotId) : next.delete(slotId)
+      }
+      return next
+    })
+  }, [result])
+
+  // ── Regenerate with locked slots ──────────────────────────────────────────
+  const handleRegenerate = useCallback(async () => {
+    if (workingDays.length === 0) {
+      toast.error('Select at least one working day')
+      return
+    }
+    if (lockedSlotIds.size === 0) {
+      toast.info('No slots are locked — use the regular Generate button for a fresh solve.')
+      return
+    }
+
+    setIsRegenerating(true)
+    abortRef.current = new AbortController()
+
+    try {
+      // Build the locked_slots array from the current result
+      const lockedSlots = (result?.slots ?? [])
+        .filter(s => lockedSlotIds.has(s.id))
+        .map(s => ({
+          section_id:   s.section_id,
+          subject_id:   s.subject_id,
+          teacher_id:   s.teacher_id,
+          room_id:      s.room_id,
+          day_of_week:  s.day_of_week,
+          period_index: s.period_index,
+        }))
+
+      toast.info(`Regenerating with ${lockedSlots.length} locked slot(s)…`)
+
+      // Fetch fresh payload then regenerate with locked slots pinned
+      const payloadRes = await generateApi.payload(periodsPerDay, workingDays)
+      const res = await generateApi.regenerate(
+        payloadRes.data,
+        lockedSlots,
+        abortRef.current.signal,
+      )
+      const data = res.data
+
+      setResult(data)
+      setPendingEdits(false)
+      setSlotHistory([])
+      setLockedSlotIds(new Set())
+      setPhase('done')
+      loadPastRuns()
+
+      if (data.status === 'ok')
+        toast.success(`Regenerated — ${data.slots?.length ?? 0} slots scheduled`)
+      else if (data.status === 'infeasible')
+        toast.error('Solver found no feasible timetable with those locks. Try unlocking some slots.', 9000)
+      else
+        toast.info('Solver timed out — try fewer locked slots or shorter timeout.', 8000)
+    } catch (err) {
+      if (err.code !== 'ERR_CANCELED') {
+        toast.error(err.message ?? 'Regeneration failed')
+      }
+    } finally {
+      setIsRegenerating(false)
+    }
+  }, [result, lockedSlotIds, periodsPerDay, workingDays, loadPastRuns, toast])
 
 
-  // ── Delete a past run ─────────────────────────────────────────────────────
   async function handleDeleteRun(id, e) {
     e.stopPropagation()
     try {
@@ -591,6 +698,40 @@ export default function Generate() {
           <div>
             <StatusBanner result={result} onExport={handleExport} />
 
+            {/* ── Locked-slots / Regenerate banner ──────────────── */}
+            {lockedSlotIds.size > 0 && (
+              <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-amber-400/40 bg-amber-400/8 mb-4 text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Lock size={15} className="text-amber-400 shrink-0" />
+                  <p className="text-amber-200">
+                    <span className="font-semibold">{lockedSlotIds.size} slot{lockedSlotIds.size !== 1 ? 's' : ''} locked.</span>{' '}
+                    The solver will keep these fixed and only re-optimise the rest.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => setLockedSlotIds(new Set())}
+                    disabled={isRegenerating}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-amber-400/30 text-amber-300 hover:bg-amber-400/15 transition-all disabled:opacity-40"
+                    title="Clear all locks"
+                  >
+                    <X size={11} /> Clear locks
+                  </button>
+                  <button
+                    id="regenerate-btn"
+                    onClick={handleRegenerate}
+                    disabled={isRegenerating || phase === 'solving'}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white font-semibold shadow-sm shadow-amber-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isRegenerating
+                      ? <><Loader2 size={12} className="animate-spin" /> Regenerating…</>
+                      : <><RefreshCcw size={12} /> Regenerate</>
+                    }
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* ── Pending manual edits banner ───────────────────── */}
             {pendingEdits && (
               <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-amber-500/40 bg-amber-500/10 mb-4 text-xs">
@@ -654,7 +795,7 @@ export default function Generate() {
                   })}
                 </div>
 
-                {/* ── Grid (with drag-and-drop enabled) ─────────────── */}
+                {/* ── Grid (with drag-and-drop + lock enabled) ──────────── */}
                 <TimetableViewGrid
                   result={result}
                   subjectMap={subjectMap}
@@ -669,6 +810,8 @@ export default function Generate() {
                   teacherPrefsMap={teacherPrefsMap}
                   onUndo={handleUndoSwap}
                   canUndo={slotHistory.length > 0}
+                  lockedSlotIds={lockedSlotIds}
+                  onToggleLock={handleToggleLock}
                 />
               </div>
             )}

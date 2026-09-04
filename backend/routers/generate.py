@@ -42,6 +42,7 @@ from models.orm import (
 from models.schemas import TimetableOut
 from models.solver_schemas import (
     SolverClassSection,
+    LockedSlot,  # noqa: F401 — re-exported for router typing
     SolverRoom,
     SolverSectionSubjectLink,
     SolverSubject,
@@ -53,7 +54,13 @@ from models.solver_schemas import (
     TimetableResponse,
     TimetableSlot,
 )
-from solver import build_constraints, build_objectives, build_variables, extract_solution
+from solver import (
+    apply_locked_slots,
+    build_constraints,
+    build_objectives,
+    build_variables,
+    extract_solution,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/generate-timetable", tags=["Generate"])
@@ -348,6 +355,10 @@ def _run_solver(req: TimetableRequest) -> TimetableResponse:
         len(var_sets.non_lab), len(var_sets.lab),
         len(var_sets.non_lab) + len(var_sets.lab),
     )
+
+    # Phase 2.5 — pin locked slots BEFORE constraints so pinned vars are
+    # already fixed when coverage / no-double-booking constraints run.
+    apply_locked_slots(model, req, var_sets)
 
     build_constraints(model, req, var_sets)
     build_objectives(model, req, var_sets)

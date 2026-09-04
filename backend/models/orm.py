@@ -316,7 +316,8 @@ class TimetableSlot(Base):
     room_id:      Mapped[str | None] = mapped_column(
         String(36), ForeignKey("rooms.id", ondelete="SET NULL"), nullable=True
     )
-    day_of_week:   Mapped[int] = mapped_column(SmallInteger, nullable=False)   # 0=Mon … 6=Sun
-    period_index:  Mapped[int] = mapped_column(SmallInteger, nullable=False)   # 0-based
+    day_of_week:   Mapped[int]  = mapped_column(SmallInteger, nullable=False)   # 0=Mon … 6=Sun
+    period_index:  Mapped[int]  = mapped_column(SmallInteger, nullable=False)   # 0-based
+    is_locked:     Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     timetable: Mapped["Timetable"] = relationship("Timetable", back_populates="slots")

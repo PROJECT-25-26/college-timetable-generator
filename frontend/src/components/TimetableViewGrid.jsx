@@ -1,5 +1,6 @@
 /**
- * TimetableViewGrid — reusable timetable grid component with drag-and-drop swap.
+ * TimetableViewGrid — reusable timetable grid component with drag-and-drop swap
+ * and per-slot lock toggle.
  *
  * viewMode:
  *   'section' — tabs = class sections; cell shows subject + teacher
@@ -21,10 +22,18 @@
  *   onSlotsChange       (newSlots: Slot[]) => void  — called after successful swap
  *   teacherUnavailMap   teacherId → [{day_of_week, period_index}]
  *   teacherPrefsMap     teacherId → [{subject_id, preference_type}]
+ *
+ *   Lock props:
+ *   lockedSlotIds       Set<string>  — slot IDs currently locked
+ *   onToggleLock        (slotId: string) => void — toggle lock on a slot
+ *
+ *   Undo prop:
+ *   onUndo              () => void
+ *   canUndo             boolean
  */
 
 import { useState, useRef, useCallback } from 'react'
-import { Undo2 } from 'lucide-react'
+import { Undo2, Lock, LockOpen } from 'lucide-react'
 import { useToast } from '../hooks/useToast'
 import { validateSwap, applySwap } from '../utils/swapValidator'
 
@@ -167,6 +176,9 @@ export default function TimetableViewGrid({
   teacherPrefsMap   = {},
   onUndo,
   canUndo           = false,
+  // Lock
+  lockedSlotIds     = new Set(),
+  onToggleLock,
 }) {
   const { toast } = useToast()
   const paletteRef = useRef(null)
@@ -200,6 +212,7 @@ export default function TimetableViewGrid({
   const [notification, setNotification] = useState(null)
 
   const isDnDEnabled = !!onSlotsChange
+  const isLockEnabled = !!onToggleLock
 
   const activeSlots = localSlots.filter(s => {
     if (viewMode === 'section') return s.section_id === resolvedActiveId
@@ -267,9 +280,29 @@ export default function TimetableViewGrid({
     const srcSlot = dragSlotRef.current
     if (!srcSlot) return
 
+    // Block drag of locked slots
+    if (lockedSlotIds.has(srcSlot.id)) {
+      const msg = '🔒 This slot is locked. Unlock it first before swapping.'
+      setNotification({ message: msg, kind: 'error' })
+      toast.error(msg, 5000)
+      dragSlotRef.current = null
+      dragCellRef.current = null
+      return
+    }
+
     const targetSlot = localSlots.find(
       s => s.day_of_week === targetDay && s.period_index === targetPeriod
     ) ?? null
+
+    // Block drop onto locked slots
+    if (targetSlot && lockedSlotIds.has(targetSlot.id)) {
+      const msg = '🔒 Target slot is locked. Unlock it first before swapping.'
+      setNotification({ message: msg, kind: 'error' })
+      toast.error(msg, 5000)
+      dragSlotRef.current = null
+      dragCellRef.current = null
+      return
+    }
 
     const targetCell = { day_of_week: targetDay, period_index: targetPeriod }
     const meta = { subjectMap, teacherMap, sectionMap, roomMap, teacherUnavailMap, teacherPrefsMap, workingDays: sanitizedWorkingDays, periodsPerDay }
@@ -301,7 +334,7 @@ export default function TimetableViewGrid({
 
     dragSlotRef.current = null
     dragCellRef.current = null
-  }, [localSlots, subjectMap, teacherMap, sectionMap, roomMap, teacherUnavailMap, teacherPrefsMap, sanitizedWorkingDays, periodsPerDay, onSlotsChange, toast])
+  }, [localSlots, lockedSlotIds, subjectMap, teacherMap, sectionMap, roomMap, teacherUnavailMap, teacherPrefsMap, sanitizedWorkingDays, periodsPerDay, onSlotsChange, toast])
 
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -327,6 +360,11 @@ export default function TimetableViewGrid({
           <p className="text-[10px] text-gray-600 flex items-center gap-1.5">
             <span className="inline-block w-2 h-2 rounded-full bg-brand-500/60" />
             Drag a period cell to swap it with another. Lab blocks move together. (Press <kbd className="px-1 py-0.5 rounded bg-white/10 text-gray-400 font-mono text-[9px]">Ctrl+Z</kbd> to undo)
+            {isLockEnabled && (
+              <span className="ml-2 flex items-center gap-1">
+                · Click <Lock size={9} className="inline text-amber-400 mx-0.5" /> to lock a slot before regenerating
+              </span>
+            )}
           </p>
           {onUndo && (
             <button
@@ -425,6 +463,9 @@ export default function TimetableViewGrid({
                   const room    = roomMap[slot.room_id]
                   const pal     = paletteRef.current[slot.subject_id] ?? PALETTES[0]
 
+                  // Determine lock state — prefer server-persisted is_locked, then client lockedSlotIds
+                  const isSlotLocked = lockedSlotIds.has(slot.id) || slot.is_locked === true
+
                   let secondaryLine = null
                   if (viewMode === 'section') {
                     secondaryLine = teacher?.name
@@ -444,9 +485,10 @@ export default function TimetableViewGrid({
                     dragSlotRef.current.period_index === p
 
                   const cellRing =
-                    hintKind === 'ok'    ? 'ring-2 ring-emerald-500/70' :
-                    hintKind === 'warn'  ? 'ring-2 ring-amber-500/70' :
-                    hintKind === 'error' ? 'ring-2 ring-red-500/70' : ''
+                    isSlotLocked                  ? 'ring-2 ring-amber-400/60' :
+                    hintKind === 'ok'             ? 'ring-2 ring-emerald-500/70' :
+                    hintKind === 'warn'           ? 'ring-2 ring-amber-500/70' :
+                    hintKind === 'error'          ? 'ring-2 ring-red-500/70' : ''
 
                   const labBlockLabel = isLab && blockSizeFromSubject(subjectMap, slot.subject_id)
 
@@ -461,19 +503,26 @@ export default function TimetableViewGrid({
                       onDrop={isDnDEnabled ? e => handleDrop(e, d, p) : undefined}
                     >
                       <div
-                        className={`relative rounded-lg px-2 py-1.5 border h-full flex flex-col justify-between transition-all select-none ${
-                          isDnDEnabled ? 'cursor-grab active:cursor-grabbing' : ''
-                        } ${isDragging ? 'opacity-40 border-dashed scale-95' : ''}`}
-                        style={{ background: pal.bg, borderColor: pal.bd }}
-                        draggable={isDnDEnabled}
-                        onDragStart={isDnDEnabled ? e => handleDragStart(e, slot, d, p) : undefined}
+                        className={`relative rounded-lg px-2 py-1.5 border h-full flex flex-col justify-between transition-all select-none group ${
+                          isDnDEnabled && !isSlotLocked ? 'cursor-grab active:cursor-grabbing' : ''
+                        } ${isDragging ? 'opacity-40 border-dashed scale-95' : ''} ${
+                          isSlotLocked ? 'opacity-90' : ''
+                        }`}
+                        style={{
+                          background: isSlotLocked
+                            ? `linear-gradient(135deg, ${pal.bg}, rgba(251,191,36,.08))`
+                            : pal.bg,
+                          borderColor: isSlotLocked ? 'rgba(251,191,36,.5)' : pal.bd,
+                        }}
+                        draggable={isDnDEnabled && !isSlotLocked}
+                        onDragStart={isDnDEnabled && !isSlotLocked ? e => handleDragStart(e, slot, d, p) : undefined}
                         onDragEnd={isDnDEnabled ? handleDragEnd : undefined}
                       >
                         <div>
                           {/* LAB badge */}
                           {isLab && (
                             <span
-                              className="absolute top-1.5 right-1.5 text-[9px] font-bold px-1 rounded shadow-sm"
+                              className="absolute top-1.5 right-6 text-[9px] font-bold px-1 rounded shadow-sm"
                               style={{ background: pal.bd, color: pal.tx }}
                             >
                               LAB {labBlockLabel ? `×${labBlockLabel}` : ''}
@@ -482,7 +531,7 @@ export default function TimetableViewGrid({
 
                           {/* Subject name */}
                           <p
-                            className="font-semibold leading-tight truncate pr-8"
+                            className="font-semibold leading-tight truncate pr-6"
                             style={{ color: pal.tx }}
                           >
                             {subj?.name ?? subj?.code ?? '—'}
@@ -503,15 +552,26 @@ export default function TimetableViewGrid({
                           </p>
                         )}
 
-                        {/* Drag hint icon */}
-                        {isDnDEnabled && (
-                          <span
-                            className="absolute bottom-1 right-1.5 text-[8px] opacity-0 group-hover:opacity-40 pointer-events-none transition-opacity"
-                            style={{ color: pal.tx }}
-                            aria-hidden="true"
+                        {/* ── Lock toggle button ───────────────────────── */}
+                        {isLockEnabled && (
+                          <button
+                            onClick={e => {
+                              e.stopPropagation()
+                              onToggleLock(slot.id, slot, isLab, spanMap.get(cellKey) ?? 1)
+                            }}
+                            title={isSlotLocked ? 'Unlock this slot' : 'Lock this slot (pin for regeneration)'}
+                            aria-label={isSlotLocked ? 'Unlock slot' : 'Lock slot'}
+                            className={`absolute top-1 right-1 p-0.5 rounded transition-all z-10 ${
+                              isSlotLocked
+                                ? 'text-amber-400 opacity-100 hover:text-amber-300 bg-amber-400/10'
+                                : 'text-gray-600 opacity-0 group-hover:opacity-100 hover:text-amber-400 hover:bg-amber-400/10'
+                            }`}
                           >
-                            ⠿
-                          </span>
+                            {isSlotLocked
+                              ? <Lock size={10} />
+                              : <LockOpen size={10} />
+                            }
+                          </button>
                         )}
                       </div>
                     </td>

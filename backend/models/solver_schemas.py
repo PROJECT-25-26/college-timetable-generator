@@ -153,6 +153,24 @@ class TimeGrid(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Locked slot  — a pinned assignment the solver must preserve unchanged
+# ---------------------------------------------------------------------------
+class LockedSlot(BaseModel):
+    """
+    One assignment that must appear unchanged in the regenerated timetable.
+
+    The solver finds the matching BoolVar and forces it to 1.
+    All competing BoolVars at the same (section, day, period) are forced to 0.
+    """
+    section_id:   str
+    subject_id:   str
+    teacher_id:   str
+    room_id:      str
+    day_of_week:  int = Field(..., ge=0, le=6)
+    period_index: int = Field(..., ge=0)
+
+
+# ---------------------------------------------------------------------------
 # Top-level request
 # ---------------------------------------------------------------------------
 class TimetableRequest(BaseModel):
@@ -170,6 +188,8 @@ class TimetableRequest(BaseModel):
     rooms:          list[SolverRoom]         = Field(..., min_length=1)
     class_sections: list[SolverClassSection] = Field(..., min_length=1)
     time_grid:      TimeGrid
+    # Optional list of slots to pin before solving — empty means a fresh solve
+    locked_slots:   list[LockedSlot]         = []
 
 
 # ===========================================================================

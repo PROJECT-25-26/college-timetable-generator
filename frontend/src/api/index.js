@@ -87,6 +87,19 @@ export const generateApi = {
     api.post('/generate-timetable', data, { signal, timeout: 130_000 }),
 
   /**
+   * POST /api/v1/generate-timetable — with locked_slots injected.
+   * @param {object}   data        TimetableRequest payload (from /payload endpoint)
+   * @param {object[]} lockedSlots Array of {section_id,subject_id,teacher_id,room_id,day_of_week,period_index}
+   * @param {AbortSignal} signal   Optional abort signal
+   */
+  regenerate: (data, lockedSlots, signal) =>
+    api.post(
+      '/generate-timetable',
+      { ...data, locked_slots: lockedSlots },
+      { signal, timeout: 130_000 },
+    ),
+
+  /**
    * GET /api/v1/generate-timetable/payload
    * Returns a fully-assembled TimetableRequest from current DB state.
    */
