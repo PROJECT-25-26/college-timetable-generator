@@ -10,13 +10,21 @@ Endpoints:
 """
 
 import uuid
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from database import get_db
-from models.orm import Timetable, TimetableSlot as TimetableSlotORM
+from exporter import generate_excel_export, generate_pdf_export
+from models.orm import (
+    ClassSection,
+    Room,
+    Subject,
+    Teacher,
+    Timetable,
+    TimetableSlot as TimetableSlotORM,
+)
 from models.schemas import (
     MessageResponse,
     TimetableLabelUpdate,
@@ -152,6 +160,95 @@ async def delete_timetable(timetable_id: str, db: AsyncSession = Depends(get_db)
     return {"message": f"Timetable '{label}' and all its slots deleted"}
 
 
+# ── Export PDF / Excel ────────────────────────────────────────────────────────
+@router.get("/{timetable_id}/export/pdf")
+@router.get("/{timetable_id}/export/pdf/", include_in_schema=False)
+async def export_timetable_pdf(
+    timetable_id: str,
+    scope: str = "master",  # 'class' | 'teacher' | 'master'
+    entity_id: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Generate and return a downloadable PDF for per-class, per-teacher, or master timetable."""
+    timetable = await _get_or_404(timetable_id, db)
+    sec_map, teach_map, subj_map, room_map = await _fetch_entity_maps(db)
+
+    slots_data = [
+        {
+            "section_id": s.section_id,
+            "subject_id": s.subject_id,
+            "teacher_id": s.teacher_id,
+            "room_id": s.room_id,
+            "day_of_week": s.day_of_week,
+            "period_index": s.period_index,
+            "is_locked": s.is_locked,
+        }
+        for s in timetable.slots
+    ]
+
+    pdf_bytes = generate_pdf_export(
+        timetable_label=timetable.label or timetable.id[:8],
+        slots=slots_data,
+        scope=scope,
+        entity_id=entity_id,
+        section_map=sec_map,
+        teacher_map=teach_map,
+        subject_map=subj_map,
+        room_map=room_map,
+    )
+
+    filename = f"timetable_{scope}_{entity_id or 'all'}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/{timetable_id}/export/excel")
+@router.get("/{timetable_id}/export/excel/", include_in_schema=False)
+async def export_timetable_excel(
+    timetable_id: str,
+    scope: str = "master",  # 'class' | 'teacher' | 'master'
+    entity_id: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Generate and return a downloadable Excel (.xlsx) file for per-class, per-teacher, or master timetable."""
+    timetable = await _get_or_404(timetable_id, db)
+    sec_map, teach_map, subj_map, room_map = await _fetch_entity_maps(db)
+
+    slots_data = [
+        {
+            "section_id": s.section_id,
+            "subject_id": s.subject_id,
+            "teacher_id": s.teacher_id,
+            "room_id": s.room_id,
+            "day_of_week": s.day_of_week,
+            "period_index": s.period_index,
+            "is_locked": s.is_locked,
+        }
+        for s in timetable.slots
+    ]
+
+    xlsx_bytes = generate_excel_export(
+        timetable_label=timetable.label or timetable.id[:8],
+        slots=slots_data,
+        scope=scope,
+        entity_id=entity_id,
+        section_map=sec_map,
+        teacher_map=teach_map,
+        subject_map=subj_map,
+        room_map=room_map,
+    )
+
+    filename = f"timetable_{scope}_{entity_id or 'all'}.xlsx"
+    return Response(
+        content=xlsx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 # ── Private helper ────────────────────────────────────────────────────────────
 async def _get_or_404(timetable_id: str, db: AsyncSession) -> Timetable:
     result = await db.execute(
@@ -163,3 +260,28 @@ async def _get_or_404(timetable_id: str, db: AsyncSession) -> Timetable:
     if not timetable:
         raise HTTPException(status_code=404, detail="Timetable not found")
     return timetable
+
+
+async def _fetch_entity_maps(db: AsyncSession):
+    sec_res = await db.execute(select(ClassSection))
+    teach_res = await db.execute(select(Teacher))
+    subj_res = await db.execute(select(Subject))
+    room_res = await db.execute(select(Room))
+
+    sec_map = {
+        s.id: {"name": s.name, "code": s.code, "homeroom_id": s.homeroom_id}
+        for s in sec_res.scalars().all()
+    }
+    teach_map = {
+        t.id: {"name": t.name, "email": t.email}
+        for t in teach_res.scalars().all()
+    }
+    subj_map = {
+        sub.id: {"name": sub.name, "code": sub.code, "lab": sub.lab}
+        for sub in subj_res.scalars().all()
+    }
+    room_map = {
+        r.id: {"name": r.name, "code": r.code, "room_type": r.room_type}
+        for r in room_res.scalars().all()
+    }
+    return sec_map, teach_map, subj_map, room_map
