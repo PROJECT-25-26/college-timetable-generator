@@ -144,5 +144,9 @@ export const timetablesApi = {
       params: { scope, entity_id: entityId || undefined },
       responseType: 'blob',
     }),
+
+  /** GET /api/v1/timetables/{id}/search — search teacher/room schedules or free slots */
+  search: (id = 'latest', params = {}) =>
+    api.get(`/timetables/${id}/search`, { params }),
 }
 
