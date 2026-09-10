@@ -114,3 +114,145 @@ body {
 /* ─── Hover bg for table rows ────────────────────────────────── */
 .hover\:bg-white\/3:hover { background-color: rgb(255 255 255 / 0.03); }
 
+/* ─── Campus Layout ──────────────────────────────────────────── */
+.campus-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  /* calc avoids the h-full → auto-height parent problem */
+  height: calc(100vh - var(--topbar-height));
+  overflow: hidden;
+}
+
+.campus-tree {
+  overflow-y: auto;
+  border-right: 1px solid rgb(255 255 255 / 0.1);
+  display: flex;
+  flex-direction: column;
+}
+
+.campus-content {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* ─── Tree node styles ───────────────────────────────────────── */
+.tree-node {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  transition: background 0.15s ease;
+  border: 1px solid transparent;
+  user-select: none;
+}
+.tree-node:hover { background: rgb(255 255 255 / 0.05); }
+.tree-node.active {
+  background: rgb(99 102 241 / 0.2);
+  border-color: rgb(99 102 241 / 0.35);
+  color: #a5b4fc;
+}
+
+/* ─── Campus map canvas area ─────────────────────────────────── */
+.campus-map-canvas {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+  background:
+    radial-gradient(circle at 50% 50%, rgb(99 102 241 / 0.04) 0%, transparent 70%),
+    linear-gradient(rgb(255 255 255 / 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.03) 1px, transparent 1px);
+  background-size: 100% 100%, 40px 40px, 40px 40px;
+}
+
+/* ─── Building box on campus map ─────────────────────────────── */
+.building-box {
+  position: absolute;
+  border-radius: 0.5rem;
+  border: 2px solid currentColor;
+  cursor: move;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  user-select: none;
+}
+.building-box:hover {
+  box-shadow: 0 0 0 3px rgb(255 255 255 / 0.12), 0 8px 24px rgb(0 0 0 / 0.4);
+}
+.building-box.selected {
+  box-shadow: 0 0 0 3px rgb(99 102 241 / 0.5), 0 8px 24px rgb(0 0 0 / 0.4);
+}
+
+/* ─── Grid painter ───────────────────────────────────────────── */
+.grid-painter-wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.grid-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid rgb(255 255 255 / 0.08);
+  background: rgb(255 255 255 / 0.02);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.tool-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  background: rgb(255 255 255 / 0.05);
+  color: #9ca3af;
+  transition: all 0.15s ease;
+}
+.tool-btn:hover { background: rgb(255 255 255 / 0.1); color: #e5e7eb; }
+.tool-btn.active {
+  border-color: currentColor;
+  background: rgb(255 255 255 / 0.08);
+  box-shadow: 0 0 8px rgb(255 255 255 / 0.08);
+}
+
+.grid-canvas-wrap {
+  flex: 1;
+  overflow: auto;
+  padding: 1rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.grid-status-bar {
+  flex-shrink: 0;
+  padding: 0.4rem 0.75rem;
+  border-top: 1px solid rgb(255 255 255 / 0.08);
+  font-size: 0.7rem;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: rgb(255 255 255 / 0.02);
+  flex-wrap: wrap;
+}
+
+/* ─── Cell-type legend colors (used in status bar dots) ──────── */
+.cell-dot-wall     { background: #475569; }
+.cell-dot-corridor { background: #a3e635; }
+.cell-dot-stairs   { background: #facc15; }
+.cell-dot-entrance { background: #38bdf8; }

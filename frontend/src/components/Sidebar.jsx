@@ -11,6 +11,7 @@ import {
   CalendarDays,
   LogOut,
   ShieldCheck,
+  Map,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
@@ -20,6 +21,7 @@ const ADMIN_NAV = [
   { to: '/teachers',       label: 'Teachers',       icon: GraduationCap },
   { to: '/subjects',       label: 'Subjects',       icon: BookOpen },
   { to: '/rooms',          label: 'Rooms',          icon: DoorOpen },
+  { to: '/campus-layout',  label: 'Campus Layout',  icon: Map },
   { to: '/class-sections', label: 'Class Sections', icon: Users },
   { to: '/generate',       label: 'Generate',       icon: Zap },
   { to: '/requests',       label: 'Requests',       icon: Inbox, badge: true },

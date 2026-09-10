@@ -384,3 +384,109 @@ class TimetableSlotCreate(BaseModel):
 class TimetableSlotsUpdate(BaseModel):
     slots: list[TimetableSlotCreate]
 
+
+# ---------------------------------------------------------------------------
+# Campus Layout — Campus / Building / Floor
+# ---------------------------------------------------------------------------
+
+# ── Campus ──────────────────────────────────────────────────────────────────
+class CampusCreate(BaseModel):
+    name: str = Field(..., max_length=120)
+    description: str | None = None
+
+
+class CampusUpdate(BaseModel):
+    name: str | None = Field(None, max_length=120)
+    description: str | None = None
+
+
+class CampusOut(_TimestampMixin):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    name: str
+    description: str | None = None
+
+
+# ── Building ─────────────────────────────────────────────────────────────────
+class BuildingCreate(BaseModel):
+    campus_id: str
+    name: str = Field(..., max_length=120)
+    code: str = Field(..., max_length=20)
+    pos_x: int = 0
+    pos_y: int = 0
+    width: int = Field(120, ge=40)
+    height: int = Field(80, ge=30)
+    color: str = Field("#6366f1", max_length=9)
+
+
+class BuildingUpdate(BaseModel):
+    name: str | None = Field(None, max_length=120)
+    code: str | None = Field(None, max_length=20)
+    pos_x: int | None = None
+    pos_y: int | None = None
+    width: int | None = Field(None, ge=40)
+    height: int | None = Field(None, ge=30)
+    color: str | None = Field(None, max_length=9)
+
+
+class FloorSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    building_id: str
+    name: str
+    level: int
+
+
+class BuildingOut(_TimestampMixin):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    campus_id: str
+    name: str
+    code: str
+    pos_x: int
+    pos_y: int
+    width: int
+    height: int
+    color: str
+    floors: list[FloorSummary] = []
+
+
+# ── Floor ────────────────────────────────────────────────────────────────────
+class FloorCreate(BaseModel):
+    building_id: str
+    name: str = Field(..., max_length=120)
+    level: int = 0
+    grid_rows: int = Field(20, ge=5, le=200)
+    grid_cols: int = Field(30, ge=5, le=200)
+    cell_size_m: float = Field(1.0, gt=0, le=100)
+
+
+class FloorUpdate(BaseModel):
+    name: str | None = Field(None, max_length=120)
+    level: int | None = None
+    grid_rows: int | None = Field(None, ge=5, le=200)
+    grid_cols: int | None = Field(None, ge=5, le=200)
+    cell_size_m: float | None = Field(None, gt=0, le=100)
+
+
+class FloorOut(_TimestampMixin):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    building_id: str
+    name: str
+    level: int
+    grid_rows: int
+    grid_cols: int
+    cell_size_m: float
+    # Deserialized by the router; None until the admin paints & saves
+    grid_data: list[list[str]] | None = None
+
+
+class FloorGridUpdate(BaseModel):
+    """Payload for PUT /floors/{id}/grid — saves the complete painted 2-D grid."""
+    grid_data: list[list[str]]
+

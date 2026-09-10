@@ -13,6 +13,7 @@ import ClassSections from './pages/ClassSections'
 import Generate from './pages/Generate'
 import TeacherDashboard from './pages/TeacherDashboard'
 import Requests from './pages/Requests'
+import CampusLayout from './pages/CampusLayout'
 
 function AppShell() {
   return (
@@ -31,6 +32,7 @@ function AppShell() {
             <Route path="/class-sections" element={<AdminRoute><ClassSections /></AdminRoute>} />
             <Route path="/generate"       element={<AdminRoute><Generate /></AdminRoute>} />
             <Route path="/requests"       element={<AdminRoute><Requests /></AdminRoute>} />
+            <Route path="/campus-layout"  element={<AdminRoute><CampusLayout /></AdminRoute>} />
 
             {/* Teacher-only route */}
             <Route path="/teacher-dashboard" element={<TeacherRoute><TeacherDashboard /></TeacherRoute>} />

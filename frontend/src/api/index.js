@@ -132,3 +132,47 @@ export const timetablesApi = {
   remove: (id) => api.delete(`/timetables/${id}`),
 }
 
+// ---------------------------------------------------------------------------
+// Campus Layout — Campus / Building / Floor
+// ---------------------------------------------------------------------------
+
+export const campusApi = {
+  /** GET /api/v1/campuses */
+  list: () => api.get('/campuses'),
+  /** GET /api/v1/campuses/{id} — includes nested buildings */
+  get: (id) => api.get(`/campuses/${id}`),
+  /** POST /api/v1/campuses */
+  create: (data) => api.post('/campuses', data),
+  /** PATCH /api/v1/campuses/{id} */
+  update: (id, data) => api.patch(`/campuses/${id}`, data),
+  /** DELETE /api/v1/campuses/{id} */
+  remove: (id) => api.delete(`/campuses/${id}`),
+  /** GET /api/v1/campuses/{campusId}/buildings */
+  buildings: (campusId) => api.get(`/campuses/${campusId}/buildings`),
+}
+
+export const buildingsApi = {
+  /** POST /api/v1/buildings */
+  create: (data) => api.post('/buildings', data),
+  /** GET /api/v1/buildings/{id} */
+  get: (id) => api.get(`/buildings/${id}`),
+  /** PATCH /api/v1/buildings/{id} */
+  update: (id, data) => api.patch(`/buildings/${id}`, data),
+  /** DELETE /api/v1/buildings/{id} */
+  remove: (id) => api.delete(`/buildings/${id}`),
+  /** GET /api/v1/buildings/{buildingId}/floors */
+  floors: (buildingId) => api.get(`/buildings/${buildingId}/floors`),
+}
+
+export const floorsApi = {
+  /** POST /api/v1/floors */
+  create: (data) => api.post('/floors', data),
+  /** GET /api/v1/floors/{id} — includes deserialized grid_data */
+  get: (id) => api.get(`/floors/${id}`),
+  /** PATCH /api/v1/floors/{id} — update metadata (name, level, scale) */
+  update: (id, data) => api.patch(`/floors/${id}`, data),
+  /** PUT /api/v1/floors/{id}/grid — save the full painted 2-D grid */
+  saveGrid: (id, gridData) => api.put(`/floors/${id}/grid`, { grid_data: gridData }),
+  /** DELETE /api/v1/floors/{id} */
+  remove: (id) => api.delete(`/floors/${id}`),
+}

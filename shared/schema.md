@@ -118,3 +118,61 @@ This document is the canonical reference for all entity field names shared betwe
 - Update → `PATCH /api/v1/<resource>/{id}` → 200 (partial, exclude_none)
 - Delete → `DELETE /api/v1/<resource>/{id}` → 200 `{ "message": "..." }`
 - Errors → `{ "detail": "..." }` or `{ "detail": [{ "msg": "..." }] }`
+
+---
+
+## Campus Layout (Phase 7a/7b)
+
+### Campus
+
+| Field         | Type            | Notes                          |
+|---------------|-----------------|--------------------------------|
+| `id`          | `string`        | UUID                           |
+| `name`        | `string`        | max 120 chars, unique          |
+| `description` | `string\|null`  | optional                       |
+| `created_at`  | `string`        | ISO 8601                       |
+| `updated_at`  | `string`        | ISO 8601                       |
+
+**Extra endpoint:** `GET /api/v1/campuses/{id}/buildings` → `BuildingOut[]`
+
+---
+
+### Building
+
+| Field        | Type     | Notes                                            |
+|--------------|----------|--------------------------------------------------|
+| `id`         | `string` | UUID                                             |
+| `campus_id`  | `string` | FK → Campus                                      |
+| `name`       | `string` | max 120 chars                                    |
+| `code`       | `string` | max 20 chars, unique per campus                  |
+| `pos_x`      | `integer`| x-position on campus map (px)                   |
+| `pos_y`      | `integer`| y-position on campus map (px)                   |
+| `width`      | `integer`| box width on campus map (px, min 40)            |
+| `height`     | `integer`| box height on campus map (px, min 30)           |
+| `color`      | `string` | hex color, max 9 chars (e.g. `#6366f1`)         |
+| `floors`     | `FloorSummary[]` | nested (id, name, level)               |
+| `created_at` | `string` | ISO 8601                                         |
+| `updated_at` | `string` | ISO 8601                                         |
+
+**Extra endpoint:** `GET /api/v1/buildings/{id}/floors` → `FloorOut[]`
+
+---
+
+### Floor
+
+| Field          | Type               | Notes                                           |
+|----------------|--------------------|-------------------------------------------------|
+| `id`           | `string`           | UUID                                            |
+| `building_id`  | `string`           | FK → Building                                   |
+| `name`         | `string`           | max 120 chars                                   |
+| `level`        | `integer`          | 0 = ground, -1 = basement, etc.                 |
+| `grid_rows`    | `integer`          | 5–200                                           |
+| `grid_cols`    | `integer`          | 5–200                                           |
+| `cell_size_m`  | `float`            | real-world scale — metres per cell              |
+| `grid_data`    | `string[][]|null`  | 2-D array of CellType; null until first save    |
+| `created_at`   | `string`           | ISO 8601                                        |
+| `updated_at`   | `string`           | ISO 8601                                        |
+
+**CellType values:** `"empty"` \| `"wall"` \| `"corridor"` \| `"stairs"` \| `"entrance"`
+
+**Extra endpoint:** `PUT /api/v1/floors/{id}/grid` — body: `{ "grid_data": string[][] }` → validates dimensions + cell values, persists JSON.

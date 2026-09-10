@@ -19,6 +19,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     SmallInteger,
@@ -321,3 +322,96 @@ class TimetableSlot(Base):
     is_locked:     Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     timetable: Mapped["Timetable"] = relationship("Timetable", back_populates="slots")
+
+
+# ---------------------------------------------------------------------------
+# Campus  (top-level physical container)
+# ---------------------------------------------------------------------------
+class Campus(Base):
+    __tablename__ = "campuses"
+
+    id:          Mapped[str]      = mapped_column(String(36), primary_key=True, default=_uuid)
+    name:        Mapped[str]      = mapped_column(String(120), nullable=False, unique=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at:  Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at:  Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    buildings: Mapped[list["Building"]] = relationship(
+        "Building", back_populates="campus", cascade="all, delete-orphan"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Building  (belongs to a campus; has a position on the campus map)
+# ---------------------------------------------------------------------------
+class Building(Base):
+    __tablename__ = "buildings"
+
+    id:        Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    campus_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("campuses.id", ondelete="CASCADE"), nullable=False
+    )
+    name:   Mapped[str] = mapped_column(String(120), nullable=False)
+    code:   Mapped[str] = mapped_column(String(20),  nullable=False)
+    # Position / size on the campus overview map (arbitrary units / pixels)
+    pos_x:  Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    pos_y:  Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    width:  Mapped[int] = mapped_column(Integer, nullable=False, default=120)
+    height: Mapped[int] = mapped_column(Integer, nullable=False, default=80)
+    color:  Mapped[str] = mapped_column(String(9), nullable=False, default="#6366f1")  # hex
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        UniqueConstraint("campus_id", "code", name="uq_building_campus_code"),
+    )
+
+    campus: Mapped["Campus"]       = relationship("Campus", back_populates="buildings")
+    floors: Mapped[list["Floor"]]  = relationship(
+        "Floor", back_populates="building", cascade="all, delete-orphan"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Floor  (belongs to a building; stores the painted grid as serialised JSON)
+# cell_size_m: real-world scale — "1 cell = N metres"
+# grid_data:   JSON string representing a 2-D list[list[str]] of CellType values:
+#              "empty" | "wall" | "corridor" | "stairs" | "entrance"
+# ---------------------------------------------------------------------------
+class Floor(Base):
+    __tablename__ = "floors"
+
+    id:          Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    building_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("buildings.id", ondelete="CASCADE"), nullable=False
+    )
+    name:         Mapped[str]         = mapped_column(String(120), nullable=False)
+    level:        Mapped[int]         = mapped_column(SmallInteger, nullable=False, default=0)
+    grid_rows:    Mapped[int]         = mapped_column(Integer, nullable=False, default=20)
+    grid_cols:    Mapped[int]         = mapped_column(Integer, nullable=False, default=30)
+    cell_size_m:  Mapped[float]       = mapped_column(Float,   nullable=False, default=1.0)
+    # Serialised grid — None until the admin paints and saves
+    grid_data:    Mapped[str | None]  = mapped_column(Text, nullable=True)
+    created_at:   Mapped[datetime]    = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at:   Mapped[datetime]    = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        UniqueConstraint("building_id", "level", name="uq_floor_building_level"),
+        CheckConstraint("grid_rows >= 5 AND grid_rows <= 200", name="ck_floor_rows_range"),
+        CheckConstraint("grid_cols >= 5 AND grid_cols <= 200", name="ck_floor_cols_range"),
+        CheckConstraint("cell_size_m > 0",                    name="ck_floor_cell_size_positive"),
+    )
+
+    building: Mapped["Building"] = relationship("Building", back_populates="floors")
