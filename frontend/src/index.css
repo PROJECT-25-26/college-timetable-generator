@@ -189,69 +189,343 @@ body {
   box-shadow: 0 0 0 3px rgb(99 102 241 / 0.5), 0 8px 24px rgb(0 0 0 / 0.4);
 }
 
-/* ─── Grid painter ───────────────────────────────────────────── */
-.grid-painter-wrap {
+/* ─── SVG Floor Grid Painter ─────────────────────────────────── */
+
+/* Root: three-column layout  [palette | canvas | settings] */
+.fgp-root {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   height: 100%;
   overflow: hidden;
+  background: #0d0f1a;
 }
 
-.grid-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid rgb(255 255 255 / 0.08);
-  background: rgb(255 255 255 / 0.02);
+/* ── Left palette ─────────────────────────────────────────────── */
+.fgp-palette {
+  width: 76px;
   flex-shrink: 0;
-  flex-wrap: wrap;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.3rem;
+  padding: 0.75rem 0.4rem;
+  border-right: 1px solid rgb(255 255 255 / 0.07);
+  background: rgb(255 255 255 / 0.02);
+  overflow-y: auto;
 }
 
-.tool-btn {
+.fgp-palette-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #4b5563;
+  text-align: center;
+  margin-bottom: 0.25rem;
+}
+
+.fgp-palette-divider {
+  height: 1px;
+  background: rgb(255 255 255 / 0.07);
+  margin: 0.25rem 0;
+}
+
+.fgp-tool-pill {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.375rem;
-  padding: 0.35rem 0.65rem;
-  border-radius: 0.5rem;
-  font-size: 0.75rem;
+  gap: 0.2rem;
+  padding: 0.5rem 0.25rem;
+  border-radius: 0.6rem;
+  font-size: 0.625rem;
   font-weight: 600;
   border: 1.5px solid transparent;
   cursor: pointer;
-  background: rgb(255 255 255 / 0.05);
-  color: #9ca3af;
-  transition: all 0.15s ease;
+  background: rgb(255 255 255 / 0.04);
+  color: #6b7280;
+  transition: all 0.18s ease;
+  text-align: center;
+  line-height: 1.2;
 }
-.tool-btn:hover { background: rgb(255 255 255 / 0.1); color: #e5e7eb; }
-.tool-btn.active {
-  border-color: currentColor;
-  background: rgb(255 255 255 / 0.08);
-  box-shadow: 0 0 8px rgb(255 255 255 / 0.08);
+.fgp-tool-pill:hover {
+  background: rgb(255 255 255 / 0.09);
+  color: #d1d5db;
+}
+.fgp-tool-pill.active {
+  background: rgb(255 255 255 / 0.07);
+}
+.fgp-tool-pill.eraser { color: #9ca3af; }
+
+.fgp-tool-swatch {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1.5px solid transparent;
+  margin-bottom: 1px;
 }
 
-.grid-canvas-wrap {
+.fgp-tool-name {
+  font-size: 0.575rem;
+  line-height: 1.2;
+  text-align: center;
+  word-break: break-word;
+  max-width: 58px;
+}
+
+.fgp-tool-shortcut {
+  font-size: 0.525rem;
+  opacity: 0.4;
+  font-variant: all-small-caps;
+  letter-spacing: 0.05em;
+}
+
+/* ── Centre column ────────────────────────────────────────────── */
+.fgp-centre {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* Toolbar */
+.fgp-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.75rem;
+  border-bottom: 1px solid rgb(255 255 255 / 0.07);
+  background: rgb(255 255 255 / 0.025);
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+.fgp-active-tool-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  background: rgb(255 255 255 / 0.05);
+  white-space: nowrap;
+}
+
+.fgp-toolbar-sep {
+  width: 1px;
+  height: 18px;
+  background: rgb(255 255 255 / 0.1);
+  flex-shrink: 0;
+}
+
+.fgp-icon-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 0.45rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  cursor: pointer;
+  background: rgb(255 255 255 / 0.05);
+  color: #9ca3af;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.fgp-icon-btn:hover {
+  background: rgb(255 255 255 / 0.1);
+  color: #e5e7eb;
+}
+
+.fgp-zoom-label {
+  font-size: 0.7rem;
+  color: #6b7280;
+  width: 36px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.fgp-save-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: 1.5px solid rgb(99 102 241 / 0.45);
+  cursor: pointer;
+  background: rgb(99 102 241 / 0.15);
+  color: #a5b4fc;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+.fgp-save-btn:hover:not(:disabled) {
+  background: rgb(99 102 241 / 0.28);
+  color: #c7d2fe;
+}
+.fgp-save-btn.saved  { color: #4ade80; border-color: rgb(74 222 128 / 0.4); background: rgb(74 222 128 / 0.1); }
+.fgp-save-btn.error  { color: #f87171; border-color: rgb(248 113 113 / 0.4); background: rgb(248 113 113 / 0.1); }
+.fgp-save-btn.saving { opacity: 0.6; }
+
+/* SVG canvas wrapper */
+.fgp-svg-wrap {
   flex: 1;
   overflow: auto;
-  padding: 1rem;
+  padding: 1.25rem;
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
+  /* dot-grid background */
+  background:
+    radial-gradient(circle at 50% 50%, rgb(99 102 241 / 0.035) 0%, transparent 70%),
+    radial-gradient(rgb(255 255 255 / 0.07) 1px, transparent 1px);
+  background-size: 100% 100%, 24px 24px;
 }
 
-.grid-status-bar {
+/* Status bar */
+.fgp-status-bar {
   flex-shrink: 0;
-  padding: 0.4rem 0.75rem;
-  border-top: 1px solid rgb(255 255 255 / 0.08);
-  font-size: 0.7rem;
+  padding: 0.35rem 0.75rem;
+  border-top: 1px solid rgb(255 255 255 / 0.07);
+  font-size: 0.685rem;
   color: #6b7280;
   display: flex;
   align-items: center;
   gap: 1rem;
   background: rgb(255 255 255 / 0.02);
   flex-wrap: wrap;
+  overflow: hidden;
+}
+.fgp-stat-label { color: #4b5563; margin-right: 0.2rem; }
+.fgp-stat-val   { color: #d1d5db; }
+
+/* ── Right settings panel ─────────────────────────────────────── */
+.fgp-settings-panel {
+  width: 220px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid rgb(255 255 255 / 0.08);
+  background: rgb(255 255 255 / 0.025);
+  overflow-y: auto;
 }
 
-/* ─── Cell-type legend colors (used in status bar dots) ──────── */
+.fgp-settings-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid rgb(255 255 255 / 0.07);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+.fgp-settings-body {
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.fgp-settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.6rem;
+  border-radius: 0.6rem;
+  background: rgb(255 255 255 / 0.03);
+  border: 1px solid rgb(255 255 255 / 0.06);
+}
+
+.fgp-settings-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #4b5563;
+}
+
+.fgp-settings-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.fgp-settings-field-label {
+  font-size: 0.675rem;
+  color: #9ca3af;
+  flex-shrink: 0;
+  min-width: 48px;
+}
+
+.fgp-settings-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.72rem;
+  border-radius: 0.45rem;
+  background: rgb(255 255 255 / 0.06);
+  border: 1px solid rgb(255 255 255 / 0.1);
+  color: #e5e7eb;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.fgp-settings-input:focus {
+  border-color: rgb(99 102 241 / 0.55);
+  background: rgb(255 255 255 / 0.09);
+}
+
+.fgp-footprint-preview {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 0.45rem;
+  background: rgb(99 102 241 / 0.08);
+  border: 1px solid rgb(99 102 241 / 0.2);
+}
+.fgp-footprint-value {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #a5b4fc;
+}
+.fgp-footprint-x {
+  font-size: 0.68rem;
+  color: #4b5563;
+}
+
+.fgp-apply-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0.45rem;
+  border-radius: 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: linear-gradient(135deg, rgb(79 70 229 / 0.85), rgb(99 102 241 / 0.75));
+  color: #e0e7ff;
+  border: 1px solid rgb(129 140 248 / 0.35);
+  transition: all 0.18s ease;
+  box-shadow: 0 2px 8px rgb(79 70 229 / 0.25);
+}
+.fgp-apply-btn:hover {
+  background: linear-gradient(135deg, rgb(79 70 229), rgb(99 102 241 / 0.9));
+  box-shadow: 0 4px 14px rgb(79 70 229 / 0.4);
+  color: #fff;
+}
+
+/* ─── Legacy cell-dot classes (kept for backward compat) ──────── */
 .cell-dot-wall     { background: #475569; }
 .cell-dot-corridor { background: #a3e635; }
 .cell-dot-stairs   { background: #facc15; }

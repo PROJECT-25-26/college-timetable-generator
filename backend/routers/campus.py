@@ -172,6 +172,7 @@ async def create_building(payload: BuildingCreate, db: AsyncSession = Depends(ge
 
 
 @router.get("/buildings/{building_id}", response_model=BuildingOut)
+@router.get("/buildings/{building_id}/", response_model=BuildingOut, include_in_schema=False)
 async def get_building(building_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Building)
@@ -219,6 +220,7 @@ async def delete_building(building_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/buildings/{building_id}/floors", response_model=list[FloorOut])
+@router.get("/buildings/{building_id}/floors/", response_model=list[FloorOut], include_in_schema=False)
 async def list_building_floors(building_id: str, db: AsyncSession = Depends(get_db)):
     building = await db.get(Building, building_id)
     if not building:
@@ -251,6 +253,7 @@ async def create_floor(payload: FloorCreate, db: AsyncSession = Depends(get_db))
 
 
 @router.get("/floors/{floor_id}", response_model=FloorOut)
+@router.get("/floors/{floor_id}/", response_model=FloorOut, include_in_schema=False)
 async def get_floor(floor_id: str, db: AsyncSession = Depends(get_db)):
     floor = await db.get(Floor, floor_id)
     if not floor:

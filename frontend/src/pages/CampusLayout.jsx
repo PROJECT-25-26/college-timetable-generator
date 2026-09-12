@@ -178,7 +178,7 @@ function FloorModal({ title, initial, onConfirm, onClose }) {
 // ---------------------------------------------------------------------------
 // Campus Map — draggable building boxes
 // ---------------------------------------------------------------------------
-function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddBuilding, selectedBuildingId, onDeleteBuilding, onRenameBuilding, onAddFloor }) {
+function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddBuilding, selectedBuildingId, onDeleteBuilding, onRenameBuilding, onAddFloor, onSelectFloor }) {
   const mapRef     = useRef(null)
   const dragging   = useRef(null)   // { id, startX, startY, origX, origY }
 
@@ -271,16 +271,56 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
                 background: b.color + '22',
               }}
               onMouseDown={(e) => { startDrag(e, b); onBuildingSelect(b.id) }}
+              onDoubleClick={(e) => {
+                e.stopPropagation()
+                if (b.floors && b.floors.length > 0 && onSelectFloor) {
+                  onSelectFloor({ ...b.floors[0], building_id: b.id })
+                }
+              }}
               onClick={(e) => e.stopPropagation()}
+              title={b.floors?.length ? "Double click to open floor grid painter" : undefined}
             >
               <Building2 size={16} style={{ color: b.color }} className="mb-0.5" />
               <span className="text-[11px] font-bold leading-tight px-1 text-center truncate max-w-full" style={{ color: b.color }}>
                 {b.name}
               </span>
               <span className="text-[9px] opacity-60 font-mono">{b.code}</span>
-              <span className="text-[10px] font-semibold px-2 py-0.5 mt-0.5 rounded-full bg-black/40 text-white/90 border border-white/10 shadow-sm">
+              
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (b.floors && b.floors.length > 0 && onSelectFloor) {
+                    onSelectFloor({ ...b.floors[0], building_id: b.id })
+                  } else {
+                    onAddFloor(b)
+                  }
+                }}
+                className="text-[10px] font-semibold px-2 py-0.5 mt-0.5 rounded-full bg-black/50 text-gray-200 hover:text-indigo-300 hover:bg-black/80 border border-white/10 hover:border-indigo-500/50 shadow-sm flex items-center gap-1 transition-all"
+                title={b.floors?.length ? "Click to open floor plan drawing canvas" : "Click to add a floor"}
+              >
+                <Layers size={10} className="text-indigo-400" />
                 {b.floors?.length ?? 0} {(b.floors?.length ?? 0) === 1 ? 'floor' : 'floors'}
-              </span>
+              </button>
+
+              {/* Floor quick-links when building is selected */}
+              {selectedBuildingId === b.id && b.floors && b.floors.length > 0 && (
+                <div 
+                  className="flex flex-wrap gap-1 justify-center mt-1 max-w-full px-1"
+                  onClick={e => e.stopPropagation()}
+                >
+                  {b.floors.map(fl => (
+                    <button
+                      key={fl.id}
+                      onClick={() => onSelectFloor && onSelectFloor({ ...fl, building_id: b.id })}
+                      className="px-1.5 py-0.5 text-[9px] rounded font-medium bg-indigo-600/40 hover:bg-indigo-600 text-indigo-100 border border-indigo-400/30 transition-colors"
+                      title={`Open ${fl.name} drawing canvas`}
+                    >
+                      {fl.name}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {/* Context actions (visible when selected) */}
               {selectedBuildingId === b.id && (
@@ -291,21 +331,21 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
                   <button
                     title="Add floor"
                     onClick={() => onAddFloor(b)}
-                    className="w-5 h-5 rounded-full bg-green-600 hover:bg-green-500 flex items-center justify-center transition-colors"
+                    className="w-5 h-5 rounded-full bg-green-600 hover:bg-green-500 flex items-center justify-center transition-colors shadow-md"
                   >
                     <Plus size={9} className="text-white" />
                   </button>
                   <button
                     title="Rename"
                     onClick={() => onRenameBuilding(b)}
-                    className="w-5 h-5 rounded-full bg-indigo-600 hover:bg-indigo-500 flex items-center justify-center transition-colors"
+                    className="w-5 h-5 rounded-full bg-indigo-600 hover:bg-indigo-500 flex items-center justify-center transition-colors shadow-md"
                   >
                     <Edit2 size={9} className="text-white" />
                   </button>
                   <button
                     title="Delete building"
                     onClick={() => onDeleteBuilding(b)}
-                    className="w-5 h-5 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center transition-colors"
+                    className="w-5 h-5 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center transition-colors shadow-md"
                   >
                     <Trash2 size={9} className="text-white" />
                   </button>
@@ -685,6 +725,9 @@ export default function CampusLayout() {
         setExpandedCampuses(prev => new Set([...prev, targetCampusId]))
         loadBuildings(targetCampusId)
       }
+
+      // Auto-open the floor grid painter for the newly created floor
+      selectFloor(floorSummary)
     } catch (err) {
       console.error('Failed to create floor:', err)
     }
@@ -791,6 +834,7 @@ export default function CampusLayout() {
           onDeleteBuilding={handleDeleteBuilding}
           onRenameBuilding={(b) => setModal({ type: 'rename-building', data: b })}
           onAddFloor={(b) => setModal({ type: 'floor', data: b })}
+          onSelectFloor={selectFloor}
         />
       )
     }
