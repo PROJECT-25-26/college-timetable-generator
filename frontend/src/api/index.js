@@ -167,12 +167,20 @@ export const buildingsApi = {
 export const floorsApi = {
   /** POST /api/v1/floors */
   create: (data) => api.post('/floors', data),
-  /** GET /api/v1/floors/{id} — includes deserialized grid_data */
+  /** GET /api/v1/floors/{id} — includes deserialized grid_data and room_links */
   get: (id) => api.get(`/floors/${id}`),
   /** PATCH /api/v1/floors/{id} — update metadata (name, level, scale) */
   update: (id, data) => api.patch(`/floors/${id}`, data),
-  /** PUT /api/v1/floors/{id}/grid — save the full painted 2-D grid */
-  saveGrid: (id, gridData) => api.put(`/floors/${id}/grid`, { grid_data: gridData }),
+  /** PUT /api/v1/floors/{id}/grid — save the full painted 2-D grid + room links */
+  saveGrid: (id, gridData, roomLinks = null) =>
+    api.put(`/floors/${id}/grid`, { grid_data: gridData, room_links: roomLinks }),
   /** DELETE /api/v1/floors/{id} */
   remove: (id) => api.delete(`/floors/${id}`),
+}
+
+export const staffroomsApi = {
+  /** GET /api/v1/departments/staffrooms — list all staffrooms */
+  list: () => api.get('/departments/staffrooms'),
+  /** GET /api/v1/departments/staffrooms/{id} */
+  get: (id) => api.get(`/departments/staffrooms/${id}`),
 }

@@ -384,7 +384,9 @@ class Building(Base):
 # Floor  (belongs to a building; stores the painted grid as serialised JSON)
 # cell_size_m: real-world scale — "1 cell = N metres"
 # grid_data:   JSON string representing a 2-D list[list[str]] of CellType values:
-#              "empty" | "wall" | "corridor" | "stairs" | "entrance"
+#              "empty" | "wall" | "corridor" | "stairs" | "entrance" | "room" | "staffroom"
+# room_links:  JSON string — list of blob-record links:
+#              [{"blob_id": str, "cells": [[r,c],...], "record_type": "room"|"staffroom", "record_id": str|null}]
 # ---------------------------------------------------------------------------
 class Floor(Base):
     __tablename__ = "floors"
@@ -400,6 +402,8 @@ class Floor(Base):
     cell_size_m:  Mapped[float]       = mapped_column(Float,   nullable=False, default=1.0)
     # Serialised grid — None until the admin paints and saves
     grid_data:    Mapped[str | None]  = mapped_column(Text, nullable=True)
+    # Serialised blob-to-record link map — JSON, None until links are defined
+    room_links:   Mapped[str | None]  = mapped_column(Text, nullable=True)
     created_at:   Mapped[datetime]    = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

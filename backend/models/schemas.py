@@ -21,7 +21,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 # Shared base
 # ---------------------------------------------------------------------------
 class _TimestampMixin(BaseModel):
-    created_at: datetime
+    created_at: datetime | None = None
     updated_at: datetime | None = None
 
 
@@ -58,13 +58,25 @@ class StaffRoomUpdate(BaseModel):
     label: str | None = Field(None, max_length=120)
 
 
+class RoomLocationOut(BaseModel):
+    floor_id: str
+    floor_name: str | None = None
+    building_id: str | None = None
+    building_name: str | None = None
+    cells: list[dict[str, int]]
+    bounding_box: dict[str, int] | None = None
+
+
 class StaffRoomOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
     department_id: str
     label: str
+    department_name: str | None = None
+    department_code: str | None = None
     created_at: datetime
+    location: RoomLocationOut | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -265,6 +277,7 @@ class RoomOut(_TimestampMixin):
     room_type: str
     lab_type: str | None = None
     capacity: int
+    location: RoomLocationOut | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -484,9 +497,13 @@ class FloorOut(_TimestampMixin):
     cell_size_m: float
     # Deserialized by the router; None until the admin paints & saves
     grid_data: list[list[str]] | None = None
+    # Deserialized blob-to-record links; None until admin links cells to rooms
+    room_links: list | None = None
 
 
 class FloorGridUpdate(BaseModel):
     """Payload for PUT /floors/{id}/grid — saves the complete painted 2-D grid."""
     grid_data: list[list[str]]
+    # Optional blob-to-record link map; replaces the existing room_links if provided
+    room_links: list | None = None
 

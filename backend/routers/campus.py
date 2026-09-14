@@ -50,7 +50,7 @@ from models.schemas import (
 
 router = APIRouter(tags=["Campus Layout"])
 
-_VALID_CELL_TYPES = {"empty", "wall", "corridor", "stairs", "entrance"}
+_VALID_CELL_TYPES = {"empty", "wall", "corridor", "stairs", "entrance", "room", "staffroom"}
 
 
 # ===========================================================================
@@ -66,9 +66,17 @@ def _parse_grid(floor: Floor) -> list[list[str]] | None:
 
 
 def _floor_to_out(floor: Floor) -> dict:
-    """Convert Floor ORM row to a dict suitable for FloorOut, with grid parsed."""
+    """Convert Floor ORM row to a dict suitable for FloorOut, with grid and room_links parsed."""
     d = {c.key: getattr(floor, c.key) for c in floor.__table__.columns}
     d["grid_data"] = _parse_grid(floor)
+    # Parse room_links the same way
+    if floor.room_links is None:
+        d["room_links"] = None
+    else:
+        try:
+            d["room_links"] = json.loads(floor.room_links)
+        except (json.JSONDecodeError, ValueError):
+            d["room_links"] = None
     return d
 
 
@@ -310,6 +318,9 @@ async def save_floor_grid(floor_id: str, payload: FloorGridUpdate, db: AsyncSess
             )
 
     floor.grid_data = json.dumps(grid, separators=(",", ":"))
+    # Persist room_links if provided; leave existing if not sent
+    if payload.room_links is not None:
+        floor.room_links = json.dumps(payload.room_links, separators=(",", ":"))
     await db.flush()
     await db.refresh(floor)
     return _floor_to_out(floor)

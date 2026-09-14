@@ -195,6 +195,8 @@ body {
 .fgp-root {
   display: flex;
   flex-direction: row;
+  flex: 1;
+  min-height: 0;
   height: 100%;
   overflow: hidden;
   background: #0d0f1a;
@@ -530,3 +532,227 @@ body {
 .cell-dot-corridor { background: #a3e635; }
 .cell-dot-stairs   { background: #facc15; }
 .cell-dot-entrance { background: #38bdf8; }
+.cell-dot-room     { background: #3b82f6; }
+.cell-dot-staffroom { background: #a855f7; }
+
+/* ─── Blob Link Panel ─────────────────────────────────────────── */
+.fgp-blob-panel {
+  width: 240px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid rgb(255 255 255 / 0.08);
+  background: rgb(255 255 255 / 0.025);
+  overflow-y: auto;
+  animation: slideInRight 0.22s ease-out;
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0);    }
+}
+
+.fgp-blob-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid rgb(255 255 255 / 0.07);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+.fgp-blob-panel-body {
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  flex: 1;
+}
+
+.fgp-blob-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.fgp-blob-type-badge.room {
+  background: rgb(59 130 246 / 0.15);
+  color: #93c5fd;
+  border-color: rgb(59 130 246 / 0.35);
+}
+
+.fgp-blob-type-badge.staffroom {
+  background: rgb(168 85 247 / 0.15);
+  color: #d8b4fe;
+  border-color: rgb(168 85 247 / 0.35);
+}
+
+.fgp-blob-stat {
+  font-size: 0.67rem;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.fgp-blob-select {
+  width: 100%;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.72rem;
+  border-radius: 0.45rem;
+  background: rgb(255 255 255 / 0.07);
+  border: 1px solid rgb(255 255 255 / 0.12);
+  color: #e5e7eb;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.fgp-blob-select:focus {
+  border-color: rgb(99 102 241 / 0.55);
+  background: rgb(255 255 255 / 0.1);
+}
+
+.fgp-blob-select option {
+  background: #1e2030;
+  color: #e5e7eb;
+}
+
+.fgp-blob-link-btn {
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  border-radius: 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1.5px solid rgb(99 102 241 / 0.45);
+  background: rgb(99 102 241 / 0.15);
+  color: #a5b4fc;
+  transition: all 0.15s ease;
+}
+
+.fgp-blob-link-btn:hover {
+  background: rgb(99 102 241 / 0.28);
+  color: #c7d2fe;
+}
+
+.fgp-blob-unlink-btn {
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.5rem;
+  font-size: 0.69rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  background: transparent;
+  color: #6b7280;
+  transition: all 0.15s ease;
+}
+
+.fgp-blob-unlink-btn:hover {
+  background: rgb(239 68 68 / 0.1);
+  border-color: rgb(239 68 68 / 0.35);
+  color: #fca5a5;
+}
+
+.fgp-blob-dismiss-btn {
+  width: 100%;
+  padding: 0.3rem 0.5rem;
+  border-radius: 0.5rem;
+  font-size: 0.69rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: #4b5563;
+  transition: color 0.15s ease;
+}
+
+.fgp-blob-dismiss-btn:hover { color: #9ca3af; }
+
+.fgp-blob-linked-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.5rem;
+  background: rgb(34 197 94 / 0.1);
+  border: 1px solid rgb(34 197 94 / 0.25);
+  font-size: 0.68rem;
+  color: #86efac;
+  word-break: break-all;
+}
+
+.fgp-blob-divider {
+  height: 1px;
+  background: rgb(255 255 255 / 0.07);
+  margin: 0.1rem 0;
+}
+
+.fgp-blob-list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.45rem;
+  font-size: 0.67rem;
+  cursor: pointer;
+  background: rgb(255 255 255 / 0.03);
+  border: 1px solid rgb(255 255 255 / 0.07);
+  color: #9ca3af;
+  transition: all 0.13s ease;
+}
+
+.fgp-blob-list-item:hover {
+  background: rgb(255 255 255 / 0.07);
+  color: #e5e7eb;
+}
+
+.fgp-blob-list-item.active {
+  background: rgb(99 102 241 / 0.15);
+  border-color: rgb(99 102 241 / 0.35);
+  color: #a5b4fc;
+}
+
+/* ─── Walkability warning bar ─────────────────────────────────── */
+.fgp-warning-bar {
+  flex-shrink: 0;
+  padding: 0.4rem 0.75rem;
+  border-top: 1px solid rgb(234 179 8 / 0.25);
+  background: rgb(234 179 8 / 0.06);
+  font-size: 0.68rem;
+  color: #fbbf24;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  animation: fadeIn 0.25s ease-out;
+}
+
+.fgp-warning-bar-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.fgp-warning-bar-dismiss {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  cursor: pointer;
+  color: #92400e;
+  background: none;
+  border: none;
+  padding: 0 0.25rem;
+  transition: color 0.13s;
+}
+
+.fgp-warning-bar-dismiss:hover { color: #fbbf24; }
+

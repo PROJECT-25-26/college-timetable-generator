@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Plus, Upload } from 'lucide-react'
+import { MapPin, Plus, Upload } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { roomsApi } from '../api'
 import { useToast } from '../hooks/useToast'
 import DataTable from '../components/DataTable'
@@ -157,6 +158,25 @@ const COLUMNS = [
     key: 'capacity',
     label: 'Capacity',
     render: (v) => <span className="text-gray-400">{v} seats</span>,
+  },
+  {
+    key: 'location',
+    label: 'Floor Location',
+    render: (loc) => loc ? (
+      <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
+        <MapPin size={12} className="shrink-0" />
+        <span>{loc.building_name ?? 'Building'} ({loc.floor_name ?? 'Floor'})</span>
+      </div>
+    ) : (
+      <Link
+        to="/campus-layout"
+        className="inline-flex items-center gap-1 text-[11px] text-gray-500 hover:text-indigo-300 transition-colors"
+        title="Open Campus Layout to paint and link room on floor map"
+      >
+        <span>Not linked</span>
+        <span className="text-indigo-400 hover:underline">→ Link on map</span>
+      </Link>
+    ),
   },
 ]
 

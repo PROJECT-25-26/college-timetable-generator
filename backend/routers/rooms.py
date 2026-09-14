@@ -7,16 +7,37 @@ from models.orm import Room
 from models.schemas import MessageResponse, RoomCreate, RoomOut, RoomUpdate
 from routers.csv_utils import CsvRowError, parse_csv_bytes, parse_int_field, raise_if_errors
 
+from routers.location_utils import get_locations_for_records
+
 router = APIRouter(prefix="/rooms", tags=["Rooms"])
 
 _VALID_ROOM_TYPES = {"classroom", "lab", "seminar"}
+
+
+from datetime import datetime
+
+
+def _room_to_out(room: Room, locations: dict[str, dict]) -> RoomOut:
+    return RoomOut(
+        id=room.id,
+        name=room.name,
+        code=room.code,
+        room_type=room.room_type,
+        lab_type=room.lab_type,
+        capacity=room.capacity,
+        created_at=room.created_at or datetime.now(),
+        updated_at=room.updated_at,
+        location=locations.get(room.id),
+    )
 
 
 @router.get("", response_model=list[RoomOut])
 @router.get("/", response_model=list[RoomOut])
 async def list_rooms(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Room).order_by(Room.name))
-    return result.scalars().all()
+    rooms = result.scalars().all()
+    locations = await get_locations_for_records(db)
+    return [_room_to_out(r, locations) for r in rooms]
 
 
 @router.post("", response_model=RoomOut, status_code=status.HTTP_201_CREATED)
@@ -136,7 +157,8 @@ async def get_room(room_id: str, db: AsyncSession = Depends(get_db)):
     room = await db.get(Room, room_id)
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
-    return room
+    locations = await get_locations_for_records(db)
+    return _room_to_out(room, locations)
 
 
 @router.patch("/{room_id}", response_model=RoomOut)

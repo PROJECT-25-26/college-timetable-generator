@@ -1059,21 +1059,7 @@ export default function CampusLayout() {
           })}
         </nav>
 
-        {/* Legend footer */}
-        <div className="px-3 py-2.5 border-t border-white/10 flex-shrink-0 space-y-1">
-          <p className="text-[10px] text-gray-600 font-semibold uppercase tracking-widest mb-1">Legend</p>
-          {[
-            { label: 'Wall',     color: '#475569' },
-            { label: 'Corridor', color: '#a3e635' },
-            { label: 'Stairs',   color: '#facc15' },
-            { label: 'Entrance', color: '#38bdf8' },
-          ].map(item => (
-            <div key={item.label} className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: item.color }} />
-              <span className="text-[11px] text-gray-500">{item.label}</span>
-            </div>
-          ))}
-        </div>
+
       </div>
 
       {/* ══════════════════════════════════════════════════════════════
