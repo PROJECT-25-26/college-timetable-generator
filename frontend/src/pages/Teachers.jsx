@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Star, Check, X } from 'lucide-react'
+import { Plus, Trash2, Star, Check, X, Upload } from 'lucide-react'
 import { teachersApi, departmentsApi, subjectsApi } from '../api'
 import { useToast } from '../hooks/useToast'
 import DataTable from '../components/DataTable'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Badge from '../components/Badge'
+import CsvImportModal from '../components/CsvImportModal'
 
 /* ──────────────────────────────────────────────
    Constants / helpers
@@ -47,11 +48,27 @@ const EMPTY_FORM = () => ({
   name: '',
   email: '',
   department_id: '',
-  max_periods_per_day: 6,
   max_periods_per_week: 25,
   subject_links: [],
   unavailable_slots: [],
 })
+
+/* ──────────────────────────────────────────────
+   Teacher CSV template (shown in import wizard)
+────────────────────────────────────────────── */
+const TEACHER_CSV_TEMPLATE = `name,email,department_code,max_periods_per_week,max_periods_per_day,unavailable_slots,subject_1,subject_2,subject_3
+Dr. Alice,alice@college.edu,CS,20,5,,MATH101:preferred,CS101:preferred,PHY201:willing
+Dr. Bob,,EE,25,5,Mon:1,EE101:preferred,MATH101:willing,PHY201:avoid
+Dr. Carol,carol@college.edu,CS,20,5,"Mon:1,Wed:3",CS101:preferred,PHY201:willing,
+`
+
+const TEACHER_CSV_HINT =
+  'Columns: name (required), email, department_code, max_periods_per_week, ' +
+  'max_periods_per_day (accepted, ignored), ' +
+  'unavailable_slots (e.g. Mon:1,Wed:3 — leave blank if none), ' +
+  'then any number of subject columns in the format SUBJECT_CODE:preferred|willing|avoid. ' +
+  'Preference rank is determined by column order (left = rank 1). ' +
+  'Blank subject cells are skipped.'
 
 function slotKey(day, period) { return `${day}-${period}` }
 
@@ -274,29 +291,16 @@ function TeacherForm({ form, errors, onChange, departments, subjects }) {
             ))}
           </select>
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="form-label">Max Periods / Day</label>
-            <input
-              type="number"
-              min={1}
-              className={`form-input ${errors.max_periods_per_day ? 'error' : ''}`}
-              value={form.max_periods_per_day}
-              onChange={(e) => onChange('max_periods_per_day', Number(e.target.value))}
-            />
-            {errors.max_periods_per_day && <p className="form-error">{errors.max_periods_per_day}</p>}
-          </div>
-          <div>
-            <label className="form-label">Max Periods / Week</label>
-            <input
-              type="number"
-              min={1}
-              className={`form-input ${errors.max_periods_per_week ? 'error' : ''}`}
-              value={form.max_periods_per_week}
-              onChange={(e) => onChange('max_periods_per_week', Number(e.target.value))}
-            />
-            {errors.max_periods_per_week && <p className="form-error">{errors.max_periods_per_week}</p>}
-          </div>
+        <div>
+          <label className="form-label">Max Periods / Week</label>
+          <input
+            type="number"
+            min={1}
+            className={`form-input ${errors.max_periods_per_week ? 'error' : ''}`}
+            value={form.max_periods_per_week}
+            onChange={(e) => onChange('max_periods_per_week', Number(e.target.value))}
+          />
+          {errors.max_periods_per_week && <p className="form-error">{errors.max_periods_per_week}</p>}
         </div>
       </div>
 
@@ -330,9 +334,7 @@ function TeacherForm({ form, errors, onChange, departments, subjects }) {
 function validate(form) {
   const e = {}
   if (!form.name.trim()) e.name = 'Name is required'
-  if (form.max_periods_per_day < 1) e.max_periods_per_day = 'Must be at least 1'
-  if (form.max_periods_per_week < form.max_periods_per_day)
-    e.max_periods_per_week = `Must be ≥ max/day (${form.max_periods_per_day})`
+  if (form.max_periods_per_week < 1) e.max_periods_per_week = 'Must be at least 1'
   return e
 }
 
@@ -379,10 +381,10 @@ const COLUMNS = (departments) => [
     },
   },
   {
-    key: 'max_periods_per_day',
+    key: 'max_periods_per_week',
     label: 'Max Periods',
-    render: (v, row) => (
-      <span className="text-gray-400 text-xs">{v}/day · {row.max_periods_per_week}/week</span>
+    render: (v) => (
+      <span className="text-gray-400 text-xs">{v}/week</span>
     ),
   },
   {
@@ -409,6 +411,7 @@ export default function Teachers() {
   const [saving, setSaving]       = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting]         = useState(false)
+  const [csvOpen, setCsvOpen]           = useState(false)
 
   async function load() {
     setLoading(true)
@@ -439,7 +442,6 @@ export default function Teachers() {
       name: row.name,
       email: row.email ?? '',
       department_id: row.department_id ?? '',
-      max_periods_per_day: row.max_periods_per_day,
       max_periods_per_week: row.max_periods_per_week,
       subject_links: (row.subject_links ?? []).map((l) => ({
         subject_id: l.subject_id,
@@ -511,14 +513,24 @@ export default function Teachers() {
           <h2 className="text-lg font-semibold text-gray-100">Teachers</h2>
           <p className="text-xs text-gray-500 mt-0.5">Manage staff, subject preferences, and availability</p>
         </div>
-        <button
-          id="teacher-add-btn"
-          onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-white bg-brand-600 hover:bg-brand-500 transition-colors"
-        >
-          <Plus size={16} />
-          Add Teacher
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            id="teacher-import-csv-btn"
+            onClick={() => setCsvOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-gray-300 bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+          >
+            <Upload size={15} />
+            Import CSV
+          </button>
+          <button
+            id="teacher-add-btn"
+            onClick={openCreate}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-white bg-brand-600 hover:bg-brand-500 transition-colors"
+          >
+            <Plus size={16} />
+            Add Teacher
+          </button>
+        </div>
       </div>
 
       <DataTable
@@ -559,6 +571,17 @@ export default function Teachers() {
         entityName={deleteTarget?.name ?? ''}
         entityType="teacher"
         loading={deleting}
+      />
+
+      <CsvImportModal
+        open={csvOpen}
+        onClose={() => setCsvOpen(false)}
+        onSuccess={() => { setCsvOpen(false); load() }}
+        importFn={teachersApi.importCsv}
+        title="Import Teachers from CSV"
+        hint={TEACHER_CSV_HINT}
+        templateRows={TEACHER_CSV_TEMPLATE}
+        templateFilename="teachers_template.csv"
       />
     </div>
   )

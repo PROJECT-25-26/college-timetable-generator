@@ -1,19 +1,33 @@
 import { useEffect, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Upload } from 'lucide-react'
 import { roomsApi } from '../api'
 import { useToast } from '../hooks/useToast'
 import DataTable from '../components/DataTable'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Badge from '../components/Badge'
+import CsvImportModal from '../components/CsvImportModal'
 
-const EMPTY = { name: '', code: '', room_type: 'classroom', capacity: 60 }
+const EMPTY = { name: '', code: '', room_type: 'classroom', lab_type: '', capacity: 60 }
 
 const ROOM_TYPES = [
   { value: 'classroom', label: 'Classroom', variant: 'info' },
   { value: 'lab',       label: 'Lab',       variant: 'warning' },
   { value: 'seminar',   label: 'Seminar',   variant: 'purple' },
 ]
+
+const COMMON_LAB_TYPES = ['programming', 'electronics', 'workshop', 'chemistry', 'physics']
+
+const ROOM_CSV_TEMPLATE = `name,code,room_type,capacity,lab_type
+Main Lecture Hall,LH-01,classroom,120,
+Computer Lab A,CL-A,lab,40,programming
+Electronics Lab 1,EL-01,lab,35,electronics
+Seminar Room 1,SR-01,seminar,30,
+`
+
+const ROOM_CSV_HINT =
+  'Columns: name (required), code (required), room_type (classroom/lab/seminar, default: classroom), ' +
+  'capacity (positive integer, default: 60), lab_type (optional category for lab rooms e.g. programming, electronics).'
 
 function RoomTypeSegment({ value, onChange }) {
   return (
@@ -66,6 +80,37 @@ function RoomForm({ form, errors, onChange }) {
         <label className="form-label">Room Type</label>
         <RoomTypeSegment value={form.room_type} onChange={(v) => onChange('room_type', v)} />
       </div>
+
+      {form.room_type === 'lab' && (
+        <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 space-y-2">
+          <label className="form-label text-amber-300">Lab Category / Type (e.g. programming, electronics)</label>
+          <input
+            className="form-input"
+            placeholder="e.g. programming"
+            value={form.lab_type}
+            maxLength={50}
+            onChange={(e) => onChange('lab_type', e.target.value.toLowerCase())}
+          />
+          <div className="flex items-center gap-1.5 flex-wrap pt-1">
+            <span className="text-[10px] text-gray-400">Suggestions:</span>
+            {COMMON_LAB_TYPES.map((lt) => (
+              <button
+                key={lt}
+                type="button"
+                onClick={() => onChange('lab_type', lt)}
+                className={`px-2 py-0.5 rounded text-[10px] font-medium border transition-colors ${
+                  form.lab_type === lt
+                    ? 'bg-amber-500/30 border-amber-500/50 text-amber-200'
+                    : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200'
+                }`}
+              >
+                {lt}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div>
         <label className="form-label">Capacity (seats)</label>
         <input
@@ -97,10 +142,15 @@ const COLUMNS = [
   {
     key: 'room_type',
     label: 'Type',
-    render: (v) => (
-      <Badge variant={ROOM_TYPE_VARIANT[v] ?? 'default'}>
-        {v.charAt(0).toUpperCase() + v.slice(1)}
-      </Badge>
+    render: (v, r) => (
+      <div className="flex items-center gap-1.5">
+        <Badge variant={ROOM_TYPE_VARIANT[v] ?? 'default'}>
+          {v.charAt(0).toUpperCase() + v.slice(1)}
+        </Badge>
+        {v === 'lab' && r.lab_type && (
+          <Badge variant="warning">{r.lab_type}</Badge>
+        )}
+      </div>
     ),
   },
   {
@@ -121,6 +171,7 @@ export default function Rooms() {
   const [saving, setSaving]       = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting]         = useState(false)
+  const [csvOpen, setCsvOpen]           = useState(false)
 
   async function load() {
     setLoading(true)
@@ -141,7 +192,13 @@ export default function Rooms() {
   }
   function openEdit(row) {
     setEditing(row)
-    setForm({ name: row.name, code: row.code, room_type: row.room_type, capacity: row.capacity })
+    setForm({
+      name: row.name,
+      code: row.code,
+      room_type: row.room_type,
+      lab_type: row.lab_type ?? '',
+      capacity: row.capacity,
+    })
     setErrors({}); setModalOpen(true)
   }
   function handleChange(field, value) {
@@ -193,14 +250,24 @@ export default function Rooms() {
           <h2 className="text-lg font-semibold text-gray-100">Rooms</h2>
           <p className="text-xs text-gray-500 mt-0.5">Classrooms, labs, and seminar halls</p>
         </div>
-        <button
-          id="room-add-btn"
-          onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-white bg-brand-600 hover:bg-brand-500 transition-colors"
-        >
-          <Plus size={16} />
-          Add Room
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            id="room-import-btn"
+            onClick={() => setCsvOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-gray-200 bg-white/8 border border-white/10 hover:bg-white/12 transition-colors"
+          >
+            <Upload size={15} />
+            Import CSV
+          </button>
+          <button
+            id="room-add-btn"
+            onClick={openCreate}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-white bg-brand-600 hover:bg-brand-500 transition-colors"
+          >
+            <Plus size={16} />
+            Add Room
+          </button>
+        </div>
       </div>
 
       <DataTable
@@ -234,6 +301,17 @@ export default function Rooms() {
         entityName={deleteTarget?.name ?? ''}
         entityType="room"
         loading={deleting}
+      />
+
+      <CsvImportModal
+        open={csvOpen}
+        onClose={() => setCsvOpen(false)}
+        onSuccess={() => load()}
+        importFn={roomsApi.importCsv}
+        title="Import Rooms"
+        hint={ROOM_CSV_HINT}
+        templateRows={ROOM_CSV_TEMPLATE}
+        templateFilename="rooms_template.csv"
       />
     </div>
   )

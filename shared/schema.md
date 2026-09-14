@@ -36,7 +36,6 @@ This document is the canonical reference for all entity field names shared betwe
 | `code`                    | `string`           | max 20 chars, unique                           |
 | `lab`                     | `boolean`          | default false — true if this is a lab subject  |
 | `weekly_periods`          | `integer`          | total weekly periods (auto-computed for labs)  |
-| `max_periods_per_day`     | `integer \| null`  | non-lab only, range 1–10                       |
 | `lab_consecutive_periods` | `integer \| null`  | lab only — consecutive periods per session     |
 | `weekly_lab_sessions`     | `integer \| null`  | lab only — number of lab sessions per week     |
 | `created_at`              | `string`           | ISO 8601 datetime                              |
@@ -52,8 +51,7 @@ This document is the canonical reference for all entity field names shared betwe
 | `department_id`        | `string \| null`   | FK → Department (optional)      |
 | `name`                 | `string`           | max 120 chars                   |
 | `email`                | `string \| null`   | unique if provided              |
-| `max_periods_per_day`  | `integer`          | default 6, min 1                |
-| `max_periods_per_week` | `integer`          | default 25, ≥ max_periods_per_day |
+| `max_periods_per_week` | `integer`          | default 25, min 1               |
 | `subject_links`        | `TeacherSubject[]` | nested                          |
 | `unavailable_slots`    | `UnavailableSlot[]`| nested                          |
 | `created_at`           | `string`           | ISO 8601 datetime               |
@@ -91,15 +89,17 @@ This document is the canonical reference for all entity field names shared betwe
 
 ## ClassSection
 
-| Field           | Type                    | Notes                       |
-|-----------------|-------------------------|-----------------------------|
-| `id`            | `string`                | UUID                        |
-| `name`          | `string`                | max 120 chars               |
-| `code`          | `string`                | max 20 chars, unique        |
-| `strength`      | `integer`               | student count, min 1        |
-| `subject_links` | `SectionSubject[]`      | nested                      |
-| `created_at`    | `string`                | ISO 8601 datetime           |
-| `updated_at`    | `string`                | ISO 8601 datetime           |
+| Field           | Type                    | Notes                                                    |
+|-----------------|-------------------------|----------------------------------------------------------|
+| `id`            | `string`                | UUID                                                     |
+| `name`          | `string`                | max 120 chars                                            |
+| `code`          | `string`                | max 20 chars, unique                                     |
+| `strength`      | `integer`               | student count, min 1                                     |
+| `homeroom_id`   | `string \| null`        | FK → Room (classroom or seminar only; labs are dynamic)  |
+| `homeroom`      | `RoomOut \| null`       | nested Room object                                       |
+| `subject_links` | `SectionSubject[]`      | nested                                                   |
+| `created_at`    | `string`                | ISO 8601 datetime                                        |
+| `updated_at`    | `string`                | ISO 8601 datetime                                        |
 
 ### SectionSubject (nested)
 

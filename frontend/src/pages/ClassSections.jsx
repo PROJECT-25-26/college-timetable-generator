@@ -1,18 +1,33 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
-import { classSectionsApi, subjectsApi } from '../api'
+import { Plus, Trash2, Home, FlaskConical, Upload } from 'lucide-react'
+import { classSectionsApi, subjectsApi, roomsApi } from '../api'
 import { useToast } from '../hooks/useToast'
 import DataTable from '../components/DataTable'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Badge from '../components/Badge'
+import CsvImportModal from '../components/CsvImportModal'
 
 const EMPTY_FORM = () => ({
   name: '',
   code: '',
   strength: 60,
+  homeroom_id: '',
   subject_links: [],
 })
+
+/* ──────────────────────────────────────────────
+   ClassSection CSV template
+────────────────────────────────────────────── */
+const SECTION_CSV_TEMPLATE = `name,code,strength,homeroom_code,SUBJECT_CODE[:periods_override],...
+CS Batch 1,CS-B1,60,R101,MATH101,PHY201:5,CHEM101:3
+EE Batch 2,EE-B2,55,,EE101,MATH101:4
+`
+
+const SECTION_CSV_HINT =
+  'Columns: name (required), code (required), strength (default 60), homeroom_code (optional), ' +
+  'then any number of subject columns. Each subject column is either SUBJECT_CODE or ' +
+  'SUBJECT_CODE:periods_override (1–30). Leave homeroom_code blank if not assigned.'
 
 function subjectWeeklyPeriods(subject) {
   if (!subject) return 0
@@ -72,6 +87,11 @@ function SectionSubjectLinks({ links, subjects, onChange }) {
                 <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
               ))}
             </select>
+            {subject?.lab && (
+              <span className="text-xs text-amber-400 shrink-0 flex items-center gap-1">
+                <FlaskConical size={12} />Lab
+              </span>
+            )}
             <div className="flex items-center gap-1.5 shrink-0">
               <span className="text-xs text-gray-400 whitespace-nowrap">Periods/wk</span>
               <input
@@ -127,7 +147,14 @@ function SectionSubjectLinks({ links, subjects, onChange }) {
 /* ──────────────────────────────────────────────
    Form
 ────────────────────────────────────────────── */
-function SectionForm({ form, errors, onChange, subjects }) {
+function SectionForm({ form, errors, onChange, onHomeroomChange, subjects, rooms }) {
+  // Only classroom / seminar rooms are eligible as homeroooms
+  const eligibleRooms = rooms.filter(
+    (r) => r.room_type === 'classroom' || r.room_type === 'seminar'
+  )
+  const selectedRoom = eligibleRooms.find((r) => r.id === form.homeroom_id)
+  const codeAutoFilled = selectedRoom && form.code === selectedRoom.code
+
   return (
     <div className="space-y-5">
       <div className="space-y-4">
@@ -135,24 +162,13 @@ function SectionForm({ form, errors, onChange, subjects }) {
           <label className="form-label">Section Name *</label>
           <input
             className={`form-input ${errors.name ? 'error' : ''}`}
-            placeholder="e.g. CS-2023-A"
+            placeholder="e.g. CS Batch 1"
             value={form.name}
             maxLength={120}
             onChange={(e) => onChange('name', e.target.value)}
             autoFocus
           />
           {errors.name && <p className="form-error">{errors.name}</p>}
-        </div>
-        <div>
-          <label className="form-label">Section Code *</label>
-          <input
-            className={`form-input font-mono ${errors.code ? 'error' : ''}`}
-            placeholder="e.g. CS23A"
-            value={form.code}
-            maxLength={20}
-            onChange={(e) => onChange('code', e.target.value.toUpperCase())}
-          />
-          {errors.code && <p className="form-error">{errors.code}</p>}
         </div>
         <div>
           <label className="form-label">Strength (number of students)</label>
@@ -164,6 +180,57 @@ function SectionForm({ form, errors, onChange, subjects }) {
             onChange={(e) => onChange('strength', Number(e.target.value))}
           />
           {errors.strength && <p className="form-error">{errors.strength}</p>}
+        </div>
+
+        {/* Homeroom — primary identifier */}
+        <div className="p-4 rounded-xl bg-brand-500/5 border border-brand-500/20 space-y-3">
+          <div className="flex items-center gap-2">
+            <Home size={15} className="text-brand-400" />
+            <span className="text-xs font-semibold text-brand-300 uppercase tracking-widest">Homeroom</span>
+            <span className="text-xs text-gray-600 ml-1">— the section's fixed classroom identifier</span>
+          </div>
+          <p className="text-xs text-gray-500">
+            Selecting a homeroom auto-fills the section code with the room's code, linking them as one identity.
+            Teachers travel here; lab rooms are assigned dynamically at generation time.
+          </p>
+          <select
+            className="form-input"
+            value={form.homeroom_id}
+            onChange={(e) => onHomeroomChange(e.target.value, eligibleRooms)}
+          >
+            <option value="">— No homeroom assigned —</option>
+            {eligibleRooms.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name} ({r.code}) · Cap {r.capacity}
+              </option>
+            ))}
+          </select>
+          {eligibleRooms.length === 0 && (
+            <p className="text-xs text-amber-400">
+              No classrooms or seminar rooms exist yet. Add rooms first.
+            </p>
+          )}
+
+          {/* Section code — auto-filled from room, still editable */}
+          <div>
+            <label className="form-label flex items-center gap-2">
+              Section Code *
+              {codeAutoFilled && (
+                <span className="text-xs font-normal text-brand-400/80 normal-case tracking-normal">
+                  ✓ auto-filled from room
+                </span>
+              )}
+            </label>
+            <input
+              className={`form-input font-mono ${errors.code ? 'error' : ''}`}
+              placeholder={selectedRoom ? selectedRoom.code : 'e.g. CS-B1'}
+              value={form.code}
+              maxLength={20}
+              onChange={(e) => onChange('code', e.target.value.toUpperCase())}
+            />
+            {errors.code && <p className="form-error">{errors.code}</p>}
+            <p className="text-xs text-gray-600 mt-1">You can edit this if you need a different identifier.</p>
+          </div>
         </div>
       </div>
 
@@ -208,6 +275,7 @@ function SubjectPills({ links, subjects }) {
   )
 }
 
+
 /* ──────────────────────────────────────────────
    Page
 ────────────────────────────────────────────── */
@@ -215,6 +283,7 @@ export default function ClassSections() {
   const { toast } = useToast()
   const [rows, setRows]           = useState([])
   const [subjects, setSubjects]   = useState([])
+  const [rooms, setRooms]         = useState([])
   const [loading, setLoading]     = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing]     = useState(null)
@@ -223,16 +292,19 @@ export default function ClassSections() {
   const [saving, setSaving]       = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting]         = useState(false)
+  const [csvOpen, setCsvOpen]           = useState(false)
 
   async function load() {
     setLoading(true)
     try {
-      const [secRes, subRes] = await Promise.all([
+      const [secRes, subRes, roomRes] = await Promise.all([
         classSectionsApi.list(),
         subjectsApi.list(),
+        roomsApi.list(),
       ])
       setRows(secRes.data)
       setSubjects(subRes.data)
+      setRooms(roomRes.data)
     } catch {
       toast.error('Failed to load class sections')
     } finally {
@@ -251,6 +323,7 @@ export default function ClassSections() {
       name: row.name,
       code: row.code,
       strength: row.strength,
+      homeroom_id: row.homeroom_id ?? '',
       subject_links: (row.subject_links ?? []).map((l) => ({
         subject_id: l.subject_id,
         weekly_periods_override: l.weekly_periods_override ?? null,
@@ -263,17 +336,34 @@ export default function ClassSections() {
     if (errors[field]) setErrors((e) => ({ ...e, [field]: undefined }))
   }
 
+  // When homeroom changes, auto-fill the section code with the room code
+  function handleHomeroomChange(roomId, eligibleRooms) {
+    const room = eligibleRooms.find((r) => r.id === roomId)
+    setForm((f) => ({
+      ...f,
+      homeroom_id: roomId,
+      // Auto-fill code only if it's currently blank or was previously auto-filled from a room
+      code: room ? room.code : f.code,
+    }))
+    if (errors.homeroom_id) setErrors((e) => ({ ...e, homeroom_id: undefined }))
+    if (errors.code) setErrors((e) => ({ ...e, code: undefined }))
+  }
+
   async function handleSave() {
     const errs = validate(form)
     if (Object.keys(errs).length) { setErrors(errs); return }
     setSaving(true)
+    const payload = {
+      ...form,
+      homeroom_id: form.homeroom_id || null,
+    }
     try {
       if (editing) {
-        const res = await classSectionsApi.update(editing.id, form)
+        const res = await classSectionsApi.update(editing.id, payload)
         setRows((prev) => prev.map((r) => r.id === editing.id ? res.data : r))
         toast.success(`Section "${res.data.name}" updated`)
       } else {
-        const res = await classSectionsApi.create(form)
+        const res = await classSectionsApi.create(payload)
         setRows((prev) => [...prev, res.data])
         toast.success(`Section "${res.data.name}" created`)
       }
@@ -305,12 +395,27 @@ export default function ClassSections() {
   }
 
   const COLUMNS = [
-    { key: 'name', label: 'Name' },
-    { key: 'code', label: 'Code', render: (v) => <Badge variant="brand">{v}</Badge> },
+    { key: 'name', label: 'Section' },
+    {
+      key: 'homeroom',
+      label: 'Room',
+      sortable: false,
+      render: (homeroom, row) => (
+        <div className="flex items-center gap-2">
+          <Home size={12} className="text-brand-400 shrink-0" />
+          <span className="text-xs text-gray-300">
+            {homeroom ? homeroom.name : <span className="text-gray-600">—</span>}
+          </span>
+          <Badge variant="brand">
+            {homeroom ? homeroom.code : row.code}
+          </Badge>
+        </div>
+      ),
+    },
     {
       key: 'strength',
-      label: 'Strength',
-      render: (v) => <span className="text-gray-400">{v} students</span>,
+      label: 'Students',
+      render: (v) => <span className="text-gray-400">{v}</span>,
     },
     {
       key: 'subject_links',
@@ -325,16 +430,40 @@ export default function ClassSections() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-gray-100">Class Sections</h2>
-          <p className="text-xs text-gray-500 mt-0.5">Define class groups and their subject assignments</p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Define class batches, assign a fixed homeroom, and map their subjects
+          </p>
         </div>
-        <button
-          id="section-add-btn"
-          onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-white bg-brand-600 hover:bg-brand-500 transition-colors"
-        >
-          <Plus size={16} />
-          Add Section
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            id="section-import-csv-btn"
+            onClick={() => setCsvOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-gray-300 bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+          >
+            <Upload size={15} />
+            Import CSV
+          </button>
+          <button
+            id="section-add-btn"
+            onClick={openCreate}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-white bg-brand-600 hover:bg-brand-500 transition-colors"
+          >
+            <Plus size={16} />
+            Add Section
+          </button>
+        </div>
+      </div>
+
+      {/* Homeroom model info banner */}
+      <div className="p-4 rounded-2xl bg-white/3 border border-white/8 flex items-start gap-3">
+        <Home size={18} className="text-brand-400 mt-0.5 shrink-0" />
+        <div>
+          <p className="text-sm font-medium text-gray-200">Homeroom Model</p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Each class section has a fixed <span className="text-brand-300">homeroom classroom</span> — teachers travel to the class for every non-lab period.
+            Lab rooms are <span className="text-amber-300">dynamically allocated</span> from the available pool of lab rooms at timetable generation time.
+          </p>
+        </div>
       </div>
 
       <DataTable
@@ -345,7 +474,7 @@ export default function ClassSections() {
         onDelete={setDeleteTarget}
         searchKeys={['name', 'code']}
         emptyTitle="No class sections yet"
-        emptyMessage="Create sections and assign subjects to them."
+        emptyMessage="Create sections, assign their homeroom classroom, and map subjects to them."
         onAdd={openCreate}
         addLabel="Add Section"
       />
@@ -363,7 +492,9 @@ export default function ClassSections() {
           form={form}
           errors={errors}
           onChange={handleChange}
+          onHomeroomChange={handleHomeroomChange}
           subjects={subjects}
+          rooms={rooms}
         />
       </Modal>
 
@@ -374,6 +505,17 @@ export default function ClassSections() {
         entityName={deleteTarget?.name ?? ''}
         entityType="class section"
         loading={deleting}
+      />
+
+      <CsvImportModal
+        open={csvOpen}
+        onClose={() => setCsvOpen(false)}
+        onSuccess={() => { setCsvOpen(false); load() }}
+        importFn={classSectionsApi.importCsv}
+        title="Import Class Sections from CSV"
+        hint={SECTION_CSV_HINT}
+        templateRows={SECTION_CSV_TEMPLATE}
+        templateFilename="class_sections_template.csv"
       />
     </div>
   )

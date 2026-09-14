@@ -9,6 +9,7 @@ Entity hierarchy:
   Room     (typed rooms, referenced by timetable slots)
   TeacherSubject (join table: teacher ↔ subject with preference rank)
   TeacherUnavailableSlot (blocked slots per teacher)
+  Timetable → TimetableSlot (generated schedule runs)
 """
 
 import uuid
@@ -92,7 +93,7 @@ class Subject(Base):
     lab: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     lab_consecutive_periods: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     weekly_lab_sessions: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
-    max_periods_per_day: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    required_lab_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -120,7 +121,6 @@ class Teacher(Base):
     )
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     email: Mapped[str | None] = mapped_column(String(200), nullable=True, unique=True)
-    max_periods_per_day: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=6)
     max_periods_per_week: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=25)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -130,8 +130,7 @@ class Teacher(Base):
     )
 
     __table_args__ = (
-        CheckConstraint("max_periods_per_day >= 1", name="ck_teacher_max_day_min"),
-        CheckConstraint("max_periods_per_week >= max_periods_per_day", name="ck_teacher_max_week_gte_day"),
+        CheckConstraint("max_periods_per_week >= 1", name="ck_teacher_max_week_min"),
     )
 
     department: Mapped["Department | None"] = relationship("Department", back_populates="teachers")
@@ -206,6 +205,7 @@ class Room(Base):
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     code: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
     room_type: Mapped[str] = mapped_column(String(30), nullable=False, default="classroom")
+    lab_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     capacity: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -232,6 +232,11 @@ class ClassSection(Base):
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     code: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
     strength: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
+    # Fixed homeroom where all non-lab periods are taught (teachers come here).
+    # Labs are assigned dynamically from available lab rooms at generation time.
+    homeroom_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("rooms.id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -243,6 +248,7 @@ class ClassSection(Base):
         CheckConstraint("strength > 0", name="ck_section_strength_positive"),
     )
 
+    homeroom: Mapped["Room | None"] = relationship("Room", foreign_keys=[homeroom_id])
     subject_links: Mapped[list["ClassSectionSubject"]] = relationship(
         "ClassSectionSubject", back_populates="section", cascade="all, delete-orphan"
     )
@@ -265,3 +271,53 @@ class ClassSectionSubject(Base):
 
     section: Mapped["ClassSection"] = relationship("ClassSection", back_populates="subject_links")
     subject: Mapped["Subject"] = relationship("Subject", back_populates="section_links")
+
+
+# ---------------------------------------------------------------------------
+# Timetable  (one row per generation run)
+# ---------------------------------------------------------------------------
+class Timetable(Base):
+    __tablename__ = "timetables"
+
+    id:             Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    label:          Mapped[str | None] = mapped_column(String(120), nullable=True)
+    status:         Mapped[str] = mapped_column(String(20), nullable=False)   # ok|infeasible|timeout
+    solver_wall_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    message:        Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at:     Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    slots: Mapped[list["TimetableSlot"]] = relationship(
+        "TimetableSlot", back_populates="timetable", cascade="all, delete-orphan"
+    )
+
+
+# ---------------------------------------------------------------------------
+# TimetableSlot  (one row per scheduled period in a timetable run)
+# ---------------------------------------------------------------------------
+class TimetableSlot(Base):
+    __tablename__ = "timetable_slots"
+
+    id:           Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    timetable_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("timetables.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    # Soft FK: SET NULL so timetable history survives entity deletions
+    section_id:   Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("class_sections.id", ondelete="SET NULL"), nullable=True
+    )
+    subject_id:   Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("subjects.id", ondelete="SET NULL"), nullable=True
+    )
+    teacher_id:   Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("teachers.id", ondelete="SET NULL"), nullable=True
+    )
+    room_id:      Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("rooms.id", ondelete="SET NULL"), nullable=True
+    )
+    day_of_week:   Mapped[int]  = mapped_column(SmallInteger, nullable=False)   # 0=Mon … 6=Sun
+    period_index:  Mapped[int]  = mapped_column(SmallInteger, nullable=False)   # 0-based
+    is_locked:     Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    timetable: Mapped["Timetable"] = relationship("Timetable", back_populates="slots")

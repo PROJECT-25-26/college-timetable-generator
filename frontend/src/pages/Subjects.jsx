@@ -1,21 +1,36 @@
 import { useEffect, useState } from 'react'
-import { Plus, FlaskConical } from 'lucide-react'
+import { Plus, FlaskConical, Upload } from 'lucide-react'
 import { subjectsApi } from '../api'
 import { useToast } from '../hooks/useToast'
 import DataTable from '../components/DataTable'
 import Modal from '../components/Modal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Badge from '../components/Badge'
+import CsvImportModal from '../components/CsvImportModal'
 
 const EMPTY = {
   name: '',
   code: '',
   lab: false,
   weekly_periods: 3,
-  max_periods_per_day: 2,
   lab_consecutive_periods: 2,
   weekly_lab_sessions: 1,
+  required_lab_type: '',
 }
+
+const COMMON_LAB_TYPES = ['programming', 'electronics', 'workshop', 'chemistry', 'physics']
+
+const SUBJ_CSV_TEMPLATE = `name,code,weekly_periods,lab,lab_consecutive_periods,weekly_lab_sessions,required_lab_type
+Data Structures,CS201,3,false,,,
+Algorithms,CS202,4,false,,,
+Programming Lab,CS203L,0,true,3,1,programming
+Electronics Lab,EC101L,0,true,2,2,electronics
+`
+
+const SUBJ_CSV_HINT =
+  'Columns: name, code, weekly_periods (default 3), lab (true/false, default false), ' +
+  'lab_consecutive_periods (required if lab=true), weekly_lab_sessions (required if lab=true), ' +
+  'required_lab_type (optional category for lab subjects e.g. programming, electronics).'
 
 function Toggle({ checked, onChange }) {
   return (
@@ -82,7 +97,7 @@ function SubjectForm({ form, errors, onChange }) {
       <div className="flex items-center justify-between py-2 px-3 bg-white/3 rounded-xl border border-white/8">
         <div className="flex items-center gap-2">
           <FlaskConical size={15} className="text-amber-400" />
-          <span className="text-sm text-gray-300">Lab</span>
+          <span className="text-sm text-gray-300">Lab Subject</span>
         </div>
         <Toggle
           checked={form.lab}
@@ -92,6 +107,34 @@ function SubjectForm({ form, errors, onChange }) {
 
       {form.lab ? (
         <>
+          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 space-y-2">
+            <label className="form-label text-amber-300">Required Lab Category / Type (Optional)</label>
+            <input
+              className="form-input"
+              placeholder="e.g. programming"
+              value={form.required_lab_type}
+              maxLength={50}
+              onChange={(e) => onChange('required_lab_type', e.target.value.toLowerCase())}
+            />
+            <div className="flex items-center gap-1.5 flex-wrap pt-1">
+              <span className="text-[10px] text-gray-400">Suggestions:</span>
+              {COMMON_LAB_TYPES.map((lt) => (
+                <button
+                  key={lt}
+                  type="button"
+                  onClick={() => onChange('required_lab_type', lt)}
+                  className={`px-2 py-0.5 rounded text-[10px] font-medium border transition-colors ${
+                    form.required_lab_type === lt
+                      ? 'bg-amber-500/30 border-amber-500/50 text-amber-200'
+                      : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200'
+                  }`}
+                >
+                  {lt}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <PeriodSlider
             label="Consecutive Periods per Lab Session (1–10)"
             value={form.lab_consecutive_periods}
@@ -109,24 +152,17 @@ function SubjectForm({ form, errors, onChange }) {
           {errors.weekly_lab_sessions && (
             <p className="form-error">{errors.weekly_lab_sessions}</p>
           )}
+          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs">
+            <FlaskConical size={12} className="inline mr-1" />
+            Lab rooms matching category <strong>{form.required_lab_type || 'any lab'}</strong> will be assigned at generation time.
+          </div>
         </>
       ) : (
-        <>
-          <PeriodSlider
-            label="Max Periods per Day (1–10)"
-            value={form.max_periods_per_day}
-            onChange={(v) => onChange('max_periods_per_day', v)}
-            max={10}
-          />
-          {errors.max_periods_per_day && (
-            <p className="form-error">{errors.max_periods_per_day}</p>
-          )}
-          <PeriodSlider
-            label="Weekly Periods (1–30)"
-            value={form.weekly_periods}
-            onChange={(v) => onChange('weekly_periods', v)}
-          />
-        </>
+        <PeriodSlider
+          label="Weekly Periods (1–30)"
+          value={form.weekly_periods}
+          onChange={(v) => onChange('weekly_periods', v)}
+        />
       )}
     </div>
   )
@@ -143,10 +179,6 @@ function validate(form) {
     if (!form.weekly_lab_sessions || form.weekly_lab_sessions < 1) {
       e.weekly_lab_sessions = 'Weekly lab sessions is required'
     }
-  } else {
-    if (!form.max_periods_per_day || form.max_periods_per_day < 1) {
-      e.max_periods_per_day = 'Max periods per day is required'
-    }
   }
   return e
 }
@@ -157,7 +189,7 @@ function subjectPeriodSummary(row) {
     const consecutive = row.lab_consecutive_periods ?? 0
     return `${sessions} lab${sessions !== 1 ? 's' : ''}/wk · ${consecutive} consecutive`
   }
-  return `${row.weekly_periods} per week · max ${row.max_periods_per_day ?? '—'}/day`
+  return `${row.weekly_periods} periods/week`
 }
 
 const COLUMNS = [
@@ -172,10 +204,15 @@ const COLUMNS = [
   },
   {
     key: 'lab',
-    label: 'Lab',
-    render: (v) => v
-      ? <Badge variant="warning"><FlaskConical size={10} className="inline mr-1" />Lab</Badge>
-      : <span className="text-gray-600 text-xs">—</span>,
+    label: 'Type',
+    render: (v, r) => v
+      ? (
+        <div className="flex items-center gap-1.5">
+          <Badge variant="warning"><FlaskConical size={10} className="inline mr-1" />Lab</Badge>
+          {r.required_lab_type && <Badge variant="warning">{r.required_lab_type}</Badge>}
+        </div>
+      )
+      : <Badge variant="default">Theory</Badge>,
   },
 ]
 
@@ -190,6 +227,7 @@ export default function Subjects() {
   const [saving, setSaving]       = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [deleting, setDeleting]         = useState(false)
+  const [csvOpen, setCsvOpen]           = useState(false)
 
   async function load() {
     setLoading(true)
@@ -215,9 +253,9 @@ export default function Subjects() {
       code: row.code,
       lab: row.lab,
       weekly_periods: row.weekly_periods,
-      max_periods_per_day: row.max_periods_per_day ?? 2,
       lab_consecutive_periods: row.lab_consecutive_periods ?? 2,
       weekly_lab_sessions: row.weekly_lab_sessions ?? 1,
+      required_lab_type: row.required_lab_type ?? '',
     })
     setErrors({}); setModalOpen(true)
   }
@@ -270,14 +308,24 @@ export default function Subjects() {
           <h2 className="text-lg font-semibold text-gray-100">Subjects</h2>
           <p className="text-xs text-gray-500 mt-0.5">Define subjects and their weekly period requirements</p>
         </div>
-        <button
-          id="subject-add-btn"
-          onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-white bg-brand-600 hover:bg-brand-500 transition-colors"
-        >
-          <Plus size={16} />
-          Add Subject
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            id="subject-import-btn"
+            onClick={() => setCsvOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-gray-200 bg-white/8 border border-white/10 hover:bg-white/12 transition-colors"
+          >
+            <Upload size={15} />
+            Import CSV
+          </button>
+          <button
+            id="subject-add-btn"
+            onClick={openCreate}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-white bg-brand-600 hover:bg-brand-500 transition-colors"
+          >
+            <Plus size={16} />
+            Add Subject
+          </button>
+        </div>
       </div>
 
       <DataTable
@@ -311,6 +359,17 @@ export default function Subjects() {
         entityName={deleteTarget?.name ?? ''}
         entityType="subject"
         loading={deleting}
+      />
+
+      <CsvImportModal
+        open={csvOpen}
+        onClose={() => setCsvOpen(false)}
+        onSuccess={() => load()}
+        importFn={subjectsApi.importCsv}
+        title="Import Subjects"
+        hint={SUBJ_CSV_HINT}
+        templateRows={SUBJ_CSV_TEMPLATE}
+        templateFilename="subjects_template.csv"
       />
     </div>
   )
