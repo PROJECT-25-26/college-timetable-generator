@@ -756,3 +756,281 @@ body {
 
 .fgp-warning-bar-dismiss:hover { color: #fbbf24; }
 
+/* ─── Background Image Panel ──────────────────────────────────── */
+.fgp-bg-panel {
+  width: 260px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid rgb(255 255 255 / 0.08);
+  background: rgb(255 255 255 / 0.025);
+  overflow-y: auto;
+  animation: slideInRight 0.22s ease-out;
+}
+
+.fgp-bg-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid rgb(255 255 255 / 0.07);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+.fgp-bg-panel-body {
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+/* ─── Upload Drop Zone ─────────────────────────────────────────── */
+.fgp-upload-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.25rem 0.75rem;
+  border-radius: 0.65rem;
+  border: 1.5px dashed rgb(99 102 241 / 0.35);
+  background: rgb(99 102 241 / 0.04);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  text-align: center;
+}
+.fgp-upload-zone:hover,
+.fgp-upload-zone.drag-over {
+  border-color: rgb(99 102 241 / 0.65);
+  background: rgb(99 102 241 / 0.1);
+}
+.fgp-upload-zone p {
+  font-size: 0.68rem;
+  color: #6b7280;
+  line-height: 1.5;
+}
+.fgp-upload-zone strong {
+  color: #a5b4fc;
+}
+
+/* ─── Opacity Slider ───────────────────────────────────────────── */
+.fgp-opacity-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.fgp-opacity-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.1);
+  outline: none;
+  cursor: pointer;
+}
+.fgp-opacity-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #818cf8;
+  border: 2px solid #1e2030;
+  box-shadow: 0 0 6px rgb(129 140 248 / 0.5);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.fgp-opacity-slider::-webkit-slider-thumb:hover {
+  background: #a5b4fc;
+}
+.fgp-opacity-val {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #a5b4fc;
+  min-width: 2.5rem;
+  text-align: right;
+}
+
+/* ─── Calibration Wizard ───────────────────────────────────────── */
+.fgp-calib-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.6rem 0.65rem;
+  border-radius: 0.55rem;
+  background: rgb(245 158 11 / 0.06);
+  border: 1px solid rgb(245 158 11 / 0.18);
+}
+
+.fgp-calib-title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #fbbf24;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.fgp-calib-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.67rem;
+  color: #9ca3af;
+  line-height: 1.45;
+}
+.fgp-calib-step-num {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgb(245 158 11 / 0.2);
+  border: 1px solid rgb(245 158 11 / 0.45);
+  color: #fbbf24;
+  font-size: 0.6rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fgp-calib-step-num.done {
+  background: rgb(34 197 94 / 0.2);
+  border-color: rgb(34 197 94 / 0.45);
+  color: #4ade80;
+}
+.fgp-calib-step-num.active {
+  background: rgb(245 158 11 / 0.35);
+  border-color: #fbbf24;
+  color: #fbbf24;
+  box-shadow: 0 0 8px rgb(245 158 11 / 0.4);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
+.fgp-calib-dist-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.fgp-calib-dist-input {
+  flex: 1;
+  padding: 0.3rem 0.45rem;
+  font-size: 0.72rem;
+  border-radius: 0.4rem;
+  background: rgb(255 255 255 / 0.06);
+  border: 1px solid rgb(255 255 255 / 0.1);
+  color: #e5e7eb;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.fgp-calib-dist-input:focus {
+  border-color: rgb(245 158 11 / 0.55);
+  background: rgb(255 255 255 / 0.09);
+}
+.fgp-calib-unit {
+  font-size: 0.67rem;
+  color: #6b7280;
+}
+
+.fgp-calib-apply-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0.4rem;
+  border-radius: 0.5rem;
+  font-size: 0.71rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: linear-gradient(135deg, rgb(245 158 11 / 0.75), rgb(251 191 36 / 0.65));
+  color: #1c1400;
+  border: 1px solid rgb(245 158 11 / 0.5);
+  transition: all 0.18s ease;
+}
+.fgp-calib-apply-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgb(245 158 11), rgb(251 191 36 / 0.9));
+  box-shadow: 0 4px 14px rgb(245 158 11 / 0.35);
+}
+.fgp-calib-apply-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.fgp-calib-result {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 0.45rem;
+  background: rgb(34 197 94 / 0.08);
+  border: 1px solid rgb(34 197 94 / 0.25);
+  font-size: 0.68rem;
+  color: #86efac;
+}
+
+.fgp-calib-reset-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  width: 100%;
+  padding: 0.3rem;
+  border-radius: 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 500;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid rgb(255 255 255 / 0.08);
+  color: #6b7280;
+  transition: all 0.15s ease;
+}
+.fgp-calib-reset-btn:hover {
+  background: rgb(255 255 255 / 0.05);
+  color: #9ca3af;
+}
+
+/* ─── Remove image button ──────────────────────────────────────── */
+.fgp-remove-img-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0.35rem;
+  border-radius: 0.5rem;
+  font-size: 0.69rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid rgb(239 68 68 / 0.25);
+  color: #f87171;
+  transition: all 0.15s ease;
+}
+.fgp-remove-img-btn:hover {
+  background: rgb(239 68 68 / 0.1);
+  border-color: rgb(239 68 68 / 0.45);
+  color: #fca5a5;
+}
+
+/* ─── Pin-placement active hint banner ─────────────────────────── */
+.fgp-pin-hint {
+  flex-shrink: 0;
+  padding: 0.35rem 0.75rem;
+  background: rgb(245 158 11 / 0.1);
+  border-top: 1px solid rgb(245 158 11 / 0.3);
+  font-size: 0.68rem;
+  color: #fbbf24;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  animation: fadeIn 0.2s ease-out;
+}

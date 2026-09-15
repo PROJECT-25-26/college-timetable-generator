@@ -31,15 +31,19 @@ import {
   DoorOpen,
   Eraser,
   Footprints,
+  Image,
   Link,
   Link2Off,
   Loader2,
+  MapPin,
   Minus,
+  Ruler,
   Save,
   Settings2,
   Square,
   ArrowUpDown,
   Check,
+  Trash2,
   ZoomIn,
   ZoomOut,
   RefreshCw,
@@ -376,6 +380,264 @@ function SvgDefs({ cellPx }) {
         </feMerge>
       </filter>
     </defs>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Background Image helpers
+// ---------------------------------------------------------------------------
+
+async function loadImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new window.Image()
+      img.onload = () => resolve({ url: e.target.result, width: img.naturalWidth, height: img.naturalHeight })
+      img.onerror = reject
+      img.src = e.target.result
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+async function loadPdfFile(file) {
+  const arrayBuffer = await file.arrayBuffer()
+  // Dynamic CDN import — only loaded on demand
+  const pdfjsLib = await import(
+    /* @vite-ignore */
+    'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.min.mjs'
+  )
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.worker.min.mjs'
+  const pdf  = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+  const page = await pdf.getPage(1)
+  const vp   = page.getViewport({ scale: 2 })
+  const canvas = document.createElement('canvas')
+  canvas.width  = vp.width
+  canvas.height = vp.height
+  const ctx = canvas.getContext('2d')
+  await page.render({ canvasContext: ctx, viewport: vp }).promise
+  return { url: canvas.toDataURL('image/png'), width: vp.width, height: vp.height }
+}
+
+// ---------------------------------------------------------------------------
+// Background Image Panel
+// ---------------------------------------------------------------------------
+
+function BgImagePanel({ bgImage, bgOpacity, setBgOpacity, bgMode, calibPins, calibDist,
+                        setCalibDist, onUpload, onRemove, onStartCalib, onResetCalib,
+                        onApplyCalib, onClose, svgW, svgH, cellPx }) {
+  const [dragOver, setDragOver] = useState(false)
+  const [loading,  setLoading]  = useState(false)
+  const fileRef = useRef(null)
+
+  const handleFile = async (file) => {
+    if (!file) return
+    const isPdf = file.type === 'application/pdf'
+    const isImg = file.type.startsWith('image/')
+    if (!isPdf && !isImg) return
+    setLoading(true)
+    try {
+      const data = isPdf ? await loadPdfFile(file) : await loadImageFile(file)
+      onUpload(data)
+    } catch (err) {
+      console.error('BgImage load error', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    setDragOver(false)
+    handleFile(e.dataTransfer.files?.[0])
+  }
+
+  // Derived calibration result
+  const calibResult = (() => {
+    if (calibPins.length < 2 || !bgImage || !calibDist || isNaN(Number(calibDist))) return null
+    const [A, B] = calibPins
+    const pixDist = Math.sqrt((B.x - A.x) ** 2 + (B.y - A.y) ** 2)
+    const scaleX  = svgW / bgImage.width
+    const scaleY  = svgH / bgImage.height
+    const avgScale  = (scaleX + scaleY) / 2
+    const svgDist   = pixDist * avgScale
+    const numCells  = svgDist / cellPx
+    if (numCells <= 0) return null
+    return (Number(calibDist) / numCells).toFixed(3)
+  })()
+
+  const stepState = (step) => {
+    if (step === 1) return calibPins.length >= 1 ? 'done' : (bgMode === 'place_pin_1' ? 'active' : '')
+    if (step === 2) return calibPins.length >= 2 ? 'done' : (bgMode === 'place_pin_2' ? 'active' : '')
+    if (step === 3) return calibResult ? 'done' : (calibPins.length >= 2 ? 'active' : '')
+    return ''
+  }
+
+  return (
+    <div className="fgp-bg-panel">
+      <div className="fgp-bg-panel-header">
+        <Image size={13} className="text-indigo-400" />
+        <span>Background Image</span>
+        <button onClick={onClose} className="ml-auto p-0.5 rounded hover:bg-white/10 text-gray-500 hover:text-gray-300 transition-colors">
+          <ChevronRight size={14} />
+        </button>
+      </div>
+
+      <div className="fgp-bg-panel-body">
+
+        {/* Upload zone */}
+        {!bgImage ? (
+          <div
+            className={`fgp-upload-zone${dragOver ? ' drag-over' : ''}`}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            onClick={() => fileRef.current?.click()}
+          >
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*,application/pdf"
+              className="hidden"
+              onChange={(e) => handleFile(e.target.files?.[0])}
+            />
+            {loading
+              ? <Loader2 size={22} className="animate-spin text-indigo-400" />
+              : <Image size={22} className="text-indigo-400" />
+            }
+            <p>
+              <strong>Click or drag &amp; drop</strong><br />
+              PNG, JPG, SVG or PDF (page 1)<br />
+              Used as a tracing underlay
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Thumbnail preview */}
+            <div className="rounded-md overflow-hidden border border-white/10" style={{ maxHeight: 110 }}>
+              <img src={bgImage.url} alt="floor plan" className="w-full h-full object-contain" style={{ maxHeight: 110 }} />
+            </div>
+
+            {/* Opacity */}
+            <div>
+              <span className="fgp-settings-label" style={{ display: 'block', marginBottom: '0.35rem' }}>Underlay Opacity</span>
+              <div className="fgp-opacity-row">
+                <input
+                  type="range" min={5} max={95} value={bgOpacity}
+                  className="fgp-opacity-slider"
+                  onChange={(e) => setBgOpacity(Number(e.target.value))}
+                />
+                <span className="fgp-opacity-val">{bgOpacity}%</span>
+              </div>
+            </div>
+
+            {/* Calibration wizard */}
+            <div className="fgp-calib-section">
+              <div className="fgp-calib-title">
+                <Ruler size={12} /> Scale Calibration
+              </div>
+
+              {/* Step 1 */}
+              <div className="fgp-calib-step">
+                <div className={`fgp-calib-step-num ${stepState(1)}`}>
+                  {calibPins.length >= 1 ? '✓' : '1'}
+                </div>
+                <span>
+                  {calibPins.length >= 1
+                    ? <span style={{ color: '#4ade80' }}>Point A placed</span>
+                    : bgMode === 'place_pin_1'
+                      ? <span style={{ color: '#fbbf24' }}>Click Point A on the canvas below ↓</span>
+                      : 'Click Point A on the floor plan'}
+                </span>
+              </div>
+
+              {/* Step 2 */}
+              <div className="fgp-calib-step">
+                <div className={`fgp-calib-step-num ${stepState(2)}`}>
+                  {calibPins.length >= 2 ? '✓' : '2'}
+                </div>
+                <span>
+                  {calibPins.length >= 2
+                    ? <span style={{ color: '#4ade80' }}>Point B placed</span>
+                    : bgMode === 'place_pin_2'
+                      ? <span style={{ color: '#fbbf24' }}>Now click Point B on the canvas ↓</span>
+                      : 'Then click Point B'}
+                </span>
+              </div>
+
+              {/* Step 3 — distance input */}
+              <div className="fgp-calib-step">
+                <div className={`fgp-calib-step-num ${stepState(3)}`}>
+                  {calibResult ? '✓' : '3'}
+                </div>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                  <span>Enter real-world distance A → B</span>
+                  <div className="fgp-calib-dist-row">
+                    <input
+                      type="number" min="0.01" step="0.1"
+                      className="fgp-calib-dist-input"
+                      placeholder="e.g. 10"
+                      value={calibDist}
+                      onChange={(e) => setCalibDist(e.target.value)}
+                      disabled={calibPins.length < 2}
+                    />
+                    <span className="fgp-calib-unit">m</span>
+                  </div>
+                </div>
+              </div>
+
+              {calibResult && (
+                <div className="fgp-calib-result">
+                  <Check size={11} />
+                  1 cell ≈ <strong style={{ marginLeft: 4 }}>{calibResult} m</strong>
+                </div>
+              )}
+
+              {/* Wizard action buttons */}
+              {bgMode === 'off' || bgMode === 'calibrated' ? (
+                <button
+                  className="fgp-calib-apply-btn"
+                  onClick={onStartCalib}
+                  id="fgp-calib-start"
+                >
+                  <MapPin size={12} />
+                  {calibPins.length >= 2 ? 'Re-place Pins' : 'Start Calibration'}
+                </button>
+              ) : null}
+
+              {(bgMode === 'place_pin_1' || bgMode === 'place_pin_2') && (
+                <button className="fgp-calib-reset-btn" onClick={onResetCalib}>
+                  <X size={11} /> Cancel pin placement
+                </button>
+              )}
+
+              {calibResult && (
+                <button
+                  className="fgp-calib-apply-btn"
+                  onClick={() => onApplyCalib(Number(calibResult))}
+                  id="fgp-calib-apply"
+                >
+                  <Check size={12} /> Apply Calibration
+                </button>
+              )}
+
+              {calibPins.length > 0 && bgMode !== 'place_pin_1' && bgMode !== 'place_pin_2' && (
+                <button className="fgp-calib-reset-btn" onClick={onResetCalib}>
+                  <Trash2 size={11} /> Clear pins
+                </button>
+              )}
+            </div>
+
+            {/* Remove image */}
+            <button className="fgp-remove-img-btn" onClick={onRemove} id="fgp-remove-bg">
+              <Trash2 size={12} /> Remove Background Image
+            </button>
+          </>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -719,6 +981,14 @@ export default function FloorGridPainter({ floor, onSaved }) {
   // Walkability warnings
   const [walkWarnings, setWalkWarnings] = useState([])
 
+  // Background image state
+  const [bgImage,      setBgImage]      = useState(null)    // { url, width, height }
+  const [bgOpacity,    setBgOpacity]    = useState(40)      // 0–100
+  const [bgPanelOpen,  setBgPanelOpen]  = useState(false)
+  const [bgMode,       setBgMode]       = useState('off')   // 'off'|'place_pin_1'|'place_pin_2'|'calibrated'
+  const [calibPins,    setCalibPins]    = useState([])      // [{x,y}] in image-space coords
+  const [calibDist,    setCalibDist]    = useState('')      // user-entered metres
+
   // Floor dimensions
   const [gridRows,  setGridRows]  = useState(floor.grid_rows)
   const [gridCols,  setGridCols]  = useState(floor.grid_cols)
@@ -883,6 +1153,10 @@ export default function FloorGridPainter({ floor, onSaved }) {
         e.preventDefault()
         handleSave()
       }
+      if ((e.ctrlKey || e.metaKey) && key === 'I') {
+        e.preventDefault()
+        setBgPanelOpen(o => !o)
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -928,9 +1202,52 @@ export default function FloorGridPainter({ floor, onSaved }) {
     return { r, c }
   }, [cellPx, gridRows, gridCols])
 
+  // ── Background image calibration pin placement ───────────────────────────
+  const bgImageRef  = useRef(bgImage)
+  const bgModeRef   = useRef(bgMode)
+  const calibPinsRef = useRef(calibPins)
+  useEffect(() => { bgImageRef.current   = bgImage   }, [bgImage])
+  useEffect(() => { bgModeRef.current    = bgMode    }, [bgMode])
+  useEffect(() => { calibPinsRef.current = calibPins }, [calibPins])
+
+  const svgWRef  = useRef(0)
+  const svgHRef  = useRef(0)
+  useEffect(() => { svgWRef.current = gridCols * Math.round(BASE_CELL_PX * zoom) }, [gridCols, zoom])
+  useEffect(() => { svgHRef.current = gridRows * Math.round(BASE_CELL_PX * zoom) }, [gridRows, zoom])
+
+  const handleSvgClickForPin = useCallback((e) => {
+    const svg  = svgRef.current
+    if (!svg || !bgImageRef.current) return
+    const rect = svg.getBoundingClientRect()
+    const svgX = e.clientX - rect.left
+    const svgY = e.clientY - rect.top
+    const curSvgW = svgWRef.current
+    const curSvgH = svgHRef.current
+    const img    = bgImageRef.current
+    // Convert SVG px → image-space px
+    const imgX = (svgX / curSvgW) * img.width
+    const imgY = (svgY / curSvgH) * img.height
+    const pin  = { x: imgX, y: imgY }
+
+    const mode = bgModeRef.current
+    if (mode === 'place_pin_1') {
+      setCalibPins([pin])
+      setBgMode('place_pin_2')
+    } else if (mode === 'place_pin_2') {
+      setCalibPins(prev => [prev[0], pin])
+      setBgMode('calibrated')
+    }
+  }, [])
+
   // ── Pointer handlers ─────────────────────────────────────────────────────
   const handlePointerDown = useCallback((e) => {
     e.preventDefault()
+    // In pin-placement mode, intercept click to drop a calibration pin
+    const mode = bgModeRef.current
+    if (mode === 'place_pin_1' || mode === 'place_pin_2') {
+      handleSvgClickForPin(e)
+      return
+    }
     const cell = toCell(e)
     if (!cell) return
     const tool = e.button === 2 ? ERASER_TYPE : activeTool
@@ -940,7 +1257,7 @@ export default function FloorGridPainter({ floor, onSaved }) {
     setIsPainting(true)
     paint(cell.r, cell.c, tool)
     svgRef.current?.setPointerCapture(e.pointerId)
-  }, [toCell, activeTool, paint])
+  }, [toCell, activeTool, paint, handleSvgClickForPin])
 
   const handlePointerMove = useCallback((e) => {
     const cell = toCell(e)
@@ -1126,6 +1443,21 @@ export default function FloorGridPainter({ floor, onSaved }) {
           <div className="fgp-toolbar-sep" />
 
           <button
+            id="fgp-bg-toggle"
+            className={`fgp-icon-btn ${bgPanelOpen ? 'text-amber-400' : ''}`}
+            onClick={() => setBgPanelOpen(o => !o)}
+            title="Background image (Ctrl+I)"
+          >
+            <Image size={13} />
+            <span className="text-xs ml-1">Background</span>
+            {bgImage && (
+              <span className="ml-1 w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
+            )}
+          </button>
+
+          <div className="fgp-toolbar-sep" />
+
+          <button
             id="fgp-settings-toggle"
             className={`fgp-icon-btn ${settingsOpen ? 'text-indigo-400' : ''}`}
             onClick={() => setSettingsOpen(o => !o)}
@@ -1166,6 +1498,23 @@ export default function FloorGridPainter({ floor, onSaved }) {
           </div>
         )}
 
+        {/* Pin-placement hint bar */}
+        {(bgMode === 'place_pin_1' || bgMode === 'place_pin_2') && (
+          <div className="fgp-pin-hint">
+            <MapPin size={12} />
+            {bgMode === 'place_pin_1'
+              ? 'Click on the canvas to place Point A'
+              : 'Click on the canvas to place Point B'}
+            <button
+              className="ml-auto text-amber-600 hover:text-amber-400 transition-colors"
+              onClick={() => { setBgMode('off'); setCalibPins([]) }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.68rem' }}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+
         {/* SVG grid canvas */}
         <div className="fgp-svg-wrap">
           <svg
@@ -1174,12 +1523,14 @@ export default function FloorGridPainter({ floor, onSaved }) {
             width={svgW}
             height={svgH}
             style={{
-              cursor:       'crosshair',
+              cursor:       (bgMode === 'place_pin_1' || bgMode === 'place_pin_2') ? 'crosshair' : 'crosshair',
               display:      'block',
               userSelect:   'none',
               touchAction:  'none',
               borderRadius: '4px',
-              boxShadow:    '0 0 0 1px rgba(255,255,255,0.06)',
+              boxShadow:    (bgMode === 'place_pin_1' || bgMode === 'place_pin_2')
+                ? '0 0 0 2px rgba(245,158,11,0.6)'
+                : '0 0 0 1px rgba(255,255,255,0.06)',
             }}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
@@ -1191,6 +1542,18 @@ export default function FloorGridPainter({ floor, onSaved }) {
 
             {/* Background */}
             <rect width={svgW} height={svgH} fill={EMPTY_BG} />
+
+            {/* Background image underlay */}
+            {bgImage && (
+              <image
+                href={bgImage.url}
+                x={0} y={0}
+                width={svgW} height={svgH}
+                opacity={bgOpacity / 100}
+                preserveAspectRatio="xMidYMid meet"
+                style={{ pointerEvents: 'none' }}
+              />
+            )}
 
             {/* Cells */}
             {grid.map((row, r) =>
@@ -1284,6 +1647,47 @@ export default function FloorGridPainter({ floor, onSaved }) {
               <line key={`v${c}`} x1={c * cellPx} y1={0} x2={c * cellPx} y2={svgH}
                 stroke={GRID_LINE} strokeWidth="1" />
             ))}
+
+            {/* Calibration pin markers */}
+            {bgImage && calibPins.map((pin, i) => {
+              const svgX = (pin.x / bgImage.width)  * svgW
+              const svgY = (pin.y / bgImage.height) * svgH
+              const label = i === 0 ? 'A' : 'B'
+              return (
+                <g key={`pin-${i}`} style={{ pointerEvents: 'none' }}>
+                  <circle cx={svgX} cy={svgY} r={7} fill="none" stroke="#f59e0b" strokeWidth="2"
+                    strokeOpacity="0.9" />
+                  <circle cx={svgX} cy={svgY} r={2} fill="#f59e0b" fillOpacity="0.9" />
+                  <line x1={svgX - 12} y1={svgY} x2={svgX + 12} y2={svgY}
+                    stroke="#f59e0b" strokeWidth="1.5" strokeOpacity="0.8" />
+                  <line x1={svgX} y1={svgY - 12} x2={svgX} y2={svgY + 12}
+                    stroke="#f59e0b" strokeWidth="1.5" strokeOpacity="0.8" />
+                  <text
+                    x={svgX + 11} y={svgY - 8}
+                    fontSize="12" fontWeight="800"
+                    fill="#f59e0b"
+                    stroke="rgba(0,0,0,0.7)" strokeWidth="0.8" paintOrder="stroke fill"
+                    fontFamily="system-ui, -apple-system, sans-serif"
+                  >
+                    {label}
+                  </text>
+                </g>
+              )
+            })}
+
+            {/* Line connecting the two calibration pins */}
+            {bgImage && calibPins.length === 2 && (() => {
+              const ax = (calibPins[0].x / bgImage.width)  * svgW
+              const ay = (calibPins[0].y / bgImage.height) * svgH
+              const bx = (calibPins[1].x / bgImage.width)  * svgW
+              const by = (calibPins[1].y / bgImage.height) * svgH
+              return (
+                <line x1={ax} y1={ay} x2={bx} y2={by}
+                  stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="4,3"
+                  strokeOpacity="0.6" style={{ pointerEvents: 'none' }}
+                />
+              )
+            })()}
           </svg>
         </div>
 
@@ -1355,6 +1759,47 @@ export default function FloorGridPainter({ floor, onSaved }) {
           floor={{ ...floor, grid_rows: gridRows, grid_cols: gridCols, cell_size_m: cellSizeM }}
           onApply={handleApplySettings}
           onClose={() => setSettingsOpen(false)}
+        />
+      )}
+
+      {/* ── Right: Background Image Panel ────────────────────── */}
+      {bgPanelOpen && !blobPanelOpen && !settingsOpen && (
+        <BgImagePanel
+          bgImage={bgImage}
+          bgOpacity={bgOpacity}
+          setBgOpacity={setBgOpacity}
+          bgMode={bgMode}
+          calibPins={calibPins}
+          calibDist={calibDist}
+          setCalibDist={setCalibDist}
+          onUpload={(data) => {
+            setBgImage(data)
+            setCalibPins([])
+            setBgMode('off')
+            setCalibDist('')
+          }}
+          onRemove={() => {
+            setBgImage(null)
+            setCalibPins([])
+            setBgMode('off')
+            setCalibDist('')
+          }}
+          onStartCalib={() => {
+            setCalibPins([])
+            setBgMode('place_pin_1')
+          }}
+          onResetCalib={() => {
+            setCalibPins([])
+            setBgMode('off')
+          }}
+          onApplyCalib={(newScale) => {
+            handleApplySettings({ grid_rows: gridRows, grid_cols: gridCols, cell_size_m: newScale })
+            setBgMode('calibrated')
+          }}
+          onClose={() => setBgPanelOpen(false)}
+          svgW={svgW}
+          svgH={svgH}
+          cellPx={cellPx}
         />
       )}
     </div>
