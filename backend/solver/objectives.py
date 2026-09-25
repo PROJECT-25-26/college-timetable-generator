@@ -41,14 +41,32 @@ Objective catalogue
         Lab-block vars contribute weight = block_size periods per activation,
         matching the actual teaching load of each decision variable.
 
+  O3  Teacher travel penalty  (requires painted floor grids)
+        When a teacher has two *consecutive* periods on the same day
+        assigned to rooms on the same floor, the BFS walking distance
+        between those rooms is added to the objective.
+
+        For each (teacher, day, consecutive period pair (p, p+1)):
+          For each variable pair (var_p with room A, var_p1 with room B)
+          where A ≠ B and BFS distance(A, B) is known:
+            • Create auxiliary BoolVar  aux  encoding  (var_p ∧ var_p1)
+            • Penalise:  aux × distance(A, B) × TRAVEL_WEIGHT
+
+        Silently skipped when room_distances is empty (no floor layout defined).
+
+        Room-id lookup:
+          Non-lab slot  → room = section.homeroom_id
+          Lab slot      → room = key.lab_room_id
+
 Combined objective (single model.minimize() call)
 ──────────────────────────────────────────────────
   minimize:
     Σ  (spread_excess_var  ×  SPREAD_WEIGHT)          [O1 — IntVars, coeff > 0]
   + Σ  (avoid_bool_var     ×  AVOID_PENALTY × load)   [O2 — BoolVars, coeff > 0]
   − Σ  (prefer_bool_var    ×  bonus         × load)   [O2 — BoolVars, coeff < 0]
+  + Σ  (travel_aux_bool    ×  dist × TRAVEL_WEIGHT)  [O3 — BoolVars, coeff > 0]
 
-All three categories are passed as (var, weight) pairs to
+All categories are passed as (var, weight) pairs to
 cp_model.LinearExpr.weighted_sum(), which handles mixed-sign coefficients
 over a mix of IntVars and BoolVars without issue.
 
@@ -57,10 +75,11 @@ Weight calibration
   SPREAD_WEIGHT  =  5   — penalty per excess period on one day
   PREFER_BONUS   = 10   — bonus per period taught by a preferred teacher (rank 1)
   AVOID_PENALTY  = 25   — penalty per period taught by an avoid teacher
+  TRAVEL_WEIGHT  =  2   — penalty per cell of BFS walking distance
+                           between consecutive-period rooms for the same teacher
 
-  Rule of thumb: AVOID_PENALTY > PREFER_BONUS > SPREAD_WEIGHT.
-  This means the solver first avoids "avoid" teachers, then rewards
-  preferred teachers, then tries to spread periods evenly.
+  Rule of thumb: AVOID_PENALTY > PREFER_BONUS > SPREAD_WEIGHT > TRAVEL_WEIGHT.
+  Travel is a soft nudge; it should not override preference or spread balance.
   Adjust ratios here without touching constraint code.
 """
 
@@ -87,6 +106,8 @@ logger = logging.getLogger(__name__)
 SPREAD_WEIGHT:  int = 5    # O1 — penalty per unit excess on one day
 PREFER_BONUS:   int = 10   # O2 — bonus  per period for a preferred teacher (rank 1)
 AVOID_PENALTY:  int = 25   # O2 — penalty per period for an avoided teacher
+TRAVEL_WEIGHT:  int = 2    # O3 — penalty per BFS cell of walking distance
+                            #        between rooms for consecutive teacher periods
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -196,7 +217,12 @@ def build_objectives(
         elif added == "avoid":
             n_avoid += 1
 
-    # ── Register the single combined minimize() call ──────────────────────────
+    # ── O3: Teacher travel penalty ─────────────────────────────────────────
+    n_travel = _travel_penalty(
+        model, req, var_sets, all_vars, all_weights,
+    )
+
+    # ── Register the single combined minimize() call ───────────────────────
     if all_vars:
         model.minimize(cp_model.LinearExpr.weighted_sum(all_vars, all_weights))
     # If no terms at all, CP-SAT finds any feasible solution (unconstrained obj).
@@ -205,10 +231,12 @@ def build_objectives(
         "build_objectives: "
         "O1 spread=%d aux-vars (weight=%d) | "
         "O2 prefer=%d bonus-terms (weight=-%d…) | "
-        "O2 avoid=%d penalty-terms (weight=+%d)",
+        "O2 avoid=%d penalty-terms (weight=+%d) | "
+        "O3 travel=%d aux-vars (weight=+%d×dist)",
         n_spread, SPREAD_WEIGHT,
         n_prefer, PREFER_BONUS,
         n_avoid,  AVOID_PENALTY,
+        n_travel, TRAVEL_WEIGHT,
     )
 
 
@@ -342,3 +370,120 @@ def _spread_lab(
         n += 1
 
     return n
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# O3 — Teacher travel penalty
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _travel_penalty(
+    model:       cp_model.CpModel,
+    req:         "TimetableRequest",
+    var_sets:    VariableSets,
+    all_vars:    list,
+    all_weights: list[int],
+) -> int:
+    """
+    O3 — Penalise a teacher who must move between far-apart rooms on
+    consecutive periods of the same day.
+
+    Strategy
+    --------
+    1. Build an index:  (teacher_id, day, period) → list[(var, room_id)]
+       - Non-lab variable → room is section.homeroom_id
+       - Lab variable     → room is key.lab_room_id
+       Entries with no room_id are skipped.
+
+    2. For every teacher T and day D, iterate over consecutive period
+       pairs (p, p+1). For each cross-product (var_p, room_A) ×
+       (var_p1, room_B) where A ≠ B and dist(A, B) is known:
+         • Create  aux = new_bool_var("tv_...")
+         • Encode  aux ↔ (var_p ∧ var_p1)  using CP-SAT implication:
+             add_implication(aux,      var_p)   ← aux=1 ⇒ var_p=1
+             add_implication(aux,      var_p1)  ← aux=1 ⇒ var_p1=1
+             add(var_p + var_p1 - 1 ≤ aux)     ← (var_p=1 ∧ var_p1=1) ⇒ aux=1
+         • Penalise: weight = dist(A, B) × TRAVEL_WEIGHT
+
+    3. Silently returns 0 when req.room_distances is empty.
+
+    Returns the number of auxiliary travel BoolVars created.
+    """
+    room_distances = req.room_distances
+    if not room_distances:
+        return 0
+
+    # ─ Build room look-up for sections (homeroom) ────────────────────────────
+    homeroom: dict[str, str | None] = {
+        sec.id: sec.homeroom_id for sec in req.class_sections
+    }
+
+    # ─ Build slot index  (teacher_id, day, period) → [(var, room_id)] ─────
+    from collections import defaultdict
+    slot_index: dict[tuple[str, int, int], list[tuple]] = defaultdict(list)
+
+    # Non-lab variables
+    for key, var in var_sets.non_lab.items():
+        room_id = homeroom.get(key.section_id)
+        if room_id is None:
+            continue
+        slot_index[(key.teacher_id, key.day, key.period)].append((var, room_id))
+
+    # Lab variables — a block-start at start_period occupies multiple periods.
+    # We register the lab var at every period in its block so consecutive-period
+    # pairs that span into a lab block are correctly penalised.
+    subject_by_id = {s.id: s for s in req.subjects}
+    for key, var in var_sets.lab.items():
+        subj = subject_by_id.get(key.subject_id)
+        block_size = (subj.lab_consecutive_periods or 1) if subj else 1
+        for offset in range(block_size):
+            p = key.start_period + offset
+            slot_index[(key.teacher_id, key.day, p)].append((var, key.lab_room_id))
+
+    # ─ Collect all (teacher_id, day) pairs to iterate ──────────────────────
+    teacher_days: set[tuple[str, int]] = {
+        (tid, day) for tid, day, _ in slot_index.keys()
+    }
+
+    periods_per_day = req.time_grid.periods_per_day
+    n_aux = 0
+    aux_counter = 0
+
+    for teacher_id, day in teacher_days:
+        for p in range(periods_per_day - 1):  # pairs: p and p+1
+            entries_p  = slot_index.get((teacher_id, day, p),     [])
+            entries_p1 = slot_index.get((teacher_id, day, p + 1), [])
+
+            if not entries_p or not entries_p1:
+                continue
+
+            for var_p, room_a in entries_p:
+                dist_from_a = room_distances.get(room_a)
+                if dist_from_a is None:
+                    continue
+
+                for var_p1, room_b in entries_p1:
+                    if room_a == room_b:
+                        continue  # same room — no walking
+
+                    dist_cells = dist_from_a.get(room_b)
+                    if dist_cells is None or dist_cells == 0:
+                        continue  # not on same floor or trivially adjacent
+
+                    weight = dist_cells * TRAVEL_WEIGHT
+
+                    # aux = var_p AND var_p1
+                    aux = model.new_bool_var(f"tv_{aux_counter}")
+                    aux_counter += 1
+
+                    # aux=1  ⇒  var_p=1
+                    model.add_implication(aux, var_p)
+                    # aux=1  ⇒  var_p1=1
+                    model.add_implication(aux, var_p1)
+                    # (var_p=1 ∧ var_p1=1)  ⇒  aux=1
+                    model.add(var_p + var_p1 <= aux + 1)
+
+                    all_vars.append(aux)
+                    all_weights.append(weight)
+                    n_aux += 1
+
+    return n_aux

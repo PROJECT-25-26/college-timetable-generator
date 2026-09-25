@@ -176,6 +176,13 @@ export const floorsApi = {
     api.put(`/floors/${id}/grid`, { grid_data: gridData, room_links: roomLinks }),
   /** DELETE /api/v1/floors/{id} */
   remove: (id) => api.delete(`/floors/${id}`),
+  /**
+   * GET /api/v1/floors/{id}/room-distances
+   * Returns BFS shortest-path distances (cells + metres) between every pair of
+   * rooms linked on the floor's painted grid.
+   * Response: { floor_id, cell_size_m, distances: [{from_room_id, to_room_id, distance_cells, distance_m}] }
+   */
+  roomDistances: (id) => api.get(`/floors/${id}/room-distances`),
 }
 
 export const staffroomsApi = {

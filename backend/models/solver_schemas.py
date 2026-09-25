@@ -190,6 +190,11 @@ class TimetableRequest(BaseModel):
     time_grid:      TimeGrid
     # Optional list of slots to pin before solving — empty means a fresh solve
     locked_slots:   list[LockedSlot]         = []
+    # BFS shortest-path distances between rooms on the same floor (in cells).
+    # Populated by the generate endpoint from painted floor grids.
+    # Format: room_id → { other_room_id → distance_cells }
+    # An empty dict means no layout data is available — O3 is silently skipped.
+    room_distances: dict[str, dict[str, int]] = {}
 
 
 # ===========================================================================

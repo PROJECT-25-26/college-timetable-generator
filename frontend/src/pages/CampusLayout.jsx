@@ -11,26 +11,375 @@
  *   view='floor'     → selected floor → FloorGridPainter
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft,
+  ArrowRightLeft,
   Building2,
   ChevronDown,
   ChevronRight,
   Edit2,
   Layers,
+  LayoutGrid,
   MapPin,
   MoreHorizontal,
   Plus,
+  Ruler,
   Trash2,
   X,
   GalleryHorizontalEnd,
   School,
   Loader2,
   Check,
+  RefreshCw,
 } from 'lucide-react'
 import { campusApi, buildingsApi, floorsApi } from '../api/index'
 import FloorGridPainter from '../components/FloorGridPainter'
+
+// ---------------------------------------------------------------------------
+// Floor Distances Tab — full in-page panel
+// ---------------------------------------------------------------------------
+function FloorDistancesTab({ floor }) {
+  const [loading,   setLoading]   = useState(false)
+  const [data,      setData]      = useState(null)
+  const [error,     setError]     = useState(null)
+  const [sortKey,   setSortKey]   = useState('asc')   // 'asc' | 'desc'
+  const [filterMin, setFilterMin] = useState('')
+  const [filterMax, setFilterMax] = useState('')
+  const [view,      setView]      = useState('list')  // 'list' | 'matrix'
+
+  const fetchDistances = useCallback(() => {
+    setLoading(true)
+    setError(null)
+    floorsApi.roomDistances(floor.id)
+      .then(res => { setData(res.data); setLoading(false) })
+      .catch(err => { setError(err?.response?.data?.detail || err.message); setLoading(false) })
+  }, [floor.id])
+
+  useEffect(() => { fetchDistances() }, [fetchDistances])
+
+  // ── Derived data ─────────────────────────────────────────────────────────
+  const allDistances = data?.distances ?? []
+  const cellSize     = data?.cell_size_m ?? floor.cell_size_m
+
+  // Unique room IDs (for matrix axes)
+  const roomIds = useMemo(() => {
+    const ids = new Set()
+    allDistances.forEach(d => { ids.add(d.from_room_id); ids.add(d.to_room_id) })
+    return [...ids].sort()
+  }, [allDistances])
+
+  // Build O(1) lookup: `from→to` → entry
+  const lookup = useMemo(() => {
+    const m = {}
+    allDistances.forEach(d => {
+      m[d.from_room_id + '|' + d.to_room_id] = d
+    })
+    return m
+  }, [allDistances])
+
+  const minFilter = filterMin !== '' ? Number(filterMin) : -Infinity
+  const maxFilter = filterMax !== '' ? Number(filterMax) : Infinity
+
+  const filtered = useMemo(() => {
+    // Only keep one direction (A→B where A < B lexicographically) to dedupe
+    const half = allDistances.filter(d => d.from_room_id < d.to_room_id)
+    return half
+      .filter(d => d.distance_cells >= minFilter && d.distance_cells <= maxFilter)
+      .sort((a, b) => sortKey === 'asc'
+        ? a.distance_cells - b.distance_cells
+        : b.distance_cells - a.distance_cells)
+  }, [allDistances, sortKey, minFilter, maxFilter])
+
+  const maxCells = useMemo(() => {
+    if (!allDistances.length) return 1
+    return Math.max(...allDistances.map(d => d.distance_cells))
+  }, [allDistances])
+
+  // Heat-map colour: green → amber → red scaled to maxCells
+  const heatColor = (cells) => {
+    const pct = cells / maxCells
+    if (pct <= 0.33) return { bg: 'rgba(34,197,94,0.18)', text: '#4ade80', bar: '#22c55e' }
+    if (pct <= 0.66) return { bg: 'rgba(245,158,11,0.18)', text: '#fbbf24', bar: '#f59e0b' }
+    return { bg: 'rgba(239,68,68,0.18)', text: '#f87171', bar: '#ef4444' }
+  }
+
+  // Short display name for a UUID
+  const short = (id) => id.slice(0, 8).toUpperCase()
+
+  // Prefer the room name; fall back to shortened UUID
+  const label = (id, name) => name || short(id)
+
+  // Build id → name map from the current data so matrix view can look up names
+  const nameMap = useMemo(() => {
+    const m = {}
+    allDistances.forEach(d => {
+      if (d.from_room_name) m[d.from_room_id] = d.from_room_name
+      if (d.to_room_name)   m[d.to_room_id]   = d.to_room_name
+    })
+    return m
+  }, [allDistances])
+
+  // ── Empty / error states ────────────────────────────────────────────────
+  if (loading) return (
+    <div className="flex items-center justify-center h-full gap-3 text-gray-500">
+      <Loader2 size={20} className="animate-spin" />
+      <span className="text-sm">Computing BFS distances…</span>
+    </div>
+  )
+
+  if (error) return (
+    <div className="flex items-center justify-center h-full">
+      <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-5 py-4 max-w-md">
+        {error}
+      </div>
+    </div>
+  )
+
+  if (!allDistances.length) return (
+    <div className="flex flex-col items-center justify-center h-full gap-3 opacity-60">
+      <Ruler size={36} className="text-indigo-400" />
+      <p className="text-sm text-gray-400 font-medium">No distances available yet</p>
+      <p className="text-xs text-gray-600 text-center max-w-xs">
+        Paint a floor grid, then link at least two room blobs to rooms using the Grid Painter tab.
+      </p>
+      <button
+        onClick={fetchDistances}
+        className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/10 transition-colors"
+      >
+        <RefreshCw size={11} /> Refresh
+      </button>
+    </div>
+  )
+
+  // ── Toolbar ──────────────────────────────────────────────────────────────
+  return (
+    <div className="flex flex-col h-full min-h-0">
+      {/* Toolbar */}
+      <div className="flex items-center gap-3 px-5 py-2.5 border-b border-white/5 bg-gray-900/40 flex-shrink-0 flex-wrap">
+        {/* Stats chips */}
+        <span className="text-[11px] text-gray-500">
+          <span className="text-gray-300 font-semibold">{roomIds.length}</span> rooms
+          &nbsp;·&nbsp;
+          <span className="text-gray-300 font-semibold">{filtered.length}</span> pairs shown
+          &nbsp;·&nbsp;
+          1 cell = <span className="text-gray-300 font-semibold">{cellSize}m</span>
+        </span>
+
+        <div className="flex-1" />
+
+        {/* Min / Max cell filter */}
+        <label className="text-[11px] text-gray-500 flex items-center gap-1">
+          Min cells
+          <input
+            type="number" min="0" value={filterMin}
+            onChange={e => setFilterMin(e.target.value)}
+            className="w-14 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-gray-300 text-xs focus:outline-none focus:border-indigo-500/50"
+            placeholder="0"
+          />
+        </label>
+        <label className="text-[11px] text-gray-500 flex items-center gap-1">
+          Max cells
+          <input
+            type="number" min="0" value={filterMax}
+            onChange={e => setFilterMax(e.target.value)}
+            className="w-14 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-gray-300 text-xs focus:outline-none focus:border-indigo-500/50"
+            placeholder="∞"
+          />
+        </label>
+
+        {/* Sort */}
+        <button
+          onClick={() => setSortKey(k => k === 'asc' ? 'desc' : 'asc')}
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] text-gray-400 hover:text-gray-200 border border-white/10 hover:bg-white/5 transition-colors"
+        >
+          {sortKey === 'asc' ? '↑ Nearest first' : '↓ Farthest first'}
+        </button>
+
+        {/* View toggle */}
+        <div className="flex rounded-lg border border-white/10 overflow-hidden">
+          <button
+            onClick={() => setView('list')}
+            className={`px-2.5 py-1 text-[11px] transition-colors ${
+              view === 'list' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+            }`}
+          >
+            List
+          </button>
+          <button
+            onClick={() => setView('matrix')}
+            className={`px-2.5 py-1 text-[11px] transition-colors ${
+              view === 'matrix' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+            }`}
+          >
+            Matrix
+          </button>
+        </div>
+
+        <button
+          onClick={fetchDistances}
+          className="p-1.5 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/5 transition-colors"
+          title="Refresh distances"
+        >
+          <RefreshCw size={12} />
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-auto px-4 py-3 min-h-0">
+
+        {/* ── LIST VIEW ──────────────────────────────────────────────── */}
+        {view === 'list' && (
+          <table className="w-full text-xs border-separate" style={{ borderSpacing: '0 3px' }}>
+            <thead>
+              <tr className="text-left text-gray-600">
+                <th className="pb-1 pl-3 font-semibold">#</th>
+                <th className="pb-1 font-semibold">From room</th>
+                <th className="pb-1 font-semibold">To room</th>
+                <th className="pb-1 text-right font-semibold">Cells</th>
+                <th className="pb-1 text-right font-semibold pr-3">Metres</th>
+                <th className="pb-1 text-right font-semibold pr-3">Distance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((d, i) => {
+                const c = heatColor(d.distance_cells)
+                const pct = Math.round((d.distance_cells / maxCells) * 100)
+                return (
+                  <tr
+                    key={d.from_room_id + d.to_room_id}
+                    style={{ background: c.bg }}
+                    className="rounded-lg"
+                  >
+                    <td className="py-2 pl-3 rounded-l-lg text-gray-600">{i + 1}</td>
+                    <td className="py-2 pr-4">
+                      <span className="font-semibold text-gray-200">{label(d.from_room_id, d.from_room_name)}</span>
+                      <span className="block text-[10px] text-gray-600 font-mono">{d.from_room_id}</span>
+                    </td>
+                    <td className="py-2 pr-4">
+                      <span className="font-semibold text-gray-200">{label(d.to_room_id, d.to_room_name)}</span>
+                      <span className="block text-[10px] text-gray-600 font-mono">{d.to_room_id}</span>
+                    </td>
+                    <td className="py-2 text-right tabular-nums" style={{ color: c.text }}>
+                      {d.distance_cells}
+                    </td>
+                    <td className="py-2 pl-3 text-right tabular-nums text-gray-300">
+                      {d.distance_m.toFixed(1)}m
+                    </td>
+                    <td className="py-2 pl-4 pr-3 rounded-r-lg w-32">
+                      <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: pct + '%', background: c.bar }}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
+
+        {/* ── MATRIX VIEW ────────────────────────────────────────────── */}
+        {view === 'matrix' && (
+          <div className="overflow-auto">
+            <table className="text-[10px] border-collapse">
+              <thead>
+                <tr>
+                  <th className="sticky left-0 z-10 bg-gray-900 w-24 min-w-[6rem]" />
+                  {roomIds.map(id => (
+                    <th
+                      key={id}
+                      className="px-1 pb-2 font-semibold text-gray-300 text-center whitespace-nowrap"
+                      style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', height: '80px' }}
+                      title={id}
+                    >
+                      {nameMap[id] || short(id)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {roomIds.map(fromId => (
+                  <tr key={fromId}>
+                    <td
+                      className="sticky left-0 z-10 bg-gray-900 font-semibold text-gray-300 pr-3 py-1 whitespace-nowrap"
+                      title={fromId}
+                    >
+                      {nameMap[fromId] || short(fromId)}
+                    </td>
+                    {roomIds.map(toId => {
+                      if (fromId === toId) {
+                        return (
+                          <td key={toId} className="text-center py-1 px-1">
+                            <div className="w-10 h-7 rounded flex items-center justify-center bg-white/5 text-gray-700 text-[10px]">
+                              —
+                            </div>
+                          </td>
+                        )
+                      }
+                      const entry = lookup[fromId + '|' + toId] || lookup[toId + '|' + fromId]
+                      if (!entry) {
+                        return (
+                          <td key={toId} className="text-center py-1 px-1">
+                            <div
+                              className="w-10 h-7 rounded flex items-center justify-center text-gray-700"
+                              title="Unreachable"
+                            >
+                              ✕
+                            </div>
+                          </td>
+                        )
+                      }
+                      const c = heatColor(entry.distance_cells)
+                      return (
+                        <td key={toId} className="text-center py-1 px-1">
+                          <div
+                            className="w-10 h-7 rounded flex flex-col items-center justify-center gap-0 cursor-default"
+                            style={{ background: c.bg }}
+                            title={`${nameMap[fromId] || short(fromId)} → ${nameMap[toId] || short(toId)}: ${entry.distance_cells} cells (${entry.distance_m.toFixed(1)}m)`}
+                          >
+                            <span style={{ color: c.text }} className="font-semibold leading-none">
+                              {entry.distance_cells}
+                            </span>
+                            <span className="text-gray-600 leading-none" style={{ fontSize: '8px' }}>
+                              {entry.distance_m.toFixed(0)}m
+                            </span>
+                          </div>
+                        </td>
+                      )
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Legend */}
+            <div className="flex items-center gap-4 mt-4 pt-3 border-t border-white/5 text-[10px] text-gray-500">
+              <span>Distance scale:</span>
+              {[
+                { label: 'Short', color: '#22c55e', bg: 'rgba(34,197,94,0.18)' },
+                { label: 'Medium', color: '#f59e0b', bg: 'rgba(245,158,11,0.18)' },
+                { label: 'Long', color: '#ef4444', bg: 'rgba(239,68,68,0.18)' },
+              ].map(({ label, color, bg }) => (
+                <span key={label} className="flex items-center gap-1">
+                  <span
+                    className="inline-block w-5 h-3 rounded"
+                    style={{ background: bg, border: `1px solid ${color}` }}
+                  />
+                  {label}
+                </span>
+              ))}
+              <span className="ml-2">✕ = no walkable path</span>
+              <span>— = same room</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 // ---------------------------------------------------------------------------
 // Colour palette for building boxes
@@ -417,6 +766,9 @@ export default function CampusLayout() {
   const [modal, setModal] = useState(null)
   // { type: 'campus'|'building'|'rename-campus'|'rename-building'|'floor'|'rename-floor', data }
 
+  // Active tab when viewing a floor: 'painter' | 'distances'
+  const [floorTab, setFloorTab] = useState('painter')
+
   // Save debounce ref for building position
   const posTimer = useRef({})
 
@@ -780,44 +1132,80 @@ export default function CampusLayout() {
     if (activeFloor) {
       return (
         <div className="flex flex-col h-full">
-          {/* Floor header */}
-          <div className="flex items-center gap-3 px-5 py-3 border-b border-white/10 flex-shrink-0 bg-gray-900/60">
-            <button
-              onClick={handleCloseFloor}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-gray-400 hover:text-gray-100 hover:bg-white/10 transition-all border border-white/5"
-              title="Back to Campus Map"
-            >
-              <ArrowLeft size={13} /> Back to Map
-            </button>
-            <div className="h-4 w-px bg-white/10" />
-            <Layers size={15} className="text-indigo-400" />
-            <div className="flex-1 min-w-0">
-              <h2 className="text-sm font-semibold text-gray-200 truncate">{activeFloor.name}</h2>
-              <p className="text-[11px] text-gray-500">
-                {activeFloor.grid_cols} × {activeFloor.grid_rows} cells &nbsp;·&nbsp;
-                1 cell = {activeFloor.cell_size_m}m &nbsp;·&nbsp;
-                Level {activeFloor.level}
-              </p>
+          {/* Floor header with tab bar */}
+          <div className="flex flex-col flex-shrink-0">
+            {/* Top bar — navigation + floor info + actions */}
+            <div className="flex items-center gap-3 px-5 py-3 border-b border-white/10 bg-gray-900/60">
+              <button
+                onClick={handleCloseFloor}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-gray-400 hover:text-gray-100 hover:bg-white/10 transition-all border border-white/5"
+                title="Back to Campus Map"
+              >
+                <ArrowLeft size={13} /> Back to Map
+              </button>
+              <div className="h-4 w-px bg-white/10" />
+              <Layers size={15} className="text-indigo-400" />
+              <div className="flex-1 min-w-0">
+                <h2 className="text-sm font-semibold text-gray-200 truncate">{activeFloor.name}</h2>
+                <p className="text-[11px] text-gray-500">
+                  {activeFloor.grid_cols} × {activeFloor.grid_rows} cells &nbsp;·&nbsp;
+                  1 cell = {activeFloor.cell_size_m}m &nbsp;·&nbsp;
+                  Level {activeFloor.level}
+                </p>
+              </div>
+              <button
+                onClick={() => setModal({ type: 'rename-floor', data: activeFloor })}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-white/10 transition-all"
+                title="Edit floor settings"
+              >
+                <Edit2 size={13} />
+              </button>
+              <button
+                onClick={handleCloseFloor}
+                className="p-1.5 rounded-lg text-gray-500 hover:text-gray-200 hover:bg-white/10 transition-all"
+                title="Close floor"
+              >
+                <X size={13} />
+              </button>
             </div>
-            <button
-              onClick={() => setModal({ type: 'rename-floor', data: activeFloor })}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-white/10 transition-all"
-              title="Edit floor settings"
-            >
-              <Edit2 size={13} />
-            </button>
-            <button
-              onClick={handleCloseFloor}
-              className="p-1.5 rounded-lg text-gray-500 hover:text-gray-200 hover:bg-white/10 transition-all"
-              title="Close floor"
-            >
-              <X size={13} />
-            </button>
+
+            {/* Tab bar */}
+            <div className="flex items-center gap-0 px-5 border-b border-white/10 bg-gray-900/40">
+              <button
+                onClick={() => setFloorTab('painter')}
+                className={`flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-medium border-b-2 transition-all ${
+                  floorTab === 'painter'
+                    ? 'border-indigo-500 text-indigo-300'
+                    : 'border-transparent text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                <LayoutGrid size={12} /> Grid Painter
+              </button>
+              <button
+                onClick={() => setFloorTab('distances')}
+                className={`flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-medium border-b-2 transition-all ${
+                  floorTab === 'distances'
+                    ? 'border-indigo-500 text-indigo-300'
+                    : 'border-transparent text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                <ArrowRightLeft size={12} /> Room Distances
+              </button>
+            </div>
           </div>
-          <FloorGridPainter
-            floor={activeFloor}
-            onSaved={(updated) => setActiveFloor(updated)}
-          />
+
+          {/* Tab content */}
+          <div className="flex-1 min-h-0 overflow-hidden">
+            {floorTab === 'painter' && (
+              <FloorGridPainter
+                floor={activeFloor}
+                onSaved={(updated) => setActiveFloor(updated)}
+              />
+            )}
+            {floorTab === 'distances' && (
+              <FloorDistancesTab floor={activeFloor} />
+            )}
+          </div>
         </div>
       )
     }
@@ -856,7 +1244,6 @@ export default function CampusLayout() {
   // ===========================================================================
   return (
     <div className="campus-layout -m-6 overflow-hidden">
-
       {/* ══════════════════════════════════════════════════════════════
           LEFT PANEL — Navigation tree
          ══════════════════════════════════════════════════════════════ */}

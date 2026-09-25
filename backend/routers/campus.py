@@ -44,9 +44,12 @@ from models.schemas import (
     FloorCreate,
     FloorGridUpdate,
     FloorOut,
+    FloorRoomDistances,
     FloorUpdate,
     MessageResponse,
+    RoomDistanceEntry,
 )
+from solver.floor_graph import compute_room_distances
 
 router = APIRouter(tags=["Campus Layout"])
 
@@ -335,3 +338,67 @@ async def delete_floor(floor_id: str, db: AsyncSession = Depends(get_db)):
     await db.delete(floor)
     await db.flush()
     return {"message": f"Floor '{floor.name}' deleted"}
+
+
+@router.get("/floors/{floor_id}/room-distances", response_model=FloorRoomDistances)
+@router.get("/floors/{floor_id}/room-distances/", response_model=FloorRoomDistances, include_in_schema=False)
+async def get_floor_room_distances(floor_id: str, db: AsyncSession = Depends(get_db)):
+    """
+    Compute BFS shortest-path distances (in cells and metres) between every
+    pair of rooms/staffrooms linked on this floor's painted grid.
+
+    Returns an empty ``distances`` list when:
+    - The floor has no saved grid yet.
+    - The floor has no room-link blobs.
+    - Fewer than two blobs carry a ``record_id``.
+
+    Walkability rule: only ``corridor``, ``room``, ``staffroom``, ``stairs``,
+    and ``entrance`` cells are traversable. ``wall`` and ``empty`` cells block
+    movement.
+    """
+    floor = await db.get(Floor, floor_id)
+    if not floor:
+        raise HTTPException(status_code=404, detail="Floor not found")
+
+    # Parse grid_data
+    grid = _parse_grid(floor)
+    if grid is None:
+        return FloorRoomDistances(floor_id=floor_id, cell_size_m=floor.cell_size_m, distances=[])
+
+    # Parse room_links
+    if floor.room_links is None:
+        return FloorRoomDistances(floor_id=floor_id, cell_size_m=floor.cell_size_m, distances=[])
+    try:
+        links = json.loads(floor.room_links)
+    except (json.JSONDecodeError, ValueError):
+        return FloorRoomDistances(floor_id=floor_id, cell_size_m=floor.cell_size_m, distances=[])
+
+    # Run BFS
+    raw: dict[str, dict[str, int]] = compute_room_distances(grid, links)
+
+    # Build record_id → human-readable name from the blob metadata.
+    # The FloorGridPainter stores `record_name` on each blob alongside `record_id`.
+    id_to_name: dict[str, str | None] = {
+        link["record_id"]: link.get("record_name")
+        for link in links
+        if link.get("record_id")
+    }
+
+    # Flatten to list of RoomDistanceEntry (include both A→B and B→A)
+    entries: list[RoomDistanceEntry] = []
+    for from_id, targets in raw.items():
+        for to_id, dist_cells in targets.items():
+            entries.append(RoomDistanceEntry(
+                from_room_id=from_id,
+                to_room_id=to_id,
+                from_room_name=id_to_name.get(from_id),
+                to_room_name=id_to_name.get(to_id),
+                distance_cells=dist_cells,
+                distance_m=round(dist_cells * floor.cell_size_m, 3),
+            ))
+
+    return FloorRoomDistances(
+        floor_id=floor_id,
+        cell_size_m=floor.cell_size_m,
+        distances=entries,
+    )

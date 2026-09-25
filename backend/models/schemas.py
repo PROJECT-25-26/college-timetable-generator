@@ -507,3 +507,35 @@ class FloorGridUpdate(BaseModel):
     # Optional blob-to-record link map; replaces the existing room_links if provided
     room_links: list | None = None
 
+
+# ---------------------------------------------------------------------------
+# Floor Room Distances  (BFS-computed inter-room distances)
+# ---------------------------------------------------------------------------
+
+class RoomDistanceEntry(BaseModel):
+    """
+    Shortest walkable-path distance between two rooms on the same floor.
+
+    ``distance_cells`` is the raw BFS hop count (4-connected grid cells).
+    ``distance_m`` scales it by the floor's cell_size_m to give a real-world
+    metre estimate.
+    ``from_room_name`` / ``to_room_name`` are the human-readable names read
+    directly from the floor's room_links blob metadata (``record_name`` field
+    saved by the FloorGridPainter). They are ``None`` when a blob has no name.
+    """
+    from_room_id:   str
+    to_room_id:     str
+    from_room_name: str | None = None
+    to_room_name:   str | None = None
+    distance_cells: int
+    distance_m:     float
+
+
+class FloorRoomDistances(BaseModel):
+    """Response for GET /floors/{id}/room-distances."""
+    floor_id:    str
+    cell_size_m: float
+    # Flat list of all reachable (from, to) pairs on this floor.
+    # The list is symmetric: if (A→B) appears, so does (B→A).
+    distances:   list[RoomDistanceEntry]
+
