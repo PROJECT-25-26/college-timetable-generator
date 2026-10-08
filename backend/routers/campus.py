@@ -213,6 +213,7 @@ async def recompute_campus_matrices(db: AsyncSession, campus_id: str | None = No
             building_a_id=r.building_a_id,
             building_b_id=r.building_b_id,
             distance_cells=r.distance_cells,
+            distance_m=r.distance_m,
         )
         for r in ibd_rows
     ]
@@ -232,6 +233,7 @@ async def recompute_campus_matrices(db: AsyncSession, campus_id: str | None = No
             gate_b_pos=(r.gate_b_row, r.gate_b_col),
             gate_b_label=r.gate_b_label,
             distance_cells=r.distance_cells,
+            distance_m=r.distance_m,
         )
         for r in epd_rows
     ]
@@ -753,15 +755,21 @@ async def get_building_room_distances(
 
         floors_data.append(FloorData(
             floor_id=fl.id,
+            building_id=fl.building_id,
+            level=fl.level,
+            cell_size_m=fl.cell_size_m,
             grid_data=grid,
             room_links=links,
             stair_cells=stair_cells,
         ))
 
     # --- Run multi-floor Dijkstra ---
-    raw: dict[str, dict[str, int]] = compute_building_distances(
-        floors_data, stair_connections
+    building_result = compute_campus_distances(
+        floors=floors_data,
+        stair_connections=stair_connections,
     )
+    raw: dict[str, dict[str, int]] = building_result.get("allDistances", {})
+    route_details = building_result.get("allRoutes", {})
 
     # --- Identify cross-floor pairs ---
     same_floor_pairs: set[frozenset] = set()
@@ -793,7 +801,10 @@ async def get_building_room_distances(
                 from_room_name=id_to_name.get(from_id),
                 to_room_name=id_to_name.get(to_id),
                 distance_cells=dist_cells,
-                distance_m=round(dist_cells * csm, 3),
+                distance_m=round(
+                    route_details.get(from_id, {}).get(to_id, {}).get("distance_m", dist_cells * csm),
+                    3,
+                ),
                 cross_floor=is_cross,
             ))
 
@@ -873,15 +884,8 @@ async def get_campus_distance_matrices(campus_id: str, db: AsyncSession = Depend
     if not campus:
         raise HTTPException(status_code=404, detail="Campus not found")
 
-    if GLOBAL_CAMPUS_MATRIX_CACHE.is_valid():
-        return CampusDistanceMatricesResponse(
-            campus_id=campus_id,
-            staff_room_distance=GLOBAL_CAMPUS_MATRIX_CACHE.staff_room_distance,
-            room_room_distance=GLOBAL_CAMPUS_MATRIX_CACHE.room_room_distance,
-            all_distances=GLOBAL_CAMPUS_MATRIX_CACHE.all_distances,
-            all_routes=GLOBAL_CAMPUS_MATRIX_CACHE.all_routes,
-        )
-
+    # The current in-memory matrix cache is process-global rather than keyed by
+    # campus. Recompute here so requests for another campus cannot reuse it.
     res = await recompute_campus_matrices(db, campus_id)
     return CampusDistanceMatricesResponse(
         campus_id=campus_id,

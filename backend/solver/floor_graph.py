@@ -43,7 +43,6 @@ from __future__ import annotations
 import hashlib
 import heapq
 import json
-import math
 from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, TypedDict
@@ -64,8 +63,6 @@ _WALKABLE: frozenset[str] = frozenset(
 # Rule of thumb: 1 floor crossing ≈ 15 cells of extra walking distance.
 DEFAULT_FLOOR_DISTANCE_PENALTY: int = 15
 
-# Default inter-building distance when no manual entry or gate-pair entry exists
-DEFAULT_INTER_BUILDING_DISTANCE: int = 50
 
 
 # ---------------------------------------------------------------------------
@@ -103,7 +100,8 @@ class InterBuildingDistanceData:
     """
     building_a_id: str
     building_b_id: str
-    distance_cells: int
+    distance_cells: int = 0
+    distance_m: float | None = None
 
 
 @dataclass(frozen=True)
@@ -118,7 +116,8 @@ class EntrancePairDistanceData:
     floor_b_id:     str
     gate_b_pos:     tuple[int, int]   # (row, col)
     gate_b_label:   str | None
-    distance_cells: int
+    distance_cells: int = 0
+    distance_m: float | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -651,18 +650,20 @@ def compute_campus_distances(
                         )
 
     # Index coarse building-pair distances: (bldg_a, bldg_b) → dist_cells
-    inter_bldg_map: dict[tuple[str, str], int] = {}
+    inter_bldg_map: dict[tuple[str, str], float] = {}
     for ibd in (inter_building_distances or []):
-        inter_bldg_map[(ibd.building_a_id, ibd.building_b_id)] = ibd.distance_cells
-        inter_bldg_map[(ibd.building_b_id, ibd.building_a_id)] = ibd.distance_cells
+        distance_m = ibd.distance_m if ibd.distance_m is not None else ibd.distance_cells
+        inter_bldg_map[(ibd.building_a_id, ibd.building_b_id)] = distance_m
+        inter_bldg_map[(ibd.building_b_id, ibd.building_a_id)] = distance_m
 
     # Index per-gate-pair distances: (fid_a, pos_a, fid_b, pos_b) → (dist_cells, label_a, label_b)
-    gate_pair_map: dict[tuple, tuple[int, str | None, str | None]] = {}
+    gate_pair_map: dict[tuple, tuple[float, str | None, str | None]] = {}
     for epd in (entrance_pair_distances or []):
+        distance_m = epd.distance_m if epd.distance_m is not None else epd.distance_cells * floor_cell_scales.get(epd.floor_a_id, 1.0)
         key_fwd = (epd.floor_a_id, epd.gate_a_pos, epd.floor_b_id, epd.gate_b_pos)
         key_rev = (epd.floor_b_id, epd.gate_b_pos, epd.floor_a_id, epd.gate_a_pos)
-        gate_pair_map[key_fwd] = (epd.distance_cells, epd.gate_a_label, epd.gate_b_label)
-        gate_pair_map[key_rev] = (epd.distance_cells, epd.gate_b_label, epd.gate_a_label)
+        gate_pair_map[key_fwd] = (distance_m, epd.gate_a_label, epd.gate_b_label)
+        gate_pair_map[key_rev] = (distance_m, epd.gate_b_label, epd.gate_a_label)
 
     # Construct global Dijkstra search
     INF = float("inf")
@@ -701,7 +702,7 @@ def compute_campus_distances(
                 # 1) Room → Room (same floor)
                 for trid, tr_d in bdata.get("room_to_room", {}).get(rid, {}).items():
                     nb = ("room", bid, fid, trid)
-                    nd = d + tr_d
+                    nd = d + tr_d * floor_cell_scales.get(fid, 1.0)
                     if nd < dist_djk.get(nb, INF):
                         dist_djk[nb] = nd
                         meta_djk[nb] = (curr_route, curr_stair, curr_ga_pos, curr_ga_lbl, curr_gb_lbl, curr_fb)
@@ -710,7 +711,7 @@ def compute_campus_distances(
                 # 2) Room → Stair (same floor)
                 for sid, stair_d in bdata.get("room_to_stair", {}).get(rid, {}).items():
                     nb = ("stair", bid, fid, sid)
-                    nd = d + stair_d
+                    nd = d + stair_d * floor_cell_scales.get(fid, 1.0)
                     if nd < dist_djk.get(nb, INF):
                         dist_djk[nb] = nd
                         meta_djk[nb] = (curr_route, curr_stair, curr_ga_pos, curr_ga_lbl, curr_gb_lbl, curr_fb)
@@ -719,7 +720,7 @@ def compute_campus_distances(
                 # 3) Room → Gate (same floor)
                 for gpos, gate_d in bdata.get("room_to_gate", {}).get(rid, {}).items():
                     nb = ("gate", bid, fid, gpos)
-                    nd = d + gate_d
+                    nd = d + gate_d * floor_cell_scales.get(fid, 1.0)
                     if nd < dist_djk.get(nb, INF):
                         dist_djk[nb] = nd
                         meta_djk[nb] = (curr_route, curr_stair, curr_ga_pos, curr_ga_lbl, curr_gb_lbl, curr_fb)
@@ -745,10 +746,11 @@ def compute_campus_distances(
                         l1 = floor_levels.get(fid, 0)
                         l2 = floor_levels.get(other_fid, 0)
                         cost = max(1, abs(l1 - l2)) * floor_distance_penalty
+                    cost_m = cost * (floor_cell_scales.get(fid, 1.0) + floor_cell_scales.get(other_fid, 1.0)) / 2
 
                     other_bid = floor_building.get(other_fid, bid)
                     nb = ("stair", other_bid, other_fid, sid)
-                    nd = d + cost
+                    nd = d + cost_m
                     new_route = "cross_building" if curr_route == "cross_building" else "cross_floor"
                     new_stair = curr_stair or sid
                     if nd < dist_djk.get(nb, INF):
@@ -760,7 +762,7 @@ def compute_campus_distances(
                 for trid, stair_dists in bdata.get("room_to_stair", {}).items():
                     if sid in stair_dists:
                         nb = ("room", bid, fid, trid)
-                        nd = d + stair_dists[sid]
+                        nd = d + stair_dists[sid] * floor_cell_scales.get(fid, 1.0)
                         if nd < dist_djk.get(nb, INF):
                             dist_djk[nb] = nd
                             meta_djk[nb] = (curr_route, curr_stair, curr_ga_pos, curr_ga_lbl, curr_gb_lbl, curr_fb)
@@ -769,7 +771,7 @@ def compute_campus_distances(
                 # 3) Stair → Gate (same floor)
                 for gpos, gate_d in bdata.get("stair_to_gate", {}).get(sid, {}).items():
                     nb = ("gate", bid, fid, gpos)
-                    nd = d + gate_d
+                    nd = d + gate_d * floor_cell_scales.get(fid, 1.0)
                     if nd < dist_djk.get(nb, INF):
                         dist_djk[nb] = nd
                         meta_djk[nb] = (curr_route, curr_stair, curr_ga_pos, curr_ga_lbl, curr_gb_lbl, curr_fb)
@@ -784,7 +786,7 @@ def compute_campus_distances(
                 for trid, gate_dists in bdata.get("room_to_gate", {}).items():
                     if gpos in gate_dists:
                         nb = ("room", bid, fid, trid)
-                        nd = d + gate_dists[gpos]
+                        nd = d + gate_dists[gpos] * floor_cell_scales.get(fid, 1.0)
                         if nd < dist_djk.get(nb, INF):
                             dist_djk[nb] = nd
                             meta_djk[nb] = (curr_route, curr_stair, curr_ga_pos, curr_ga_lbl, curr_gb_lbl, curr_fb)
@@ -794,7 +796,7 @@ def compute_campus_distances(
                 for sid, gate_dists in bdata.get("stair_to_gate", {}).items():
                     if gpos in gate_dists:
                         nb = ("stair", bid, fid, sid)
-                        nd = d + gate_dists[gpos]
+                        nd = d + gate_dists[gpos] * floor_cell_scales.get(fid, 1.0)
                         if nd < dist_djk.get(nb, INF):
                             dist_djk[nb] = nd
                             meta_djk[nb] = (curr_route, curr_stair, curr_ga_pos, curr_ga_lbl, curr_gb_lbl, curr_fb)
@@ -811,13 +813,14 @@ def compute_campus_distances(
                         if key in gate_pair_map:
                             ib_dist, ga_lbl, gb_lbl = gate_pair_map[key]
                             is_fb = False
-                        else:
-                            # Fallback: coarse building-pair → Euclidean
-                            ib_dist, is_fb = _get_inter_building_distance(
-                                bid, other_bid, inter_bldg_map, building_positions
-                            )
+                        elif (bid, other_bid) in inter_bldg_map:
+                            ib_dist = inter_bldg_map[(bid, other_bid)]
+                            is_fb = False
                             ga_lbl = src_gate_label
                             gb_lbl = other_bdata.get("gate_labels", {}).get(other_gpos)
+                        else:
+                            # No measured or explicitly configured building link: this gate pair is disconnected.
+                            continue
 
                         nb = ("gate", other_bid, other_fid, other_gpos)
                         nd = d + ib_dist
@@ -844,14 +847,15 @@ def compute_campus_distances(
             r_type, s_id, ga_pos, ga_lbl, gb_lbl, is_fb = meta_djk.get(
                 target_node, ("same_floor", None, None, None, None, False)
             )
-            total_d_cells = int(total_d)
-            _update_combined(combined, src_rid, tgt_rid, total_d_cells)
+            total_d_m = float(total_d)
+            total_d_cells = round(total_d_m / floor_cell_scales.get(src_fid, 1.0))
+            combined.setdefault(src_rid, {})[tgt_rid] = total_d_cells
 
             if src_rid not in all_routes:
                 all_routes[src_rid] = {}
             all_routes[src_rid][tgt_rid] = {
                 "distance_cells": total_d_cells,
-                "distance_m":     round(total_d_cells * floor_cell_scales.get(src_fid, 1.0), 1),
+                "distance_m":     round(total_d_m, 3),
                 "route_type":     r_type,
                 "stair_id":       s_id,
                 "gate_a_label":   ga_lbl,
@@ -883,22 +887,6 @@ def compute_campus_distances(
         "allDistances":      combined,
         "allRoutes":         all_routes,
     }
-
-
-def _get_inter_building_distance(
-    bid_a: str,
-    bid_b: str,
-    inter_bldg_map: dict[tuple[str, str], int],
-    building_positions: dict[str, tuple[int, int]] | None = None,
-) -> tuple[int, bool]:
-    """Coarse building-pair fallback. Returns (distance_cells, is_fallback)."""
-    if (bid_a, bid_b) in inter_bldg_map:
-        return (inter_bldg_map[(bid_a, bid_b)], False)
-    if building_positions and bid_a in building_positions and bid_b in building_positions:
-        xa, ya = building_positions[bid_a]
-        xb, yb = building_positions[bid_b]
-        return (max(1, int(math.hypot(xa - xb, ya - yb))), True)
-    return (DEFAULT_INTER_BUILDING_DISTANCE, True)
 
 
 def _update_combined(

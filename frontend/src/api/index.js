@@ -149,10 +149,6 @@ export const campusApi = {
   remove: (id) => api.delete(`/campuses/${id}`),
   /** GET /api/v1/campuses/{campusId}/buildings */
   buildings: (campusId) => api.get(`/campuses/${campusId}/buildings`),
-  /** GET /api/v1/campuses/{campusId}/inter-building-distances */
-  interBuildingDistances: (campusId) => api.get(`/campuses/${campusId}/inter-building-distances`),
-  /** PUT /api/v1/campuses/{campusId}/inter-building-distances */
-  saveInterBuildingDistances: (campusId, distances) => api.put(`/campuses/${campusId}/inter-building-distances`, { distances }),
   /** GET /api/v1/campuses/{campusId}/distances — precomputed staffRoomDistance & roomRoomDistance matrices */
   distances: (campusId) => api.get(`/campuses/${campusId}/distances`),
   /** GET /api/v1/campuses/{campusId}/mapped-rooms */
