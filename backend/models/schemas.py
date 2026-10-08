@@ -7,7 +7,7 @@ can evolve independently of the database schema.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 # ---------------------------------------------------------------------------
 # Subject preference type
@@ -499,6 +499,10 @@ class FloorOut(_TimestampMixin):
     grid_data: list[list[str]] | None = None
     # Deserialized blob-to-record links; None until admin links cells to rooms
     room_links: list | None = None
+    # Deserialized stair connection declarations; None until connections are declared
+    stair_connections: list | None = None
+    # Gate label map {"row,col": "label"}; None until labels are assigned
+    gate_labels: dict[str, str] | None = None
 
 
 class FloorGridUpdate(BaseModel):
@@ -506,6 +510,12 @@ class FloorGridUpdate(BaseModel):
     grid_data: list[list[str]]
     # Optional blob-to-record link map; replaces the existing room_links if provided
     room_links: list | None = None
+    # Optional named stair cell groups on this floor; replaces stair_connections if provided.
+    # Each entry: {"stair_id": str, "cells": [[r,c],...], "connected_floor_id": str,
+    #              "crossing_cost": int|null}
+    stair_connections: list | None = None
+    # Optional gate label map {"row,col": "label"}; replaces existing gate_labels if provided.
+    gate_labels: dict[str, str] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -514,14 +524,16 @@ class FloorGridUpdate(BaseModel):
 
 class RoomDistanceEntry(BaseModel):
     """
-    Shortest walkable-path distance between two rooms on the same floor.
+    Shortest walkable-path distance between two rooms (same or different floors).
 
-    ``distance_cells`` is the raw BFS hop count (4-connected grid cells).
+    ``distance_cells`` is the raw BFS/Dijkstra hop count (4-connected grid cells
+    + stair crossing costs).
     ``distance_m`` scales it by the floor's cell_size_m to give a real-world
-    metre estimate.
+    metre estimate (uses the source floor's scale).
     ``from_room_name`` / ``to_room_name`` are the human-readable names read
     directly from the floor's room_links blob metadata (``record_name`` field
     saved by the FloorGridPainter). They are ``None`` when a blob has no name.
+    ``cross_floor`` is True when the path traverses at least one stair connection.
     """
     from_room_id:   str
     to_room_id:     str
@@ -529,6 +541,7 @@ class RoomDistanceEntry(BaseModel):
     to_room_name:   str | None = None
     distance_cells: int
     distance_m:     float
+    cross_floor:    bool = False
 
 
 class FloorRoomDistances(BaseModel):
@@ -538,4 +551,163 @@ class FloorRoomDistances(BaseModel):
     # Flat list of all reachable (from, to) pairs on this floor.
     # The list is symmetric: if (A→B) appears, so does (B→A).
     distances:   list[RoomDistanceEntry]
+
+
+# ---------------------------------------------------------------------------
+# Stair connection schemas
+# ---------------------------------------------------------------------------
+
+class StairConnectionEntry(BaseModel):
+    """
+    One stair/lift group on a floor, linking it to a specific cell region
+    and declaring the connected floor on the other end.
+
+    Stored as a list in ``Floor.stair_connections`` (JSON).
+
+    Fields
+    ------
+    stair_id
+        User-assigned label shared between both floor's stair_connections entries.
+        E.g. "staircase-A" or "lift-1".
+    cells
+        Grid cells on THIS floor that are part of this stair/lift group.
+        Each cell: {"r": int, "c": int}.
+    connected_floor_id
+        The DB id of the other floor this stair group connects to.
+    crossing_cost
+        Optional override for the BFS-cell cost of using this connection.
+        None = use the solver default (DEFAULT_FLOOR_DISTANCE_PENALTY).
+    """
+    stair_id:           str
+    cells:              list[dict]  # [{"r": int, "c": int}, ...]
+    connected_floor_id: str | None = None
+    crossing_cost:      int | None = None
+
+
+
+class StairConnectionsUpdate(BaseModel):
+    """Payload for PUT /floors/{id}/stair-connections."""
+    # Replaces ALL stair connections declared on this floor.
+    stair_connections: list[StairConnectionEntry]
+
+
+class BuildingRoomDistances(BaseModel):
+    """Response for GET /buildings/{id}/room-distances (cross-floor)."""
+    building_id: str
+    # Flat list of all reachable (from, to) pairs across all floors.
+    distances:   list[RoomDistanceEntry]
+
+
+# ---------------------------------------------------------------------------
+# Inter-Building Distance schemas
+# ---------------------------------------------------------------------------
+
+class InterBuildingDistanceEntry(BaseModel):
+    building_a_id: str
+    building_b_id: str
+    distance_m: float = Field(..., ge=0)
+    distance_cells: int | None = Field(None, ge=0)
+
+
+class InterBuildingDistanceOut(_TimestampMixin):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    campus_id: str
+    building_a_id: str
+    building_b_id: str
+    distance_m: float
+    distance_cells: int
+
+
+class InterBuildingDistancesUpdate(BaseModel):
+    distances: list[InterBuildingDistanceEntry]
+
+
+# ---------------------------------------------------------------------------
+# Entrance-pair Distance schemas (per-gate cross-building distances)
+# ---------------------------------------------------------------------------
+
+class EntrancePairEntry(BaseModel):
+    """A single gate-to-gate cross-building distance entry."""
+    floor_a_id:     str
+    gate_a_row:     int = Field(..., ge=0)
+    gate_a_col:     int = Field(..., ge=0)
+    gate_a_label:   str | None = None
+    floor_b_id:     str
+    gate_b_row:     int = Field(..., ge=0)
+    gate_b_col:     int = Field(..., ge=0)
+    gate_b_label:   str | None = None
+    distance_m:     float = Field(..., ge=0)
+    distance_cells: int | None = Field(None, ge=0)
+
+
+class EntrancePairOut(_TimestampMixin):
+    model_config = ConfigDict(from_attributes=True)
+
+    id:             str
+    campus_id:      str
+    floor_a_id:     str
+    gate_a_row:     int
+    gate_a_col:     int
+    gate_a_label:   str | None = None
+    floor_b_id:     str
+    gate_b_row:     int
+    gate_b_col:     int
+    gate_b_label:   str | None = None
+    distance_m:     float
+    distance_cells: int
+
+
+class EntrancePairsUpdate(BaseModel):
+    """Payload for PUT /campuses/{id}/entrance-pairs"""
+    pairs: list[EntrancePairEntry]
+
+
+class GateInfo(BaseModel):
+    """Describes a single gate cell on the campus (used by GET /campuses/{id}/gates)."""
+    floor_id:      str
+    floor_name:    str
+    building_id:   str
+    building_name: str
+    row:           int
+    col:           int
+    label:         str | None = None  # user-assigned label, e.g. "Main Gate"
+
+
+class CampusDistanceMatricesResponse(BaseModel):
+    campus_id: str
+    staff_room_distance: dict[str, dict[str, int]]
+    room_room_distance: dict[str, dict[str, int]]
+    all_distances: dict[str, dict[str, int]]
+    all_routes: dict[str, dict[str, dict[str, Any]]] = {}
+
+
+class MappedRoomItem(BaseModel):
+    id: str
+    name: str
+    code: str | None = None
+    type: str  # "room" or "staffroom"
+    building_id: str | None = None
+    building_name: str | None = None
+    building_color: str | None = None
+    floor_id: str | None = None
+    floor_name: str | None = None
+    level: int | None = None
+
+
+class RoomDistanceQueryResponse(BaseModel):
+    from_room: MappedRoomItem | None = None
+    to_room: MappedRoomItem | None = None
+    distance_m: float | None = None
+    distance_cells: int | None = None
+    reachable: bool
+    route_type: str  # "same_floor" | "cross_floor" | "cross_building" | "unreachable"
+    description: str
+    # Engine-reported gate labels used in the cross-building hop (if applicable)
+    gate_a_label: str | None = None
+    gate_b_label: str | None = None
+    stair_id:     str | None = None
+    fallback_used: bool = False
+
 

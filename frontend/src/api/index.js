@@ -149,7 +149,27 @@ export const campusApi = {
   remove: (id) => api.delete(`/campuses/${id}`),
   /** GET /api/v1/campuses/{campusId}/buildings */
   buildings: (campusId) => api.get(`/campuses/${campusId}/buildings`),
+  /** GET /api/v1/campuses/{campusId}/inter-building-distances */
+  interBuildingDistances: (campusId) => api.get(`/campuses/${campusId}/inter-building-distances`),
+  /** PUT /api/v1/campuses/{campusId}/inter-building-distances */
+  saveInterBuildingDistances: (campusId, distances) => api.put(`/campuses/${campusId}/inter-building-distances`, { distances }),
+  /** GET /api/v1/campuses/{campusId}/distances — precomputed staffRoomDistance & roomRoomDistance matrices */
+  distances: (campusId) => api.get(`/campuses/${campusId}/distances`),
+  /** GET /api/v1/campuses/{campusId}/mapped-rooms */
+  mappedRooms: (campusId) => api.get(`/campuses/${campusId}/mapped-rooms`),
+  /** GET /api/v1/campuses/{campusId}/room-distance-calculator */
+  calculateRoomDistance: (campusId, fromRoomId, toRoomId) =>
+    api.get(`/campuses/${campusId}/room-distance-calculator`, {
+      params: { from_room_id: fromRoomId, to_room_id: toRoomId },
+    }),
+  /** GET /api/v1/campuses/{campusId}/gates — list all gate cells with labels */
+  gates: (campusId) => api.get(`/campuses/${campusId}/gates`),
+  /** GET /api/v1/campuses/{campusId}/entrance-pairs — list all per-gate inter-building distance pairs */
+  entrancePairs: (campusId) => api.get(`/campuses/${campusId}/entrance-pairs`),
+  /** PUT /api/v1/campuses/{campusId}/entrance-pairs — bulk update per-gate entrance pair distances */
+  saveEntrancePairs: (campusId, pairs) => api.put(`/campuses/${campusId}/entrance-pairs`, { pairs }),
 }
+
 
 export const buildingsApi = {
   /** POST /api/v1/buildings */
@@ -171,9 +191,9 @@ export const floorsApi = {
   get: (id) => api.get(`/floors/${id}`),
   /** PATCH /api/v1/floors/{id} — update metadata (name, level, scale) */
   update: (id, data) => api.patch(`/floors/${id}`, data),
-  /** PUT /api/v1/floors/{id}/grid — save the full painted 2-D grid + room links */
-  saveGrid: (id, gridData, roomLinks = null) =>
-    api.put(`/floors/${id}/grid`, { grid_data: gridData, room_links: roomLinks }),
+  /** PUT /api/v1/floors/{id}/grid — save the full painted 2-D grid + room links + stair connections + gate labels */
+  saveGrid: (id, gridData, roomLinks = null, stairConnections = null, gateLabels = null) =>
+    api.put(`/floors/${id}/grid`, { grid_data: gridData, room_links: roomLinks, stair_connections: stairConnections, gate_labels: gateLabels }),
   /** DELETE /api/v1/floors/{id} */
   remove: (id) => api.delete(`/floors/${id}`),
   /**

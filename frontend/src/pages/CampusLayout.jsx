@@ -32,6 +32,12 @@ import {
   Loader2,
   Check,
   RefreshCw,
+  ArrowUpDown,
+  Save,
+  Link2,
+  AlertCircle,
+  Network,
+  DoorOpen,
 } from 'lucide-react'
 import { campusApi, buildingsApi, floorsApi } from '../api/index'
 import FloorGridPainter from '../components/FloorGridPainter'
@@ -524,12 +530,555 @@ function FloorModal({ title, initial, onConfirm, onClose }) {
   )
 }
 
+
+
+// ---------------------------------------------------------------------------
+// Entrance Pair Distance Panel (Per-gate inter-building distances)
+// ---------------------------------------------------------------------------
+function EntrancePairsPanel({ campusId, buildings, onClose }) {
+  const [gates,        setGates]        = useState([])
+  const [pairs,        setPairs]        = useState([])
+  const [loading,      setLoading]      = useState(true)
+  const [saving,       setSaving]       = useState(false)
+  const [saved,        setSaved]        = useState(false)
+  const [error,        setError]        = useState(null)
+
+  const [srcGateKey, setSrcGateKey] = useState('')
+  const [tgtGateKey, setTgtGateKey] = useState('')
+  const [distM,      setDistM]      = useState('')
+
+  const loadData = useCallback(() => {
+    if (!campusId) return
+    setLoading(true)
+    setError(null)
+    Promise.all([
+      campusApi.gates(campusId),
+      campusApi.entrancePairs(campusId),
+    ])
+      .then(([gRes, pRes]) => {
+        setGates(Array.isArray(gRes?.data) ? gRes.data : [])
+        setPairs(Array.isArray(pRes?.data) ? pRes.data : [])
+      })
+      .catch(err => setError(err?.message || 'Failed to load entrance pair data'))
+      .finally(() => setLoading(false))
+  }, [campusId])
+
+  useEffect(() => { loadData() }, [loadData])
+
+  const gateKey = (g) => `${g.floor_id}:${g.row},${g.col}`
+  const gateLabelText = (g) => {
+    const lbl = g.label ? `"${g.label}"` : `Gate at (${g.row + 1},${g.col + 1})`
+    return `[${g.building_name} • ${g.floor_name}] ${lbl}`
+  }
+
+  const handleAddPair = () => {
+    if (!srcGateKey || !tgtGateKey || !distM || isNaN(Number(distM))) return
+    const srcGate = gates.find(g => gateKey(g) === srcGateKey)
+    const tgtGate = gates.find(g => gateKey(g) === tgtGateKey)
+    if (!srcGate || !tgtGate) return
+    if (srcGateKey === tgtGateKey) {
+      setError('Source and destination gate cannot be identical.')
+      return
+    }
+
+    const newEntry = {
+      floor_a_id:   srcGate.floor_id,
+      gate_a_row:   srcGate.row,
+      gate_a_col:   srcGate.col,
+      gate_a_label: srcGate.label || `Gate (${srcGate.row + 1},${srcGate.col + 1})`,
+      floor_b_id:   tgtGate.floor_id,
+      gate_b_row:   tgtGate.row,
+      gate_b_col:   tgtGate.col,
+      gate_b_label: tgtGate.label || `Gate (${tgtGate.row + 1},${tgtGate.col + 1})`,
+      distance_m:   Number(distM),
+    }
+
+    setPairs(prev => [...prev, newEntry])
+    setSrcGateKey('')
+    setTgtGateKey('')
+    setDistM('')
+    setSaved(false)
+    setError(null)
+  }
+
+  const handleRemovePair = (index) => {
+    setPairs(prev => prev.filter((_, i) => i !== index))
+    setSaved(false)
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await campusApi.saveEntrancePairs(campusId, pairs)
+      setPairs(Array.isArray(res?.data) ? res.data : pairs)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2500)
+    } catch (err) {
+      setError(err?.response?.data?.detail || err?.message || 'Failed to save entrance pair distances')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="inter-bldg-panel">
+      {/* Header */}
+      <div className="inter-bldg-header">
+        <DoorOpen size={14} className="text-amber-400" />
+        <span>Entrance Pair Distances</span>
+        <button onClick={onClose} className="ml-auto p-1 rounded hover:bg-white/10 text-gray-500 hover:text-gray-300 transition-colors" title="Close">
+          <X size={13} />
+        </button>
+      </div>
+
+      {/* Description */}
+      <div className="inter-bldg-desc">
+        <AlertCircle size={11} className="text-amber-400 flex-shrink-0 mt-0.5" />
+        <p className="text-[11px] text-gray-400 leading-relaxed">
+          Configure exact outdoor walking distances between specific building gates. The shortest-path engine picks the optimal gate pair for cross-building journeys.
+        </p>
+      </div>
+
+      {/* Body */}
+      <div className="inter-bldg-body space-y-4">
+        {loading ? (
+          <div className="flex items-center justify-center py-8 gap-2 text-gray-500 text-xs">
+            <Loader2 size={14} className="animate-spin text-amber-400" /> Loading campus gates…
+          </div>
+        ) : (
+          <>
+            {/* Add New Link Form */}
+            <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/10 space-y-2.5">
+              <span className="text-[11px] font-semibold text-amber-300 uppercase tracking-wider block">
+                + Add Gate-to-Gate Distance Link
+              </span>
+
+              {gates.length === 0 ? (
+                <p className="text-xs text-gray-500">
+                  No gate cells painted yet. Open a floor grid painter and paint "Gate" cells on your floor plans first.
+                </p>
+              ) : (
+                <>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-gray-400 font-medium">From Gate</label>
+                    <select
+                      className="w-full px-2.5 py-1.5 rounded-xl text-xs bg-white/5 border border-white/10 text-gray-200 outline-none focus:border-amber-500"
+                      value={srcGateKey}
+                      onChange={e => setSrcGateKey(e.target.value)}
+                    >
+                      <option value="">— Select Source Gate —</option>
+                      {gates.map(g => (
+                        <option key={gateKey(g)} value={gateKey(g)}>
+                          {gateLabelText(g)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-gray-400 font-medium">To Gate</label>
+                    <select
+                      className="w-full px-2.5 py-1.5 rounded-xl text-xs bg-white/5 border border-white/10 text-gray-200 outline-none focus:border-amber-500"
+                      value={tgtGateKey}
+                      onChange={e => setTgtGateKey(e.target.value)}
+                    >
+                      <option value="">— Select Target Gate —</option>
+                      {gates.map(g => (
+                        <option key={gateKey(g)} value={gateKey(g)}>
+                          {gateLabelText(g)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 space-y-1">
+                      <label className="text-[10px] text-gray-400 font-medium">Walking Distance (metres)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        placeholder="e.g. 45"
+                        className="w-full px-2.5 py-1.5 rounded-xl text-xs bg-white/5 border border-white/10 text-gray-200 outline-none focus:border-amber-500"
+                        value={distM}
+                        onChange={e => setDistM(e.target.value)}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAddPair}
+                      disabled={!srcGateKey || !tgtGateKey || !distM}
+                      className="mt-4 px-3 py-2 rounded-xl text-xs font-semibold bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-white transition-all shadow-md shrink-0"
+                    >
+                      Add Pair
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* List of configured entrance pair rules */}
+            <div className="space-y-2">
+              <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block">
+                Configured Entrance Links ({pairs.length})
+              </span>
+
+              {pairs.length === 0 ? (
+                <p className="text-xs text-gray-500 text-center py-4">
+                  No entrance pair distance overrides configured yet. The engine will use the default building-to-building distances as fallback.
+                </p>
+              ) : (
+                pairs.map((p, idx) => (
+                  <div key={idx} className="p-2.5 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between gap-2 text-xs">
+                    <div className="space-y-0.5 min-w-0 flex-1">
+                      <div className="flex items-center gap-1 text-amber-300 font-semibold truncate">
+                        <span>🚪 {p.gate_a_label || 'Gate A'}</span>
+                        <span className="text-gray-500 text-[10px]">↔</span>
+                        <span>🚪 {p.gate_b_label || 'Gate B'}</span>
+                      </div>
+                      <div className="text-[10px] text-gray-400 truncate">
+                        {p.floor_a_id.slice(0, 8)}… ↔ {p.floor_b_id.slice(0, 8)}…
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="font-extrabold text-white font-mono bg-white/10 px-2 py-0.5 rounded text-xs">
+                        {p.distance_m} m
+                      </span>
+                      <button
+                        onClick={() => handleRemovePair(idx)}
+                        className="p-1 text-gray-500 hover:text-red-400 transition-colors"
+                        title="Remove link"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="inter-bldg-footer">
+        {error && (
+          <p className="text-[11px] text-red-400 flex items-center gap-1 mb-1">
+            <AlertCircle size={11} /> {error}
+          </p>
+        )}
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className={`inter-bldg-save-btn ${ saved ? 'saved' : '' }`}
+        >
+          {saving
+            ? <Loader2 size={12} className="animate-spin" />
+            : saved
+              ? <Check size={12} />
+              : <Save size={12} />}
+          {saving ? 'Saving…' : saved ? 'Saved!' : 'Save Entrance Links'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Room Distance Calculator Panel
+// ---------------------------------------------------------------------------
+function RoomDistanceCalculatorPanel({ campusId, onClose }) {
+  const [rooms,         setRooms]         = useState([])
+  const [loadingRooms,  setLoadingRooms]  = useState(true)
+  const [fromRoomId,    setFromRoomId]    = useState('')
+  const [toRoomId,      setToRoomId]      = useState('')
+  const [result,        setResult]        = useState(null)
+  const [calculating,   setCalculating]   = useState(false)
+  const [error,         setError]         = useState(null)
+
+  useEffect(() => {
+    if (!campusId) return
+    let cancelled = false
+    setLoadingRooms(true)
+    campusApi.mappedRooms(campusId)
+      .then(res => {
+        if (cancelled) return
+        const list = Array.isArray(res?.data) ? res.data : []
+        setRooms(list)
+        if (list.length >= 2) {
+          setFromRoomId(list[0].id)
+          setToRoomId(list[1].id)
+        } else if (list.length === 1) {
+          setFromRoomId(list[0].id)
+        }
+      })
+      .catch(err => {
+        if (!cancelled) setError(err?.message || 'Failed to load mapped rooms')
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingRooms(false)
+      })
+    return () => { cancelled = true }
+  }, [campusId])
+
+  useEffect(() => {
+    if (!campusId || !fromRoomId || !toRoomId) {
+      setResult(null)
+      return
+    }
+    let cancelled = false
+    setCalculating(true)
+    campusApi.calculateRoomDistance(campusId, fromRoomId, toRoomId)
+      .then(res => {
+        if (!cancelled) setResult(res?.data)
+      })
+      .catch(err => {
+        if (!cancelled) setError(err?.message || 'Calculation error')
+      })
+      .finally(() => {
+        if (!cancelled) setCalculating(false)
+      })
+    return () => { cancelled = true }
+  }, [campusId, fromRoomId, toRoomId])
+
+  const handleSwap = () => {
+    const temp = fromRoomId
+    setFromRoomId(toRoomId)
+    setToRoomId(temp)
+  }
+
+  const fromRoom = rooms.find(r => r.id === fromRoomId)
+  const toRoom   = rooms.find(r => r.id === toRoomId)
+
+  const roomGroups = useMemo(() => {
+    const map = {}
+    for (const r of rooms) {
+      const bname = r.building_name || 'Unassigned Building'
+      if (!map[bname]) map[bname] = []
+      map[bname].push(r)
+    }
+    return map
+  }, [rooms])
+
+  return (
+    <div className="inter-bldg-panel">
+      {/* Header */}
+      <div className="inter-bldg-header">
+        <Ruler size={14} className="text-indigo-400" />
+        <span>Room Distance Calculator</span>
+        <button onClick={onClose} className="ml-auto p-1 rounded hover:bg-white/10 text-gray-500 hover:text-gray-300 transition-colors" title="Close">
+          <X size={13} />
+        </button>
+      </div>
+
+      {/* Description */}
+      <div className="inter-bldg-desc">
+        <AlertCircle size={11} className="text-indigo-400 flex-shrink-0 mt-0.5" />
+        <p className="text-[11px] text-gray-400 leading-relaxed">
+          Find exact walking distance between any two rooms across floors or buildings. Uses shortest-path BFS routing and tagged stairwells.
+        </p>
+      </div>
+
+      {/* Body */}
+      <div className="inter-bldg-body space-y-4">
+        {loadingRooms ? (
+          <div className="flex items-center justify-center py-10 gap-2 text-gray-500 text-xs">
+            <Loader2 size={14} className="animate-spin" /> Loading campus mapped rooms…
+          </div>
+        ) : rooms.length < 2 ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
+            <Building2 size={32} className="text-indigo-400 opacity-40" />
+            <p className="text-xs text-gray-500">Map at least 2 rooms on your floor grid canvas to calculate distance.</p>
+          </div>
+        ) : (
+          <>
+            {/* From Room */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                <MapPin size={11} className="text-emerald-400" /> From Room
+              </label>
+              <select
+                className="w-full px-3 py-2 rounded-xl text-xs bg-white/5 border border-white/10 text-gray-200 outline-none focus:border-indigo-500 focus:bg-white/10 transition-all cursor-pointer"
+                value={fromRoomId}
+                onChange={e => setFromRoomId(e.target.value)}
+              >
+                {Object.entries(roomGroups).map(([bname, bRooms]) => (
+                  <optgroup key={bname} label={bname} className="bg-[#1e2030] text-gray-300 font-semibold">
+                    {bRooms.map(r => (
+                      <option key={r.id} value={r.id} className="bg-[#1e2030] text-gray-200">
+                        [{r.floor_name || 'Floor'}] {r.name} {r.code ? `(${r.code})` : ''} — {r.type}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+
+              {fromRoom && (
+                <div className="flex items-center gap-2 pt-0.5 text-[10px] text-gray-500">
+                  <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 font-medium text-gray-300">
+                    🏢 {fromRoom.building_name}
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 font-medium text-gray-300">
+                    🥞 {fromRoom.floor_name}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Swap Button */}
+            <div className="flex items-center justify-center my-1">
+              <button
+                type="button"
+                onClick={handleSwap}
+                className="p-2 rounded-full bg-white/5 hover:bg-indigo-600/30 border border-white/10 hover:border-indigo-500/50 text-gray-400 hover:text-indigo-200 transition-all shadow-md group"
+                title="Swap From and To rooms"
+              >
+                <ArrowRightLeft size={14} className="group-hover:rotate-180 transition-transform duration-300" />
+              </button>
+            </div>
+
+            {/* To Room */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                <MapPin size={11} className="text-red-400" /> To Room
+              </label>
+              <select
+                className="w-full px-3 py-2 rounded-xl text-xs bg-white/5 border border-white/10 text-gray-200 outline-none focus:border-indigo-500 focus:bg-white/10 transition-all cursor-pointer"
+                value={toRoomId}
+                onChange={e => setToRoomId(e.target.value)}
+              >
+                {Object.entries(roomGroups).map(([bname, bRooms]) => (
+                  <optgroup key={bname} label={bname} className="bg-[#1e2030] text-gray-300 font-semibold">
+                    {bRooms.map(r => (
+                      <option key={r.id} value={r.id} className="bg-[#1e2030] text-gray-200">
+                        [{r.floor_name || 'Floor'}] {r.name} {r.code ? `(${r.code})` : ''} — {r.type}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+
+              {toRoom && (
+                <div className="flex items-center gap-2 pt-0.5 text-[10px] text-gray-500">
+                  <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 font-medium text-gray-300">
+                    🏢 {toRoom.building_name}
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 font-medium text-gray-300">
+                    🥞 {toRoom.floor_name}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Calculation Result Display Card */}
+            <div className="pt-2">
+              {calculating ? (
+                <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/10 flex items-center justify-center gap-2 text-xs text-gray-400">
+                  <Loader2 size={14} className="animate-spin text-indigo-400" /> Calculating shortest walking path…
+                </div>
+              ) : result ? (
+                <div className={`p-4 rounded-2xl border transition-all ${
+                  !result.reachable
+                    ? 'bg-red-500/10 border-red-500/30'
+                    : result.route_type === 'same_floor'
+                      ? 'bg-emerald-500/10 border-emerald-500/30'
+                      : result.route_type === 'cross_floor'
+                        ? 'bg-indigo-500/10 border-indigo-500/30'
+                        : 'bg-purple-500/10 border-purple-500/30'
+                }`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${
+                      !result.reachable
+                        ? 'bg-red-500/20 text-red-300 border border-red-500/40'
+                        : result.route_type === 'same_floor'
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                          : result.route_type === 'cross_floor'
+                            ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
+                            : 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
+                    }`}>
+                      {!result.reachable
+                        ? 'Unreachable'
+                        : result.route_type === 'same_floor'
+                          ? '🟢 Same Floor'
+                          : result.route_type === 'cross_floor'
+                            ? '🔵 Cross-Floor'
+                            : '🟣 Cross-Building'}
+                    </span>
+
+                    {result.reachable && (
+                      <div className="text-right">
+                        <span className="text-lg font-extrabold text-white font-mono">
+                          {result.distance_m ?? 0} <span className="text-xs font-normal text-gray-400">m</span>
+                        </span>
+                        <span className="block text-[10px] font-mono text-gray-400">
+                          ({result.distance_cells ?? 0} cells)
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <p className="text-xs text-gray-300 leading-relaxed font-medium">
+                    {result.description}
+                  </p>
+
+                  {result.reachable && fromRoom && toRoom && (
+                    <div className="mt-4 pt-3 border-t border-white/10 space-y-2 text-[11px]">
+                      <div className="flex items-center gap-2 text-gray-300">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                        <span className="font-semibold text-white">{fromRoom.name}</span>
+                        <span className="text-[10px] text-gray-500 font-mono">({fromRoom.building_name} • {fromRoom.floor_name})</span>
+                      </div>
+                      <div className="ml-1 pl-3 border-l-2 border-indigo-500/40 text-[10px] text-gray-400 py-1 space-y-1">
+                        {result.route_type === 'same_floor' && 'Direct walking path through corridors'}
+                        {result.route_type === 'cross_floor' && (
+                          <div>
+                            <span>Walk to stairwell/lift</span>
+                            {result.stair_id && <span className="font-semibold text-indigo-300 ml-1">[{result.stair_id}]</span>}
+                            <span> → Traverse floors → Walk to room</span>
+                          </div>
+                        )}
+                        {result.route_type === 'cross_building' && (
+                          <div className="space-y-1">
+                            <div>
+                              🚪 <span className="font-semibold text-amber-300">{result.gate_a_label || 'Exit Gate'}</span>
+                              <span className="text-[9px] text-gray-500 font-mono ml-1">({fromRoom.building_name})</span>
+                            </div>
+                            <div className="text-[10px] text-indigo-300 font-mono pl-3">
+                              ↕ Outdoor walking route
+                            </div>
+                            <div>
+                              🚪 <span className="font-semibold text-amber-300">{result.gate_b_label || 'Entry Gate'}</span>
+                              <span className="text-[9px] text-gray-500 font-mono ml-1">({toRoom.building_name})</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-gray-300">
+                        <span className="w-2 h-2 rounded-full bg-red-400 shrink-0" />
+                        <span className="font-semibold text-white">{toRoom.name}</span>
+                        <span className="text-[10px] text-gray-500 font-mono">({toRoom.building_name} • {toRoom.floor_name})</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Campus Map — draggable building boxes
 // ---------------------------------------------------------------------------
 function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddBuilding, selectedBuildingId, onDeleteBuilding, onRenameBuilding, onAddFloor, onSelectFloor }) {
   const mapRef     = useRef(null)
   const dragging   = useRef(null)   // { id, startX, startY, origX, origY }
+  const [showCalcPanel, setShowCalcPanel]         = useState(false)
+  const [showEntrancePanel, setShowEntrancePanel] = useState(false)
 
   const MAP_W = 1600
   const MAP_H = 900
@@ -543,7 +1092,6 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
       startClientY: e.clientY,
       origX: building.pos_x,
       origY: building.pos_y,
-      // Bug fix: store dimensions so upper-bound clamping works
       width:  building.width  ?? 120,
       height: building.height ?? 90,
     }
@@ -554,7 +1102,6 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
       if (!dragging.current) return
       const dx = e.clientX - dragging.current.startClientX
       const dy = e.clientY - dragging.current.startClientY
-      // Bug fix: clamp to map bounds (both lower and upper edges)
       const newX = Math.max(0, Math.min(MAP_W - (dragging.current.width  ?? 120), dragging.current.origX + dx))
       const newY = Math.max(0, Math.min(MAP_H - (dragging.current.height ?? 90),  dragging.current.origY + dy))
       onBuildingMove(dragging.current.id, newX, newY)
@@ -581,13 +1128,41 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
             <p className="text-xs text-gray-500 mt-0.5">{campus.description}</p>
           )}
         </div>
-        <button
-          id="add-building-btn"
-          onClick={onAddBuilding}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/30 hover:text-indigo-200 transition-all"
-        >
-          <Plus size={13} /> Add Building
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            id="room-distance-calc-btn"
+            onClick={() => { setShowCalcPanel(o => !o); setShowEntrancePanel(false) }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+              showCalcPanel
+                ? 'bg-indigo-600/30 text-indigo-200 border-indigo-500/50'
+                : 'bg-white/5 text-gray-400 border-white/10 hover:bg-indigo-600/15 hover:text-indigo-300 hover:border-indigo-500/30'
+            }`}
+            title="Find walking distance between any two rooms across floors or buildings"
+          >
+            <Ruler size={13} />
+            Find Room Distance
+          </button>
+          <button
+            id="campus-entrance-pairs-btn"
+            onClick={() => { setShowEntrancePanel(o => !o); setShowCalcPanel(false) }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+              showEntrancePanel
+                ? 'bg-amber-600/30 text-amber-200 border-amber-500/50'
+                : 'bg-white/5 text-gray-400 border-white/10 hover:bg-amber-600/15 hover:text-amber-300 hover:border-amber-500/30'
+            }`}
+            title="Configure specific gate-to-gate inter-building walking distances"
+          >
+            <DoorOpen size={13} />
+            Entrance Links
+          </button>
+          <button
+            id="add-building-btn"
+            onClick={onAddBuilding}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/30 hover:text-indigo-200 transition-all"
+          >
+            <Plus size={13} /> Add Building
+          </button>
+        </div>
       </div>
 
       {/* Map canvas */}
@@ -704,6 +1279,33 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
           ))}
         </div>
       </div>
+
+
+
+      {/* Room Distance Calculator Side Panel */}
+      {showCalcPanel && (
+        <div className="inter-bldg-overlay" onClick={() => setShowCalcPanel(false)}>
+          <div className="inter-bldg-drawer" onClick={e => e.stopPropagation()}>
+            <RoomDistanceCalculatorPanel
+              campusId={campus.id}
+              onClose={() => setShowCalcPanel(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Entrance Pair Distance Side Panel */}
+      {showEntrancePanel && (
+        <div className="inter-bldg-overlay" onClick={() => setShowEntrancePanel(false)}>
+          <div className="inter-bldg-drawer" onClick={e => e.stopPropagation()}>
+            <EntrancePairsPanel
+              campusId={campus.id}
+              buildings={buildings}
+              onClose={() => setShowEntrancePanel(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

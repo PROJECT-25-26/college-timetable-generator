@@ -50,7 +50,7 @@ import {
   Users,
   X,
 } from 'lucide-react'
-import { floorsApi, roomsApi, staffroomsApi } from '../api/index'
+import { buildingsApi, floorsApi, roomsApi, staffroomsApi } from '../api/index'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -82,10 +82,31 @@ const CELL_TYPES = {
     fill:     '#292524',
     accent:   '#facc15',
     pattern:  'stairs-step',
+    linkable: true,
+  },
+
+  door: {
+    label:    'Door',
+    shortcut: 'D',
+    icon:     DoorOpen,
+    fill:     '#2e1065',
+    accent:   '#a78bfa',
+    pattern:  'door-lines',
     linkable: false,
+    description: 'Room/staffroom door',
+  },
+  gate: {
+    label:    'Gate',
+    shortcut: 'G',
+    icon:     DoorOpen,
+    fill:     '#451a03',
+    accent:   '#f59e0b',
+    pattern:  'gate-arch',
+    linkable: false,
+    description: 'Building gate / main entrance',
   },
   entrance: {
-    label:    'Entrance',
+    label:    'Entrance (Legacy)',
     shortcut: 'E',
     icon:     DoorOpen,
     fill:     '#082f49',
@@ -143,7 +164,7 @@ function mergeGrid(emptyGrid, savedGrid) {
 }
 
 function countCells(grid) {
-  const counts = { wall: 0, corridor: 0, stairs: 0, entrance: 0, room: 0, staffroom: 0 }
+  const counts = { wall: 0, corridor: 0, stairs: 0, door: 0, gate: 0, entrance: 0, room: 0, staffroom: 0 }
   for (const row of grid)
     for (const cell of row)
       if (counts[cell] !== undefined) counts[cell]++
@@ -209,7 +230,7 @@ function isWalkable(grid, blobCells) {
       const nr = r + dr, nc = c + dc
       if (!blobSet.has(`${nr},${nc}`)) {
         const t = grid[nr]?.[nc]
-        if (t === 'corridor' || t === 'entrance') return true
+        if (t === 'corridor' || t === 'entrance' || t === 'door' || t === 'gate') return true
       }
     }
   }
@@ -231,27 +252,33 @@ function calcBoundingBox(cells) {
 // Reconcile saved room_links list with a fresh connected-component blob list.
 // Uses 4-way BFS flood-fill blobs, cell-overlap scoring, and enforces unique record_id links
 // so that splitting or merging blobs does not corrupt links or assign duplicate room IDs.
-function reconcileLinks(freshBlobs, savedLinks) {
+function reconcileLinks(freshBlobs, savedLinks, savedStairConnections) {
   if (!freshBlobs || !freshBlobs.length) return []
-  if (!savedLinks || !savedLinks.length) {
-    return freshBlobs.map(b => ({
-      ...b,
-      record_id: null,
-      record_name: null,
-      record_code: null,
-      bounding_box: calcBoundingBox(b.cells),
-    }))
+
+  const cellToSavedLink = new Map()
+  if (savedLinks && savedLinks.length) {
+    for (const saved of savedLinks) {
+      if ((saved.record_id || saved.stair_id) && saved.cells) {
+        for (const cell of saved.cells) {
+          const r = cell.r ?? cell[0], c = cell.c ?? cell[1]
+          if (r !== undefined && c !== undefined) {
+            cellToSavedLink.set(`${r},${c}`, saved)
+          }
+        }
+      }
+    }
   }
 
-  // Lookup map of saved links by exact blobId
-  const savedById = new Map(savedLinks.map(l => [l.blobId, l]))
-
-  // Map each coordinate (r,c) to its saved link record
-  const cellToSaved = new Map()
-  for (const saved of savedLinks) {
-    if (saved.record_id && saved.cells) {
-      for (const { r, c } of saved.cells) {
-        cellToSaved.set(`${r},${c}`, saved)
+  const cellToSavedStair = new Map()
+  if (savedStairConnections && savedStairConnections.length) {
+    for (const sc of savedStairConnections) {
+      if (sc.stair_id && sc.cells) {
+        for (const cell of sc.cells) {
+          const r = cell.r ?? cell[0], c = cell.c ?? cell[1]
+          if (r !== undefined && c !== undefined) {
+            cellToSavedStair.set(`${r},${c}`, sc.stair_id)
+          }
+        }
       }
     }
   }
@@ -259,69 +286,67 @@ function reconcileLinks(freshBlobs, savedLinks) {
   const usedRecordIds = new Set()
   const result = []
 
-  // Iterate fresh connected components and find best matching saved link by cell overlap
   for (const blob of freshBlobs) {
     const bbox = calcBoundingBox(blob.cells)
-    const exactSaved = savedById.get(blob.blobId)
-
-    // Check if exact blobId match still exists and isn't claimed
-    if (exactSaved && exactSaved.record_id && !usedRecordIds.has(exactSaved.record_id)) {
-      if (!exactSaved.type || exactSaved.type === blob.type) {
-        usedRecordIds.add(exactSaved.record_id)
-        result.push({
-          ...blob,
-          record_id:    exactSaved.record_id,
-          record_name:  exactSaved.record_name,
-          record_code:  exactSaved.record_code,
-          bounding_box: bbox,
-        })
-        continue
-      }
-    }
-
-    // Count cell overlap for each candidate saved link
-    const overlapCounts = new Map()
-    for (const cell of blob.cells) {
-      const match = cellToSaved.get(`${cell.r},${cell.c}`)
-      if (match && match.record_id && !usedRecordIds.has(match.record_id)) {
-        if (!match.type || match.type === blob.type) {
-          overlapCounts.set(match, (overlapCounts.get(match) || 0) + 1)
+    if (blob.type === 'stairs') {
+      let stairId = blob.stair_id || null
+      if (!stairId) {
+        for (const cell of blob.cells) {
+          if (cellToSavedStair.has(`${cell.r},${cell.c}`)) {
+            stairId = cellToSavedStair.get(`${cell.r},${cell.c}`)
+            break
+          }
+          const savedLink = cellToSavedLink.get(`${cell.r},${cell.c}`)
+          if (savedLink && (savedLink.stair_id || savedLink.record_id)) {
+            stairId = savedLink.stair_id || savedLink.record_id
+            break
+          }
         }
       }
-    }
-
-    // Select the saved link with maximum overlapping cells
-    let maxOverlap = 0
-    let bestMatch = null
-    for (const [saved, count] of overlapCounts.entries()) {
-      if (count > maxOverlap) {
-        maxOverlap = count
-        bestMatch = saved
-      }
-    }
-
-    if (bestMatch && bestMatch.record_id) {
-      usedRecordIds.add(bestMatch.record_id)
       result.push({
         ...blob,
-        record_id:    bestMatch.record_id,
-        record_name:  bestMatch.record_name,
-        record_code:  bestMatch.record_code,
+        stair_id: stairId,
+        record_id: stairId,
+        record_name: stairId ? `Stairwell Group: ${stairId}` : null,
+        record_code: stairId,
         bounding_box: bbox,
       })
     } else {
-      result.push({
-        ...blob,
-        record_id:    null,
-        record_name:  null,
-        record_code:  null,
-        bounding_box: bbox,
-      })
+      let exactSaved = null
+      for (const cell of blob.cells) {
+        const match = cellToSavedLink.get(`${cell.r},${cell.c}`)
+        if (match && match.record_id && !usedRecordIds.has(match.record_id)) {
+          if (!match.type || match.type === blob.type) {
+            exactSaved = match
+            break
+          }
+        }
+      }
+
+      if (exactSaved) {
+        usedRecordIds.add(exactSaved.record_id)
+        result.push({
+          ...blob,
+          record_id: exactSaved.record_id,
+          record_name: exactSaved.record_name,
+          record_code: exactSaved.record_code,
+          bounding_box: bbox,
+        })
+      } else {
+        result.push({
+          ...blob,
+          record_id: null,
+          record_name: null,
+          record_code: null,
+          bounding_box: bbox,
+        })
+      }
     }
   }
 
   return result
 }
+
 
 // ---------------------------------------------------------------------------
 // SVG <defs> patterns
@@ -347,6 +372,16 @@ function SvgDefs({ cellPx }) {
       {/* Stairs — step chevrons */}
       <pattern id="stairs-step" patternUnits="userSpaceOnUse" width="10" height="10">
         <path d="M0 5 L5 0 L10 5" fill="none" stroke="#d97706" strokeWidth="1" strokeOpacity="0.5" />
+      </pattern>
+
+      {/* Door — vertical lines */}
+      <pattern id="door-lines" patternUnits="userSpaceOnUse" width="6" height="6">
+        <line x1="3" y1="0" x2="3" y2="6" stroke="#a78bfa" strokeWidth="1" strokeOpacity="0.5" />
+      </pattern>
+
+      {/* Gate — arch pattern */}
+      <pattern id="gate-arch" patternUnits="userSpaceOnUse" width="8" height="8">
+        <path d="M 1,8 A 3,3 0 0,1 7,8" fill="none" stroke="#f59e0b" strokeWidth="1.2" strokeOpacity="0.6" />
       </pattern>
 
       {/* Entrance — arc (door sweep) */}
@@ -720,12 +755,14 @@ function SettingsPanel({ floor, onApply, onClose }) {
 // Blob Link Panel
 // ---------------------------------------------------------------------------
 
-function BlobLinkPanel({ blobs, onLink, onUnlink, onDismiss, activeBlobId, onSelectBlob }) {
-  const [rooms,      setRooms]      = useState([])
-  const [staffrooms, setStaffrooms] = useState([])
-  const [loading,    setLoading]    = useState(true)
-  const [selected,   setSelected]   = useState('')
-  const [searchTerm, setSearchTerm] = useState('')
+function BlobLinkPanel({ blobs, onLink, onUnlink, onDismiss, activeBlobId, onSelectBlob, buildingId }) {
+  const [rooms,            setRooms]            = useState([])
+  const [staffrooms,        setStaffrooms]        = useState([])
+  const [loading,          setLoading]          = useState(true)
+  const [selected,         setSelected]         = useState('')
+  const [searchTerm,       setSearchTerm]       = useState('')
+  const [existingStairIds, setExistingStairIds] = useState([])
+  const [stairInput,       setStairInput]       = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -745,9 +782,47 @@ function BlobLinkPanel({ blobs, onLink, onUnlink, onDismiss, activeBlobId, onSel
     return () => { cancelled = true }
   }, [])
 
+  useEffect(() => {
+    if (!buildingId) return
+    let cancelled = false
+    buildingsApi.floors(buildingId)
+      .then(res => {
+        if (cancelled) return
+        const flList = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : [])
+        const ids = new Set()
+        for (const fl of flList) {
+          if (fl.stair_connections) {
+            try {
+              const scs = typeof fl.stair_connections === 'string' ? JSON.parse(fl.stair_connections) : fl.stair_connections
+              if (Array.isArray(scs)) {
+                for (const sc of scs) {
+                  if (sc.stair_id) ids.add(sc.stair_id)
+                }
+              }
+            } catch {}
+          }
+        }
+        setExistingStairIds(Array.from(ids))
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [buildingId])
+
   const activeBlob = blobs.find(b => b.blobId === activeBlobId) ?? blobs[0]
-  const isRoomBlob = activeBlob?.type === 'room'
-  const rawList    = isRoomBlob ? rooms : staffrooms
+  const isStairsBlob = activeBlob?.type === 'stairs'
+  const isRoomBlob   = activeBlob?.type === 'room'
+  const rawList      = isRoomBlob ? rooms : staffrooms
+
+  useEffect(() => {
+    if (activeBlob?.type === 'stairs') {
+      setStairInput(activeBlob.stair_id || activeBlob.record_id || '')
+    } else {
+      setSelected('')
+    }
+  }, [activeBlob?.blobId, activeBlob?.type, activeBlob?.stair_id, activeBlob?.record_id])
+
+  const defaultStairSuggestions = ["Stairwell A", "Stairwell B", "Lift 1", "Lift 2", "Main Stairs"]
+  const allStairSuggestions = Array.from(new Set([...existingStairIds, ...defaultStairSuggestions]))
 
   // Options for all records from the database
   const allRecordOptions = rawList.map(item => {
@@ -788,6 +863,7 @@ function BlobLinkPanel({ blobs, onLink, onUnlink, onDismiss, activeBlobId, onSel
     if (!activeBlob) return
     onUnlink(activeBlob.blobId)
     setSelected('')
+    setStairInput('')
   }
 
   if (!blobs.length) {
@@ -795,7 +871,7 @@ function BlobLinkPanel({ blobs, onLink, onUnlink, onDismiss, activeBlobId, onSel
       <div className="fgp-blob-panel">
         <div className="fgp-blob-panel-header">
           <Link size={12} className="text-indigo-400" />
-          <span>Link Rooms</span>
+          <span>Link Rooms &amp; Stairs</span>
           <button
             onClick={onDismiss}
             className="ml-auto p-0.5 rounded hover:bg-white/10 text-gray-500 hover:text-gray-300 transition-colors"
@@ -807,24 +883,23 @@ function BlobLinkPanel({ blobs, onLink, onUnlink, onDismiss, activeBlobId, onSel
         <div className="fgp-blob-panel-body justify-center items-center text-center p-5 space-y-3">
           <Building2 size={28} className="mx-auto text-indigo-400 opacity-60" />
           <div>
-            <h4 className="text-xs font-semibold text-gray-200">No Room Blobs Painted Yet</h4>
+            <h4 className="text-xs font-semibold text-gray-200">No Linkable Blobs Painted Yet</h4>
             <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
-              Use the <strong className="text-indigo-300 font-semibold">Room [R]</strong> or <strong className="text-purple-300 font-semibold">Staffroom [T]</strong> tool from the left palette to paint cells on the grid.
+              Use the <strong className="text-indigo-300 font-semibold">Room [R]</strong>, <strong className="text-purple-300 font-semibold">Staffroom [T]</strong>, or <strong className="text-amber-300 font-semibold">Stairs/Lift [S]</strong> tool from the left palette to paint cells on the grid.
             </p>
-          </div>
-          <div className="p-2.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-[10px] text-indigo-300 text-left leading-relaxed">
-            💡 <strong>How linking works:</strong> Once you paint a contiguous block of cells, this panel opens automatically to link that room to an existing Room or StaffRoom record from the database.
           </div>
         </div>
       </div>
     )
   }
 
+  const currentStairTag = activeBlob?.stair_id || activeBlob?.record_id
+
   return (
     <div className="fgp-blob-panel">
       <div className="fgp-blob-panel-header">
         <Link size={12} className="text-indigo-400" />
-        <span>Link Rooms</span>
+        <span>{isStairsBlob ? 'Stairwell Grouping' : 'Link Rooms'}</span>
         <button
           onClick={onDismiss}
           className="ml-auto p-0.5 rounded hover:bg-white/10 text-gray-500 hover:text-gray-300 transition-colors"
@@ -850,8 +925,8 @@ function BlobLinkPanel({ blobs, onLink, onUnlink, onDismiss, activeBlobId, onSel
                     className="inline-block w-2.5 h-2.5 rounded-sm flex-shrink-0"
                     style={{ background: CELL_TYPES[b.type].accent }}
                   />
-                  <span className="truncate">{b.type} · {b.cells.length} cells</span>
-                  {b.record_id && <Check size={9} className="ml-auto text-green-400 flex-shrink-0" />}
+                  <span className="truncate">{CELL_TYPES[b.type].label} · {b.cells.length} cells</span>
+                  {(b.record_id || b.stair_id) && <Check size={9} className="ml-auto text-green-400 flex-shrink-0" />}
                 </button>
               ))}
             </div>
@@ -866,7 +941,9 @@ function BlobLinkPanel({ blobs, onLink, onUnlink, onDismiss, activeBlobId, onSel
               <span className={`fgp-blob-type-badge ${activeBlob.type}`}>
                 {activeBlob.type === 'room'
                   ? <Building2 size={9} />
-                  : <Users size={9} />}
+                  : activeBlob.type === 'staffroom'
+                    ? <Users size={9} />
+                    : <ArrowUpDown size={9} />}
                 {CELL_TYPES[activeBlob.type].label}
               </span>
               <p className="fgp-blob-stat mt-1.5">
@@ -875,71 +952,129 @@ function BlobLinkPanel({ blobs, onLink, onUnlink, onDismiss, activeBlobId, onSel
             </div>
 
             {/* Currently linked chip */}
-            {activeBlob.record_id && (
+            {(activeBlob.record_id || activeBlob.stair_id) && (
               <div className="mb-2">
-                <p className="fgp-settings-label mb-1">Currently Linked</p>
+                <p className="fgp-settings-label mb-1">Currently Tagged</p>
                 <div className="fgp-blob-linked-chip">
                   <Check size={10} className="flex-shrink-0" />
-                  <span className="truncate">{activeBlob.record_name ?? activeBlob.record_id}</span>
+                  <span className="truncate">
+                    {activeBlob.type === 'stairs'
+                      ? `Stairwell Group: ${currentStairTag}`
+                      : (activeBlob.record_name ?? activeBlob.record_id)}
+                  </span>
                 </div>
                 <button className="fgp-blob-unlink-btn mt-2" onClick={handleUnlink}>
                   <Link2Off size={10} className="inline mr-1" />
-                  Unlink
+                  Unlink / Clear Tag
                 </button>
               </div>
             )}
 
-            {/* Select dropdown section */}
-            <div>
-              <p className="fgp-settings-label mb-1">
-                {activeBlob.record_id ? 'Change Room Link' : `Link to ${isRoomBlob ? 'Room' : 'StaffRoom'}`}
-              </p>
+            {isStairsBlob ? (
+              <div>
+                <p className="fgp-settings-label mb-1">
+                  {currentStairTag ? 'Change Stairwell Group' : 'Assign Stairwell Group ID'}
+                </p>
+                <p className="text-[10px] text-gray-400 mb-2 leading-relaxed">
+                  Tag matching stairwells across floors with the same ID so cross-floor distances can connect them.
+                </p>
 
-              {loading ? (
-                <div className="flex items-center gap-2 text-gray-500 text-xs py-2">
-                  <Loader2 size={12} className="animate-spin" /> Loading records…
-                </div>
-              ) : rawList.length === 0 ? (
-                <div className="p-3 rounded-lg bg-gray-800/60 border border-white/5 space-y-1.5 text-[11px] text-gray-400 leading-relaxed">
-                  <p>No {isRoomBlob ? 'Room' : 'StaffRoom'} records found in the database.</p>
-                  <p className="text-[10px] text-indigo-300">
-                    Add {isRoomBlob ? 'rooms first under the Rooms tab' : 'departments first under the Departments tab'} in the sidebar.
-                  </p>
-                </div>
-              ) : (
-                <>
-                  {rawList.length > 3 && (
-                    <input
-                      type="text"
-                      placeholder="Search records…"
-                      className="fgp-blob-select mb-1.5 text-xs"
-                      value={searchTerm}
-                      onChange={e => setSearchTerm(e.target.value)}
-                    />
-                  )}
-                  <select
-                    className="fgp-blob-select mb-2"
-                    value={selected}
-                    onChange={e => setSelected(e.target.value)}
-                  >
-                    <option value="">— Select {isRoomBlob ? 'Room' : 'StaffRoom'} Record —</option>
-                    {filteredOptions.map(o => (
-                      <option key={o.id} value={o.id} disabled={o.isLinkedToOther}>
-                        {o.label}
-                      </option>
+                {/* Quick Suggestion Pills */}
+                <div className="mb-3">
+                  <span className="text-[9px] text-gray-500 uppercase font-semibold block mb-1">Suggested / Existing:</span>
+                  <div className="flex flex-wrap gap-1">
+                    {allStairSuggestions.map(sId => (
+                      <button
+                        key={sId}
+                        type="button"
+                        className={`px-2 py-1 rounded text-[10px] border transition-colors ${
+                          stairInput === sId
+                            ? 'bg-amber-500/20 border-amber-500 text-amber-300 font-semibold'
+                            : 'bg-gray-800 border-white/10 text-gray-300 hover:border-amber-500/50'
+                        }`}
+                        onClick={() => setStairInput(sId)}
+                      >
+                        {sId}
+                      </button>
                     ))}
-                  </select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    placeholder="e.g. Stairwell A or Lift 1"
+                    className="fgp-blob-select text-xs w-full"
+                    value={stairInput}
+                    onChange={e => setStairInput(e.target.value)}
+                  />
                   <button
-                    className="fgp-blob-link-btn"
-                    onClick={handleLink}
-                    disabled={!selected}
+                    className="fgp-blob-link-btn w-full"
+                    onClick={() => {
+                      if (!stairInput.trim()) return
+                      const tag = stairInput.trim()
+                      onLink(activeBlob.blobId, tag, `Stairwell Group: ${tag}`, tag)
+                    }}
+                    disabled={!stairInput.trim()}
                   >
-                    <Link size={10} className="inline mr-1" />
-                    {activeBlob.record_id ? 'Update Link' : 'Link Blob'}
+                    <ArrowUpDown size={10} className="inline mr-1" />
+                    {currentStairTag ? 'Update Stairwell Tag' : 'Tag Stairwell'}
                   </button>
-                </>
-              )}
-            </div>
+                </div>
+              </div>
+            ) : (
+              /* Select dropdown section for rooms / staffrooms */
+              <div>
+                <p className="fgp-settings-label mb-1">
+                  {activeBlob.record_id ? 'Change Room Link' : `Link to ${isRoomBlob ? 'Room' : 'StaffRoom'}`}
+                </p>
+
+                {loading ? (
+                  <div className="flex items-center gap-2 text-gray-500 text-xs py-2">
+                    <Loader2 size={12} className="animate-spin" /> Loading records…
+                  </div>
+                ) : rawList.length === 0 ? (
+                  <div className="p-3 rounded-lg bg-gray-800/60 border border-white/5 space-y-1.5 text-[11px] text-gray-400 leading-relaxed">
+                    <p>No {isRoomBlob ? 'Room' : 'StaffRoom'} records found in the database.</p>
+                    <p className="text-[10px] text-indigo-300">
+                      Add {isRoomBlob ? 'rooms first under the Rooms tab' : 'departments first under the Departments tab'} in the sidebar.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {rawList.length > 3 && (
+                      <input
+                        type="text"
+                        placeholder="Search records…"
+                        className="fgp-blob-select mb-1.5 text-xs"
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                      />
+                    )}
+                    <select
+                      className="fgp-blob-select mb-2"
+                      value={selected}
+                      onChange={e => setSelected(e.target.value)}
+                    >
+                      <option value="">— Select {isRoomBlob ? 'Room' : 'StaffRoom'} Record —</option>
+                      {filteredOptions.map(o => (
+                        <option key={o.id} value={o.id} disabled={o.isLinkedToOther}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      className="fgp-blob-link-btn"
+                      onClick={handleLink}
+                      disabled={!selected}
+                    >
+                      <Link size={10} className="inline mr-1" />
+                      {activeBlob.record_id ? 'Update Link' : 'Link Blob'}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
 
             <button className="fgp-blob-dismiss-btn mt-2" onClick={onDismiss}>
               Close panel
@@ -970,10 +1105,23 @@ export default function FloorGridPainter({ floor, onSaved }) {
   const [saveStatus,   setSaveStatus]   = useState('idle')
   const [settingsOpen, setSettingsOpen] = useState(false)
 
+  // Gate labels state
+  const parseGateLabels = (raw) => {
+    if (!raw) return {}
+    if (typeof raw === 'object') return raw
+    try { return JSON.parse(raw) } catch { return {} }
+  }
+
+  const [gateLabels,   setGateLabels]   = useState(() => parseGateLabels(floor.gate_labels))
+  const [editingGate,  setEditingGate]  = useState(null)  // { r, c, label }
+  const gateLabelsRef = useRef(gateLabels)
+  useEffect(() => { gateLabelsRef.current = gateLabels }, [gateLabels])
+
   // Blob link state
   const [blobLinks,      setBlobLinks]      = useState(() => reconcileLinks(
     detectAllBlobs(mergeGrid(buildEmptyGrid(floor.grid_rows, floor.grid_cols), floor.grid_data)),
-    floor.room_links ?? []
+    floor.room_links ?? [],
+    floor.stair_connections ?? []
   ))
   const [blobPanelOpen,  setBlobPanelOpen]  = useState(false)
   const [activeBlobId,   setActiveBlobId]   = useState(null)
@@ -1013,11 +1161,14 @@ export default function FloorGridPainter({ floor, onSaved }) {
     setGridRows(floor.grid_rows)
     setGridCols(floor.grid_cols)
     setCellSizeM(floor.cell_size_m)
+    const freshGL = parseGateLabels(floor.gate_labels)
+    setGateLabels(freshGL)
+    gateLabelsRef.current = freshGL
     setSaveStatus('idle')
     setWalkWarnings([])
 
     const freshBlobs = detectAllBlobs(fresh)
-    const linked     = reconcileLinks(freshBlobs, floor.room_links ?? [])
+    const linked     = reconcileLinks(freshBlobs, floor.room_links ?? [], floor.stair_connections ?? [])
     setBlobLinks(linked)
     blobLinksRef.current = linked
     setBlobPanelOpen(false)
@@ -1034,10 +1185,21 @@ export default function FloorGridPainter({ floor, onSaved }) {
     })
   }, [])
 
-  // ── Walkability validation ────────────────────────────────────────────────
+  // ── Walkability & Stair validation ────────────────────────────────────────
   const runWalkabilityCheck = useCallback((currentGrid, currentLinks) => {
     const warnings = []
     for (const blob of currentLinks) {
+      if (blob.type === 'stairs') {
+        if (!blob.stair_id && !blob.record_id) {
+          warnings.push({
+            blobId:  blob.blobId,
+            type:    'stairs_unassigned',
+            name:    `Stairs/Lift at (row ${blob.cells[0].r + 1}, col ${blob.cells[0].c + 1})`,
+            cells:   blob.cells.length,
+          })
+        }
+        continue
+      }
       if (!blob.record_id) continue   // unlinked blobs skipped
       if (!isWalkable(currentGrid, blob.cells)) {
         warnings.push({
@@ -1054,12 +1216,30 @@ export default function FloorGridPainter({ floor, onSaved }) {
 
   // ── Save helpers ─────────────────────────────────────────────────────────
   const doSave = useCallback(async (gridToSave, linksToSave) => {
-    // Run walkability check before saving
+    // Run walkability & stair check before saving
     runWalkabilityCheck(gridToSave, linksToSave)
+
+    const roomLinksToSave = linksToSave
+      .filter(b => b.type !== 'stairs' && b.record_id)
+      .map(b => ({
+        record_id:    b.record_id,
+        record_name:  b.record_name,
+        record_code:  b.record_code,
+        type:         b.type,
+        bounding_box: b.bounding_box,
+        cells:        b.cells.map(c => ({ r: c.r, c: c.c })),
+      }))
+
+    const stairConnectionsToSave = linksToSave
+      .filter(b => b.type === 'stairs' && (b.stair_id || b.record_id))
+      .map(b => ({
+        stair_id: b.stair_id || b.record_id,
+        cells:    b.cells.map(c => ({ r: c.r, c: c.c })),
+      }))
 
     setSaveStatus('saving')
     try {
-      const res = await floorsApi.saveGrid(floor.id, gridToSave, linksToSave)
+      const res = await floorsApi.saveGrid(floor.id, gridToSave, roomLinksToSave, stairConnectionsToSave, gateLabelsRef.current)
       setSaveStatus('saved')
       onSaved?.(res.data)
       setTimeout(() => setSaveStatus('idle'), 2500)
@@ -1112,6 +1292,7 @@ export default function FloorGridPainter({ floor, onSaved }) {
         const max_c = Math.max(...b.cells.map(c => c.c))
         return {
           ...b,
+          stair_id:     b.type === 'stairs' ? recordId : b.stair_id,
           record_id:    recordId,
           record_name:  recordName,
           record_code:  recordCode,
@@ -1131,7 +1312,7 @@ export default function FloorGridPainter({ floor, onSaved }) {
   const handleUnlinkBlob = useCallback((blobId) => {
     setBlobLinks(prev => {
       const next = prev.map(b => b.blobId === blobId
-        ? { ...b, record_id: null, record_name: null, record_code: null }
+        ? { ...b, stair_id: null, record_id: null, record_name: null, record_code: null }
         : b
       )
       blobLinksRef.current = next
@@ -1296,6 +1477,14 @@ export default function FloorGridPainter({ floor, onSaved }) {
           setBlobPanelOpen(true)
         }
       }
+
+      if (toolUsed === 'gate' && lastCell) {
+        setEditingGate({
+          r: lastCell.r,
+          c: lastCell.c,
+          label: gateLabelsRef.current[`${lastCell.r},${lastCell.c}`] || '',
+        })
+      }
     }
   }, [])
 
@@ -1323,10 +1512,11 @@ export default function FloorGridPainter({ floor, onSaved }) {
   // Build a cell→blobLink lookup map for label rendering
   const cellLinkMap = new Map()
   for (const blob of blobLinks) {
-    if (blob.record_code) {
+    const code = blob.record_code || blob.stair_id
+    if (code) {
       for (const { r, c } of blob.cells) {
         cellLinkMap.set(`${r},${c}`, {
-          code:    blob.record_code.slice(0, 5),
+          code:    code.slice(0, 6),
           accent:  CELL_TYPES[blob.type].accent,
           blobId:  blob.blobId,
         })
@@ -1334,8 +1524,8 @@ export default function FloorGridPainter({ floor, onSaved }) {
     }
   }
 
-  const linkedBlobCount   = blobLinks.filter(b => b.record_id).length
-  const unlinkedBlobCount = blobLinks.filter(b => !b.record_id).length
+  const linkedBlobCount   = blobLinks.filter(b => b.record_id || b.stair_id).length
+  const unlinkedBlobCount = blobLinks.filter(b => !b.record_id && !b.stair_id).length
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
@@ -1345,7 +1535,7 @@ export default function FloorGridPainter({ floor, onSaved }) {
       <div className="fgp-palette">
         <span className="fgp-palette-label">Tools</span>
 
-        {Object.entries(CELL_TYPES).filter(([t]) => t !== 'empty').map(([type, def]) => {
+        {Object.entries(CELL_TYPES).filter(([t]) => t !== 'empty' && t !== 'entrance').map(([type, def]) => {
           const Icon     = def.icon
           const isActive = activeTool === type
           return (
@@ -1480,13 +1670,22 @@ export default function FloorGridPainter({ floor, onSaved }) {
           </button>
         </div>
 
-        {/* Walkability warning bar */}
+        {/* Walkability & Stair warning bar */}
         {walkWarnings.length > 0 && (
           <div className="fgp-warning-bar">
             <AlertTriangle size={13} className="fgp-warning-bar-icon flex-shrink-0" />
-            <span>
-              <strong>{walkWarnings.length} room{walkWarnings.length !== 1 ? 's' : ''}</strong> ha{walkWarnings.length !== 1 ? 've' : 's'} no walkable path to a corridor or entrance:&nbsp;
-              {walkWarnings.map(w => w.name).join(', ')}
+            <span className="leading-normal">
+              {walkWarnings.some(w => w.type === 'stairs_unassigned') && (
+                <span className="mr-2">
+                  <strong className="text-amber-300">{walkWarnings.filter(w => w.type === 'stairs_unassigned').length} Stairs/Lift blob(s)</strong> have no Stairwell Group ID assigned.
+                </span>
+              )}
+              {walkWarnings.some(w => w.type !== 'stairs_unassigned') && (
+                <span>
+                  <strong>{walkWarnings.filter(w => w.type !== 'stairs_unassigned').length} room(s)</strong> have no walkable path to corridor/entrance:&nbsp;
+                  {walkWarnings.filter(w => w.type !== 'stairs_unassigned').map(w => w.name).join(', ')}
+                </span>
+              )}
             </span>
             <button
               className="fgp-warning-bar-dismiss"
@@ -1594,6 +1793,24 @@ export default function FloorGridPainter({ floor, onSaved }) {
                       strokeWidth={link ? '1' : '0.6'}
                       strokeOpacity={link ? '0.65' : '0.4'}
                     />
+                    {/* Gate label rendering */}
+                    {type === 'gate' && cellPx >= 10 && (
+                      <text
+                        x={x + cellPx / 2}
+                        y={y + cellPx / 2 + (cellPx >= 18 ? 3.5 : 2.5)}
+                        textAnchor="middle"
+                        fontSize={Math.max(7, Math.min(cellPx * 0.36, 11))}
+                        fontFamily="system-ui, -apple-system, sans-serif"
+                        fontWeight="800"
+                        fill="#f59e0b"
+                        stroke="rgba(0,0,0,0.8)"
+                        strokeWidth="0.8"
+                        paintOrder="stroke fill"
+                        style={{ pointerEvents: 'none', userSelect: 'none' }}
+                      >
+                        {gateLabels[`${r},${c}`] ? gateLabels[`${r},${c}`].slice(0, 6) : 'GATE'}
+                      </text>
+                    )}
                     {/* Room-code label (shown when zoomed in enough + linked) */}
                     {link && cellPx >= 12 && (
                       <text
@@ -1750,6 +1967,7 @@ export default function FloorGridPainter({ floor, onSaved }) {
           onLink={handleLinkBlob}
           onUnlink={handleUnlinkBlob}
           onDismiss={() => setBlobPanelOpen(false)}
+          buildingId={floor.building_id}
         />
       )}
 
@@ -1801,6 +2019,60 @@ export default function FloorGridPainter({ floor, onSaved }) {
           svgH={svgH}
           cellPx={cellPx}
         />
+      )}
+      {/* ── Gate Labeling Dialog ───────────────────────────────── */}
+      {editingGate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs" onClick={() => setEditingGate(null)}>
+          <div className="bg-[#181a26] border border-amber-500/40 rounded-2xl p-5 w-84 shadow-2xl space-y-3.5" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2 text-amber-400 font-semibold text-sm">
+              <DoorOpen size={16} /> Label Building Gate
+            </div>
+            <p className="text-xs text-gray-400 leading-relaxed">
+              Assign a label to this gate (row {editingGate.r + 1}, col {editingGate.c + 1}). Used for inter-building entrance distance mapping.
+            </p>
+            <input
+              type="text"
+              className="w-full px-3 py-2 rounded-xl text-xs bg-white/5 border border-white/10 text-white outline-none focus:border-amber-500 font-medium"
+              placeholder="e.g. Main Entrance, Gate A, West Exit"
+              value={editingGate.label}
+              onChange={e => setEditingGate({ ...editingGate, label: e.target.value })}
+              autoFocus
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  const key = `${editingGate.r},${editingGate.c}`
+                  const next = { ...gateLabels, [key]: editingGate.label.trim() }
+                  setGateLabels(next)
+                  gateLabelsRef.current = next
+                  setEditingGate(null)
+                  clearTimeout(saveTimer.current)
+                  saveTimer.current = setTimeout(autoSave, 1000)
+                }
+              }}
+            />
+            <div className="flex gap-2 justify-end pt-1">
+              <button
+                className="px-3 py-1.5 rounded-lg text-xs bg-white/5 text-gray-400 hover:text-white transition-colors"
+                onClick={() => setEditingGate(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-3 py-1.5 rounded-lg text-xs bg-amber-600 hover:bg-amber-500 text-white font-semibold transition-colors"
+                onClick={() => {
+                  const key = `${editingGate.r},${editingGate.c}`
+                  const next = { ...gateLabels, [key]: editingGate.label.trim() }
+                  setGateLabels(next)
+                  gateLabelsRef.current = next
+                  setEditingGate(null)
+                  clearTimeout(saveTimer.current)
+                  saveTimer.current = setTimeout(autoSave, 1000)
+                }}
+              >
+                Save Gate Label
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

@@ -62,7 +62,15 @@ from solver import (
     build_variables,
     extract_solution,
 )
-from solver.floor_graph import compute_room_distances
+from solver.floor_graph import (
+    compute_room_distances,
+    compute_building_distances,
+    compute_campus_distances,
+    GLOBAL_CAMPUS_MATRIX_CACHE,
+    FloorData,
+    StairConnection,
+)
+
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/generate-timetable", tags=["Generate"])
@@ -286,35 +294,20 @@ async def _assemble_payload(
             )
         )
 
-    # ── BFS room distances (from painted floor grids) ────────────────────────────────
-    # Fetch every floor that has both grid_data and room_links, compute BFS
-    # distances, and merge all per-floor results into one flat dict so that
-    # the solver (O3 objective) can look up any two room IDs directly.
-    room_distances: dict[str, dict[str, int]] = {}
-    floor_rows = (
-        await db.execute(
-            select(Floor)
-            .where(Floor.grid_data.isnot(None))
-            .where(Floor.room_links.isnot(None))
-        )
-    ).scalars().all()
+    # ── BFS / Dijkstra campus room distances (from precomputed cache) ──────────────
+    from routers.campus import recompute_campus_matrices
 
-    for fl in floor_rows:
-        try:
-            import json as _json
-            grid = _json.loads(fl.grid_data)
-            links = _json.loads(fl.room_links)
-        except Exception:
-            continue
-        per_floor = compute_room_distances(grid, links)
-        # Merge: floor distances are disjoint by room_id (each room belongs to one floor)
-        for src_id, targets in per_floor.items():
-            if src_id not in room_distances:
-                room_distances[src_id] = {}
-            room_distances[src_id].update(targets)
+    if GLOBAL_CAMPUS_MATRIX_CACHE.is_valid():
+        room_distances = GLOBAL_CAMPUS_MATRIX_CACHE.all_distances
+    else:
+        res = await recompute_campus_matrices(db)
+        room_distances = res.get("allDistances", {})
 
-    logger.info("_assemble_payload: BFS computed %d source rooms with distance data.",
-                len(room_distances))
+    logger.info(
+        "_assemble_payload: campus distance engine provided %d source rooms with distance data.",
+        len(room_distances),
+    )
+
 
     req = TimetableRequest(
         subjects=solver_subjects,
