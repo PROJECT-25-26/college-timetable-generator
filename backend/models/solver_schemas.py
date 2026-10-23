@@ -86,6 +86,11 @@ class SolverTeacher(BaseModel):
     subject_links: list[SolverTeacherSubjectLink] = []
     # Slots where this teacher is not available (e.g. admin duties)
     unavailable_slots: list[SolverUnavailableSlot] = []
+    # ID of the staffroom (StaffRoom.id) this teacher starts and ends their day from.
+    # Used by objective O3 to penalise labs that are far from the teacher's home base
+    # on the first period of each working day.
+    # None when the teacher's department has no staffroom painted on the floor grid.
+    staffroom_id: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -195,6 +200,14 @@ class TimetableRequest(BaseModel):
     # Format: room_id → { other_room_id → distance_cells }
     # An empty dict means no layout data is available — O3 is silently skipped.
     room_distances: dict[str, dict[str, int]] = {}
+    # BFS distances FROM staffrooms TO every reachable room/lab.
+    # Format: staffroom_id → { room_id → distance_cells }
+    # Used by O3 to penalise the teacher's walk from their staffroom to the
+    # first assigned room/lab of each working day.
+    # Populated from GLOBAL_CAMPUS_MATRIX_CACHE.staff_room_distance.
+    staffroom_distances: dict[str, dict[str, int]] = {}
+    # O3 soft penalty per cell of walking distance (0 disables travel penalty)
+    travel_weight: int = Field(2, ge=0, description="O3 soft penalty per cell of walking distance (0 disables travel penalty)")
 
 
 # ===========================================================================

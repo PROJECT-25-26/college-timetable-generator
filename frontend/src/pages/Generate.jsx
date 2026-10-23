@@ -200,6 +200,7 @@ export default function Generate() {
   const [periodsPerDay, setPeriodsPerDay] = useState(8)
   const [workingDays,   setWorkingDays]   = useState([0, 1, 2, 3, 4])
   const [timeout,       setTimeout_]      = useState(60)
+  const [travelWeight,  setTravelWeight]  = useState(2)   // O3 walking-distance penalty (0 = disabled)
 
   // Solve state
   const [phase,   setPhase]   = useState('idle')   // 'idle' | 'solving' | 'done'
@@ -304,7 +305,7 @@ export default function Generate() {
 
     try {
       // Step 1: get the assembled payload
-      const payloadRes = await generateApi.payload(periodsPerDay, workingDays)
+      const payloadRes = await generateApi.payload(periodsPerDay, workingDays, travelWeight)
       const payload    = payloadRes.data
 
       // Step 2: run solver (may take up to 60s)
@@ -500,7 +501,7 @@ export default function Generate() {
       toast.info(`Regenerating with ${lockedSlots.length} locked slot(s)…`)
 
       // Fetch fresh payload then regenerate with locked slots pinned
-      const payloadRes = await generateApi.payload(periodsPerDay, workingDays)
+      const payloadRes = await generateApi.payload(periodsPerDay, workingDays, travelWeight)
       const res = await generateApi.regenerate(
         payloadRes.data,
         lockedSlots,
@@ -528,7 +529,7 @@ export default function Generate() {
     } finally {
       setIsRegenerating(false)
     }
-  }, [result, lockedSlotIds, periodsPerDay, workingDays, loadPastRuns, toast])
+  }, [result, lockedSlotIds, periodsPerDay, workingDays, travelWeight, loadPastRuns, toast])
 
 
   async function handleDeleteRun(id, e) {
@@ -553,7 +554,7 @@ export default function Generate() {
     <div className="flex gap-6 h-full animate-fade-in" style={{ maxHeight: 'calc(100vh - 64px - 48px)' }}>
 
       {/* ── LEFT: Config + History ─────────────────────────────────────── */}
-      <aside className="w-72 shrink-0 flex flex-col gap-4 overflow-y-auto pr-1">
+      <aside className="w-72 shrink-0 flex flex-col gap-4 overflow-hidden pr-1">
 
         {/* Header */}
         <div className="flex items-center gap-3">
@@ -567,7 +568,7 @@ export default function Generate() {
         </div>
 
         {/* Config card */}
-        <div className="glass-card p-4 space-y-5">
+        <div className="glass-card p-4 space-y-5 shrink-0 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 64px - 48px - 260px)' }}>
           <div className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-widest">
             <Settings size={12} /> Configuration
           </div>
@@ -591,6 +592,50 @@ export default function Generate() {
               selected={workingDays}
               onChange={d => phase !== 'solving' && setWorkingDays(d)}
             />
+          </div>
+
+          {/* Travel Weight */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="form-label mb-0">Travel Weight</label>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-bold tabular-nums ${
+                  travelWeight === 0 ? 'text-gray-500' : 'text-brand-400'
+                }`}>
+                  {travelWeight === 0 ? 'Off' : travelWeight}
+                </span>
+                <button
+                  type="button"
+                  title={travelWeight === 0 ? 'Enable travel penalty' : 'Disable travel penalty'}
+                  onClick={() => setTravelWeight(v => v === 0 ? 2 : 0)}
+                  disabled={phase === 'solving'}
+                  className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors duration-200 disabled:opacity-50 ${
+                    travelWeight > 0
+                      ? 'bg-brand-600 border-brand-500'
+                      : 'bg-white/10 border-white/20'
+                  }`}
+                >
+                  <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform duration-200 ${
+                    travelWeight > 0 ? 'translate-x-4' : 'translate-x-0.5'
+                  }`} />
+                </button>
+              </div>
+            </div>
+            <input
+              type="range" min={0} max={10} step={1}
+              value={travelWeight}
+              onChange={e => setTravelWeight(+e.target.value)}
+              disabled={phase === 'solving'}
+              className="w-full h-1.5 rounded-full appearance-none bg-white/10 accent-brand-500 disabled:opacity-50 cursor-pointer"
+            />
+            <div className="flex justify-between text-[9px] text-gray-600 mt-0.5 px-0.5">
+              <span>Off</span>
+              <span>Strong</span>
+            </div>
+            <p className="text-[10px] text-gray-600 mt-1 leading-relaxed">
+              Penalises teachers walking far between consecutive classes.
+              Set to 0 to disable.
+            </p>
           </div>
 
           {/* Timeout */}
@@ -630,7 +675,7 @@ export default function Generate() {
         </div>
 
         {/* Past runs */}
-        <div className="glass-card p-4 flex-1 overflow-y-auto">
+        <div className="glass-card p-4 flex-1 min-h-0 flex flex-col overflow-hidden">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-widest">
               <History size={12} /> Past Runs
@@ -640,50 +685,52 @@ export default function Generate() {
             </button>
           </div>
 
-          {runsLoading ? (
-            <div className="flex justify-center py-4">
-              <Loader2 size={16} className="text-gray-600 animate-spin" />
-            </div>
-          ) : pastRuns.length === 0 ? (
-            <p className="text-xs text-gray-600 text-center py-4">No runs yet</p>
-          ) : (
-            <ul className="space-y-1">
-              {pastRuns.map(run => {
-                const isActive = result?.id === run.id
-                const statusCls =
-                  run.status === 'ok'          ? 'bg-emerald-500'  :
-                  run.status === 'infeasible'  ? 'bg-red-500'      : 'bg-amber-500'
-                return (
-                  <li key={run.id}>
-                    <button
-                      onClick={() => handleLoadRun(run.id)}
-                      className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left transition-all group ${
-                        isActive
-                          ? 'bg-brand-600/20 border border-brand-500/30'
-                          : 'hover:bg-white/5 border border-transparent'
-                      }`}
-                    >
-                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusCls}`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-gray-200 truncate">
-                          {run.label ?? fmtDate(run.created_at)}
-                        </p>
-                        <p className="text-[10px] text-gray-500">
-                          {run.slot_count} slots · {fmtMs(run.solver_wall_ms)}
-                        </p>
-                      </div>
+          <div className="flex-1 min-h-0 flex flex-col">
+            {runsLoading ? (
+              <div className="flex justify-center py-6">
+                <Loader2 size={18} className="text-gray-600 animate-spin" />
+              </div>
+            ) : pastRuns.length === 0 ? (
+              <p className="text-xs text-gray-500 text-center py-6">No runs yet</p>
+            ) : (
+              <ul className="space-y-1 overflow-y-auto flex-1 min-h-0 pr-0.5">
+                {pastRuns.map(run => {
+                  const isActive = result?.id === run.id
+                  const statusCls =
+                    run.status === 'ok'          ? 'bg-emerald-500'  :
+                    run.status === 'infeasible'  ? 'bg-red-500'      : 'bg-amber-500'
+                  return (
+                    <li key={run.id}>
                       <button
-                        onClick={e => handleDeleteRun(run.id, e)}
-                        className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 transition-all p-0.5"
+                        onClick={() => handleLoadRun(run.id)}
+                        className={`w-full flex items-center gap-2 px-2.5 py-2.5 rounded-lg text-left transition-all group ${
+                          isActive
+                            ? 'bg-brand-600/20 border border-brand-500/30'
+                            : 'hover:bg-white/5 border border-transparent'
+                        }`}
                       >
-                        <Trash2 size={11} />
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${statusCls}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-200 truncate">
+                            {run.label ?? fmtDate(run.created_at)}
+                          </p>
+                          <p className="text-[11px] text-gray-400 mt-0.5">
+                            {run.slot_count} slots · {fmtMs(run.solver_wall_ms)}
+                          </p>
+                        </div>
+                        <button
+                          onClick={e => handleDeleteRun(run.id, e)}
+                          className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 transition-all p-0.5 shrink-0"
+                        >
+                          <Trash2 size={13} />
+                        </button>
                       </button>
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
         </div>
       </aside>
 

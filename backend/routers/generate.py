@@ -33,6 +33,7 @@ from models.orm import (
     ClassSectionSubject,
     Floor,
     Room,
+    StaffRoom,
     Subject,
     Teacher,
     TeacherSubject,
@@ -119,6 +120,7 @@ async def generate_health():
 async def get_payload(
     periods_per_day: int = 8,
     working_days: str = "0,1,2,3,4",
+    travel_weight: int = 2,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -128,6 +130,7 @@ async def get_payload(
     **Query parameters** (time grid — the only runtime config):
     - `periods_per_day` (default 8)
     - `working_days`    (default \"0,1,2,3,4\" = Mon–Fri, comma-separated 0-based ints)
+    - `travel_weight`   (default 2, 0 disables walking distance penalty)
 
     Returns HTTP 422 if any critical cross-reference issues are detected
     (e.g. a section has no homeroom, or no teacher is eligible for a subject).
@@ -140,7 +143,12 @@ async def get_payload(
     if not days:
         raise HTTPException(status_code=422, detail="working_days must not be empty")
 
-    req = await _assemble_payload(db, periods_per_day=periods_per_day, working_days=days)
+    req = await _assemble_payload(
+        db,
+        periods_per_day=periods_per_day,
+        working_days=days,
+        travel_weight=travel_weight,
+    )
     return req
 
 
@@ -204,6 +212,7 @@ async def _assemble_payload(
     *,
     periods_per_day: int,
     working_days: list[int],
+    travel_weight: int = 2,
 ) -> TimetableRequest:
     """Query all entities and map ORM rows to solver schema objects."""
 
@@ -259,6 +268,16 @@ async def _assemble_payload(
             )
             for u in t.unavailable_slots
         ]
+        # Resolve staffroom: Teacher → Department → StaffRoom
+        staffroom_id: str | None = None
+        if t.department_id:
+            sr_row = (
+                await db.execute(
+                    select(StaffRoom).where(StaffRoom.department_id == t.department_id)
+                )
+            ).scalar_one_or_none()
+            if sr_row is not None:
+                staffroom_id = sr_row.id
         solver_teachers.append(
             SolverTeacher(
                 id=t.id,
@@ -266,6 +285,7 @@ async def _assemble_payload(
                 max_periods_per_week=t.max_periods_per_week,
                 subject_links=subject_links,
                 unavailable_slots=unavailable,
+                staffroom_id=staffroom_id,
             )
         )
 
@@ -298,14 +318,18 @@ async def _assemble_payload(
     from routers.campus import recompute_campus_matrices
 
     if GLOBAL_CAMPUS_MATRIX_CACHE.is_valid():
-        room_distances = GLOBAL_CAMPUS_MATRIX_CACHE.all_distances
+        room_distances      = GLOBAL_CAMPUS_MATRIX_CACHE.all_distances
+        staffroom_distances = GLOBAL_CAMPUS_MATRIX_CACHE.staff_room_distance
     else:
         res = await recompute_campus_matrices(db)
-        room_distances = res.get("allDistances", {})
+        room_distances      = res.get("allDistances", {})
+        staffroom_distances = res.get("staffRoomDistance", {})
 
     logger.info(
-        "_assemble_payload: campus distance engine provided %d source rooms with distance data.",
+        "_assemble_payload: campus distance engine provided %d source rooms "
+        "and %d staffrooms with distance data.",
         len(room_distances),
+        len(staffroom_distances),
     )
 
 
@@ -319,6 +343,8 @@ async def _assemble_payload(
             working_days=working_days,
         ),
         room_distances=room_distances,
+        staffroom_distances=staffroom_distances,
+        travel_weight=travel_weight,
     )
     _validate_request(req)
     return req
@@ -387,7 +413,7 @@ def _run_solver(req: TimetableRequest) -> TimetableResponse:
     apply_locked_slots(model, req, var_sets)
 
     build_constraints(model, req, var_sets)
-    build_objectives(model, req, var_sets)
+    build_objectives(model, req, var_sets, travel_weight=req.travel_weight)
 
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = _SOLVER_TIMEOUT_SECONDS

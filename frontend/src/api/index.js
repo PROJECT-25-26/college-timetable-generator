@@ -103,9 +103,13 @@ export const generateApi = {
    * GET /api/v1/generate-timetable/payload
    * Returns a fully-assembled TimetableRequest from current DB state.
    */
-  payload: (periodsPerDay = 8, workingDays = [0, 1, 2, 3, 4]) =>
+  payload: (periodsPerDay = 8, workingDays = [0, 1, 2, 3, 4], travelWeight = 2) =>
     api.get('/generate-timetable/payload', {
-      params: { periods_per_day: periodsPerDay, working_days: workingDays.join(',') },
+      params: {
+        periods_per_day: periodsPerDay,
+        working_days: workingDays.join(','),
+        travel_weight: travelWeight,
+      },
     }),
 
   /** GET /api/v1/generate-timetable/health */
