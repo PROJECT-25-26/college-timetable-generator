@@ -38,8 +38,13 @@ import {
   AlertCircle,
   Network,
   DoorOpen,
+  Users,
+  Route,
+  ChevronDown as ChevronDownIcon,
+  Navigation,
+  Footprints,
 } from 'lucide-react'
-import { campusApi, buildingsApi, floorsApi } from '../api/index'
+import { campusApi, buildingsApi, floorsApi, teachersApi, timetablesApi } from '../api/index'
 import FloorGridPainter from '../components/FloorGridPainter'
 
 // ---------------------------------------------------------------------------
@@ -1072,17 +1077,381 @@ function RoomDistanceCalculatorPanel({ campusId, onClose }) {
 }
 
 // ---------------------------------------------------------------------------
-// Campus Map — draggable building boxes
+// Teacher Commute Panel & Overlay — daily walk path with Module 7f distances
+// ---------------------------------------------------------------------------
+const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+const DAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+function TeacherCommutePanel({
+  campusId,
+  teachers,
+  timetables,
+  teacherId,
+  setTeacherId,
+  timetableId,
+  setTimetableId,
+  dayOfWeek,
+  setDayOfWeek,
+  commute,
+  loading,
+  loadingMeta,
+  error,
+  hoveredHopIndex,
+  setHoveredHopIndex,
+  selectedHopIndex,
+  setSelectedHopIndex,
+  onClose,
+  onRefresh,
+}) {
+  const roomColor = (rtype) => ({
+    staffroom: { bg: 'rgba(168,85,247,0.18)', border: '#a855f7', dot: '#a855f7', text: '#d8b4fe' },
+    classroom: { bg: 'rgba(99,102,241,0.18)',  border: '#6366f1', dot: '#6366f1', text: '#a5b4fc' },
+    lab:       { bg: 'rgba(6,182,212,0.18)',   border: '#06b6d4', dot: '#06b6d4', text: '#67e8f9' },
+    seminar:   { bg: 'rgba(245,158,11,0.18)',  border: '#f59e0b', dot: '#f59e0b', text: '#fcd34d' },
+    unknown:   { bg: 'rgba(107,114,128,0.18)', border: '#6b7280', dot: '#6b7280', text: '#9ca3af' },
+  }[rtype] || { bg: 'rgba(107,114,128,0.18)', border: '#6b7280', dot: '#6b7280', text: '#9ca3af' })
+
+  return (
+    <div className="inter-bldg-panel">
+      {/* Header */}
+      <div className="inter-bldg-header">
+        <Route size={14} className="text-violet-400" />
+        <span className="font-semibold text-gray-100">Teacher Commute Itinerary</span>
+        <button
+          onClick={onClose}
+          className="ml-auto p-1 rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors"
+          title="Close Itinerary Drawer"
+        >
+          <X size={14} />
+        </button>
+      </div>
+
+      {/* Description */}
+      <div className="inter-bldg-desc">
+        <Navigation size={11} className="text-violet-400 flex-shrink-0 mt-0.5" />
+        <p className="text-[11px] text-gray-400 leading-relaxed">
+          Daily walk sequence: <strong className="text-violet-300">Staffroom</strong> → each period's room in order → <strong className="text-violet-300">Staffroom</strong>, labeled with Module 7f distances.
+        </p>
+      </div>
+
+      {/* Body */}
+      <div className="inter-bldg-body space-y-3">
+        {loadingMeta ? (
+          <div className="flex items-center justify-center py-10 gap-2 text-gray-400 text-xs">
+            <Loader2 size={14} className="animate-spin text-violet-400" /> Loading teachers…
+          </div>
+        ) : (
+          <>
+            {/* Quick selectors */}
+            <div className="space-y-2.5 p-3 rounded-2xl bg-white/[0.02] border border-white/5">
+              {/* Teacher select */}
+              <div className="space-y-1">
+                <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                  <Users size={10} className="text-violet-400" /> Teacher
+                </label>
+                <select
+                  className="w-full px-2.5 py-1.5 rounded-xl text-xs bg-white/5 border border-white/10 text-gray-200 outline-none focus:border-violet-500 cursor-pointer"
+                  value={teacherId}
+                  onChange={e => setTeacherId(e.target.value)}
+                >
+                  <option value="">— Select Teacher —</option>
+                  {teachers.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Timetable select */}
+              <div className="space-y-1">
+                <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Timetable Run</label>
+                <select
+                  className="w-full px-2.5 py-1.5 rounded-xl text-xs bg-white/5 border border-white/10 text-gray-200 outline-none focus:border-violet-500 cursor-pointer"
+                  value={timetableId}
+                  onChange={e => setTimetableId(e.target.value)}
+                >
+                  <option value="">— Select Timetable —</option>
+                  {timetables.map(tt => (
+                    <option key={tt.id} value={tt.id}>
+                      {tt.label || `Run ${tt.id.slice(0, 8)}`} ({new Date(tt.created_at).toLocaleDateString()})
+                    </option>
+                  ))}
+                </select>
+                {timetables.length === 0 && (
+                  <p className="text-[10px] text-gray-500">No successful timetable runs yet.</p>
+                )}
+              </div>
+
+              {/* Day selector */}
+              <div className="space-y-1">
+                <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Day of Week</label>
+                <div className="flex gap-1 flex-wrap">
+                  {DAY_SHORT.map((d, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setDayOfWeek(i)}
+                      className={`px-2 py-1 text-[10px] rounded-lg border font-semibold transition-all ${
+                        dayOfWeek === i
+                          ? 'bg-violet-600 text-white border-violet-500 shadow-sm'
+                          : 'bg-white/5 text-gray-400 border-white/10 hover:border-violet-500/40 hover:text-violet-300'
+                      }`}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Error */}
+            {error && (
+              <div className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2 flex items-start gap-2">
+                <AlertCircle size={11} className="mt-0.5 shrink-0" /> {error}
+              </div>
+            )}
+
+            {/* Loading */}
+            {loading && (
+              <div className="flex items-center justify-center py-6 gap-2 text-gray-400 text-xs">
+                <Loader2 size={13} className="animate-spin text-violet-400" /> Computing Module 7f commute distances…
+              </div>
+            )}
+
+            {/* Commute result */}
+            {commute && !loading && (
+              <div className="space-y-3">
+                {/* Summary card */}
+                <div className="p-3.5 rounded-2xl bg-gradient-to-br from-violet-600/20 via-violet-900/10 to-transparent border border-violet-500/30 shadow-lg">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-bold text-violet-200 uppercase tracking-wider flex items-center gap-1.5">
+                      <Footprints size={12} className="text-violet-400" />
+                      {commute.teacher_name}
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30 font-semibold">
+                      {commute.day_name}
+                    </span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-black text-white font-mono tracking-tight">
+                      {commute.total_distance_m}
+                    </span>
+                    <span className="text-xs font-semibold text-gray-400">meters total walk</span>
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-[10px] text-gray-400">
+                    <div>
+                      <span className="text-gray-200 font-bold">{commute.reachable_hops}</span>
+                      /{commute.total_hops} hops connected
+                    </div>
+                    {commute.staffroom_name && (
+                      <div className="truncate max-w-[190px]" title={commute.staffroom_name}>
+                        Base: <span className="text-violet-300 font-semibold">{commute.staffroom_name}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Journey timeline */}
+                {commute.hops.length === 0 ? (
+                  <div className="text-center py-8 text-xs text-gray-500 bg-white/[0.02] rounded-xl border border-white/5">
+                    No scheduled periods on {commute.day_name} for this teacher.
+                  </div>
+                ) : (
+                  <div className="space-y-1 relative pt-1">
+                    <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider px-1 mb-2 flex items-center justify-between">
+                      <span>Commute Timeline</span>
+                      <span className="text-[9px] text-gray-500 font-normal">Hover or click to highlight on map</span>
+                    </div>
+
+                    {/* Timeline of Waypoints */}
+                    {(() => {
+                      const waypoints = commute.waypoints && commute.waypoints.length > 0
+                        ? commute.waypoints
+                        : [
+                            { index: 0, room_id: commute.hops[0]?.from_room_id, room_name: commute.hops[0]?.from_room_name, room_type: commute.hops[0]?.from_room_type, is_staffroom: true, building_name: commute.hops[0]?.from_building_name, floor_name: commute.hops[0]?.from_floor_name },
+                            ...commute.hops.map((hop, hIdx) => ({
+                              index: hIdx + 1,
+                              room_id: hop.to_room_id,
+                              room_name: hop.to_room_name,
+                              room_type: hop.to_room_type,
+                              is_staffroom: hIdx === commute.hops.length - 1,
+                              period_index: hop.period_index,
+                              subject_name: hop.subject_name,
+                              subject_code: hop.subject_code,
+                              section_name: hop.section_name,
+                              building_name: hop.to_building_name,
+                              floor_name: hop.to_floor_name,
+                            }))
+                          ]
+
+                      return waypoints.map((wp, idx) => {
+                        const hop = commute.hops[idx - 1] // arriving hop
+                        const clr = roomColor(wp.room_type || 'classroom')
+                        const isFirst = idx === 0
+                        const isLast = idx === waypoints.length - 1
+                        const hopIdx = idx - 1
+                        const isHopHovered = hopIdx >= 0 && hoveredHopIndex === hopIdx
+                        const isHopSelected = hopIdx >= 0 && selectedHopIndex === hopIdx
+
+                        return (
+                          <div
+                            key={idx}
+                            className={`commute-hop-card rounded-xl transition-all ${
+                              isHopHovered || isHopSelected ? 'bg-violet-600/10 ring-1 ring-violet-500/40' : ''
+                            }`}
+                            onMouseEnter={() => hopIdx >= 0 && setHoveredHopIndex(hopIdx)}
+                            onMouseLeave={() => setHoveredHopIndex(null)}
+                            onClick={() => hopIdx >= 0 && setSelectedHopIndex(selectedHopIndex === hopIdx ? null : hopIdx)}
+                          >
+                            <div className="flex items-start">
+                              {/* Left line & dot */}
+                              <div className="flex flex-col items-center" style={{ width: 30, minWidth: 30 }}>
+                                {/* Hop connection pill above */}
+                                {!isFirst && hop && (
+                                  <div className="flex flex-col items-center w-full py-0.5">
+                                    <div className="w-0.5 h-2 bg-white/10" />
+                                    <div
+                                      className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full border shadow-sm cursor-pointer transition-all ${
+                                        !hop.reachable
+                                          ? 'bg-red-500/20 text-red-300 border-red-500/40'
+                                          : hop.distance_m === 0
+                                          ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+                                          : hop.distance_m < 30
+                                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                          : hop.distance_m < 80
+                                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                                          : 'bg-violet-500/20 text-violet-300 border-violet-500/40'
+                                      } ${isHopHovered || isHopSelected ? 'scale-110 shadow-violet-500/50' : ''}`}
+                                      title={hop.reachable ? `Hop #${hopIdx + 1}: ${hop.distance_m}m (${hop.distance_cells} cells · ${hop.route_type || 'walking'})` : 'No path found'}
+                                    >
+                                      {hop.reachable ? `${hop.distance_m}m` : '✕'}
+                                    </div>
+                                    <div className="w-0.5 h-2 bg-white/10" />
+                                  </div>
+                                )}
+
+                                {/* Waypoint Dot */}
+                                <div
+                                  className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 transition-all ${
+                                    isFirst || isLast ? 'ring-2 ring-violet-500/40' : ''
+                                  }`}
+                                  style={{
+                                    background: clr.bg,
+                                    borderColor: clr.dot,
+                                    boxShadow: `0 0 10px ${clr.dot}55`,
+                                  }}
+                                />
+                                {!isLast && (
+                                  <div className="w-0.5 bg-white/10 flex-1" style={{ minHeight: 10 }} />
+                                )}
+                              </div>
+
+                              {/* Right room card */}
+                              <div
+                                className="ml-1.5 mb-1.5 flex-1 rounded-xl border px-3 py-2 cursor-pointer transition-all"
+                                style={{
+                                  background: isHopHovered || isHopSelected ? 'rgba(139,92,246,0.14)' : clr.bg,
+                                  borderColor: isHopHovered || isHopSelected ? '#a855f7' : clr.border + '44',
+                                }}
+                              >
+                                <div className="flex items-start justify-between gap-1.5">
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      {isFirst ? (
+                                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-violet-600/30 text-violet-200 border border-violet-500/40">
+                                          🏠 Start · Staffroom
+                                        </span>
+                                      ) : isLast ? (
+                                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-violet-600/30 text-violet-200 border border-violet-500/40">
+                                          🏠 Return · Staffroom
+                                        </span>
+                                      ) : wp.period_index != null && (
+                                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-white/10 text-gray-300 border border-white/10 font-mono">
+                                          P{wp.period_index + 1}
+                                        </span>
+                                      )}
+                                      <span className="text-xs font-semibold text-gray-100 truncate" style={{ color: clr.text }}>
+                                        {wp.room_name}
+                                      </span>
+                                    </div>
+
+                                    {wp.subject_name && (
+                                      <div className="text-[10px] text-gray-400 mt-0.5 truncate">
+                                        {wp.subject_code && <span className="font-mono text-gray-300 mr-1">[{wp.subject_code}]</span>}
+                                        {wp.subject_name}
+                                        {wp.section_name && <span className="ml-1 text-gray-500">· {wp.section_name}</span>}
+                                      </div>
+                                    )}
+
+                                    {/* Building & floor breadcrumb */}
+                                    {(wp.building_name || wp.floor_name) && (
+                                      <div className="text-[9px] text-gray-500 mt-0.5 flex items-center gap-1 font-mono">
+                                        <Building2 size={9} className="text-gray-400" />
+                                        <span>{wp.building_name || 'Building'}</span>
+                                        {wp.floor_name && <span>› {wp.floor_name}</span>}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <span
+                                    className="text-[9px] px-1.5 py-0.5 rounded-full font-mono border shrink-0 uppercase"
+                                    style={{ background: clr.bg, color: clr.text, borderColor: clr.border + '55' }}
+                                  >
+                                    {wp.room_type || 'room'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })
+                    })()}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Campus Map — draggable building boxes with Teacher Commute Path Overlay
 // ---------------------------------------------------------------------------
 function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddBuilding, selectedBuildingId, onDeleteBuilding, onRenameBuilding, onAddFloor, onSelectFloor }) {
   const mapRef     = useRef(null)
   const dragging   = useRef(null)   // { id, startX, startY, origX, origY }
-  const [showCalcPanel, setShowCalcPanel]         = useState(false)
+
+  // Side panels
+  const [showCalcPanel,     setShowCalcPanel]     = useState(false)
   const [showEntrancePanel, setShowEntrancePanel] = useState(false)
+  const [showCommutePanel,  setShowCommutePanel]  = useState(false)
+
+  // Teacher Commute Mode state
+  const [commuteMode,        setCommuteMode]        = useState(false)
+  const [teachers,           setTeachers]           = useState([])
+  const [timetables,         setTimetables]         = useState([])
+  const [loadingMeta,        setLoadingMeta]        = useState(false)
+  const [commuteTeacherId,   setCommuteTeacherId]   = useState('')
+  const [commuteTimetableId, setCommuteTimetableId] = useState('')
+  const [commuteDayOfWeek,   setCommuteDayOfWeek]   = useState(0)
+  const [commute,            setCommute]            = useState(null)
+  const [commuteLoading,     setCommuteLoading]     = useState(false)
+  const [commuteError,       setCommuteError]       = useState(null)
+  const [hoveredHopIndex,    setHoveredHopIndex]    = useState(null)
+  const [selectedHopIndex,   setSelectedHopIndex]   = useState(null)
 
   const MAP_W = 1600
   const MAP_H = 900
 
+  // Index buildings by ID
+  const buildingMap = useMemo(() => {
+    const map = {}
+    buildings.forEach(b => { map[b.id] = b })
+    return map
+  }, [buildings])
+
+  // Dragging logic
   const startDrag = (e, building) => {
     if (e.button !== 0) return
     e.stopPropagation()
@@ -1115,23 +1484,240 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
     }
   }, [onBuildingMove])
 
+  // Enter/toggle commute mode
+  const toggleCommuteMode = () => {
+    if (!commuteMode) {
+      setCommuteMode(true)
+      setShowCommutePanel(true)
+      setShowCalcPanel(false)
+      setShowEntrancePanel(false)
+      if (teachers.length === 0) {
+        setLoadingMeta(true)
+        Promise.all([teachersApi.list(), timetablesApi.list()])
+          .then(([tRes, ttRes]) => {
+            const tList = Array.isArray(tRes?.data) ? tRes.data : []
+            const ttList = Array.isArray(ttRes?.data) ? ttRes.data : []
+            setTeachers(tList)
+            const okTt = ttList.filter(t => t.status === 'ok')
+            setTimetables(okTt)
+            if (tList.length > 0 && !commuteTeacherId) setCommuteTeacherId(tList[0].id)
+            if (okTt.length > 0 && !commuteTimetableId) setCommuteTimetableId(okTt[0].id)
+          })
+          .catch(err => setCommuteError(err?.message || 'Failed to load teachers'))
+          .finally(() => setLoadingMeta(false))
+      }
+    } else {
+      setCommuteMode(false)
+      setShowCommutePanel(false)
+      setSelectedHopIndex(null)
+      setHoveredHopIndex(null)
+    }
+  }
+
+  // Fetch commute path data whenever teacher, timetable, or day changes
+  useEffect(() => {
+    if (!commuteMode || !commuteTeacherId || !commuteTimetableId) return
+    let cancelled = false
+    setCommuteLoading(true)
+    setCommuteError(null)
+    campusApi.teacherCommute(campus.id, commuteTeacherId, commuteTimetableId, commuteDayOfWeek)
+      .then(res => {
+        if (!cancelled) {
+          setCommute(res.data)
+          setSelectedHopIndex(null)
+        }
+      })
+      .catch(err => {
+        if (!cancelled) setCommuteError(err?.response?.data?.detail || err?.message || 'Failed to load commute path')
+      })
+      .finally(() => {
+        if (!cancelled) setCommuteLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [commuteMode, campus.id, commuteTeacherId, commuteTimetableId, commuteDayOfWeek])
+
+  // Buildings involved in commute
+  const commuteBldgMeta = useMemo(() => {
+    if (!commute?.hops || !commuteMode) return {}
+    const meta = {}
+    commute.hops.forEach(hop => {
+      if (hop.from_building_id) {
+        if (!meta[hop.from_building_id]) meta[hop.from_building_id] = { periods: [], hasStaffroom: false }
+        if (hop.from_room_type === 'staffroom') meta[hop.from_building_id].hasStaffroom = true
+      }
+      if (hop.to_building_id) {
+        if (!meta[hop.to_building_id]) meta[hop.to_building_id] = { periods: [], hasStaffroom: false }
+        if (hop.to_room_type === 'staffroom') meta[hop.to_building_id].hasStaffroom = true
+        if (hop.period_index != null && !meta[hop.to_building_id].periods.includes(hop.period_index + 1)) {
+          meta[hop.to_building_id].periods.push(hop.period_index + 1)
+        }
+      }
+    })
+    return meta
+  }, [commute, commuteMode])
+
+  // Computed SVG hop paths and badges
+  const hopRenderData = useMemo(() => {
+    if (!commute?.hops || !commuteMode) return []
+    return commute.hops.map((hop, i) => {
+      const fromB = hop.from_building_id ? buildingMap[hop.from_building_id] : null
+      const toB = hop.to_building_id ? buildingMap[hop.to_building_id] : null
+
+      if (!fromB || !toB) return null
+
+      const isSame = fromB.id === toB.id
+      let pathD = ''
+      let midX = 0
+      let midY = 0
+
+      if (!isSame) {
+        const x1 = fromB.pos_x + (fromB.width ?? 120) / 2
+        const y1 = fromB.pos_y + (fromB.height ?? 90) / 2
+        const x2 = toB.pos_x + (toB.width ?? 120) / 2
+        const y2 = toB.pos_y + (toB.height ?? 90) / 2
+
+        const dx = x2 - x1
+        const dy = y2 - y1
+        const len = Math.hypot(dx, dy) || 1
+        const nx = -dy / len
+        const ny = dx / len
+
+        // Alternate curvature spread so opposite hops don't overlap directly
+        const offset = (i % 2 === 0 ? 1 : -1) * (34 + ((i * 14) % 40))
+        const cx = (x1 + x2) / 2 + nx * offset
+        const cy = (y1 + y2) / 2 + ny * offset
+
+        pathD = `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`
+        midX = 0.25 * x1 + 0.5 * cx + 0.25 * x2
+        midY = 0.25 * y1 + 0.5 * cy + 0.25 * y2
+      } else {
+        // Intra-building loop above the building
+        const bx = fromB.pos_x + (fromB.width ?? 120) / 2
+        const by = fromB.pos_y
+        pathD = `M ${bx - 24} ${by} C ${bx - 44} ${by - 48}, ${bx + 44} ${by - 48}, ${bx + 24} ${by}`
+        midX = bx
+        midY = by - 42
+      }
+
+      let hex = '#a855f7'
+      let markerKey = 'violet'
+      if (!hop.reachable) {
+        hex = '#ef4444'
+        markerKey = 'red'
+      } else if (hop.distance_m === 0) {
+        hex = '#9ca3af'
+        markerKey = 'gray'
+      } else if (hop.distance_m < 30) {
+        hex = '#10b981'
+        markerKey = 'emerald'
+      } else if (hop.distance_m < 80) {
+        hex = '#f59e0b'
+        markerKey = 'amber'
+      }
+
+      return {
+        hop,
+        index: i,
+        pathD,
+        midX,
+        midY,
+        hex,
+        markerKey,
+        isSame,
+      }
+    }).filter(Boolean)
+  }, [commute, commuteMode, buildingMap])
+
+  // Active hop info for tooltip
+  const activeHop = (selectedHopIndex != null && commute?.hops?.[selectedHopIndex]) ||
+                    (hoveredHopIndex != null && commute?.hops?.[hoveredHopIndex]) || null
+  const activeHopIdx = selectedHopIndex != null ? selectedHopIndex : hoveredHopIndex
+
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-white/10 flex-shrink-0">
-        <div>
-          <h2 className="text-sm font-semibold text-gray-200 flex items-center gap-2">
-            <MapPin size={14} className="text-indigo-400" />
-            {campus.name} — Campus Map
-          </h2>
-          {campus.description && (
-            <p className="text-xs text-gray-500 mt-0.5">{campus.description}</p>
+    <div className="flex flex-col h-full select-none">
+      {/* Top Header & Commute Controls */}
+      <div className={`flex items-center justify-between px-5 py-3 border-b flex-shrink-0 transition-colors ${
+        commuteMode
+          ? 'bg-gradient-to-r from-violet-950/40 via-gray-900 to-gray-900 border-violet-500/30'
+          : 'border-white/10'
+      }`}>
+        {/* Left Title / Commute Quick Controls */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div>
+            <h2 className="text-sm font-semibold text-gray-200 flex items-center gap-2">
+              <MapPin size={14} className={commuteMode ? "text-violet-400" : "text-indigo-400"} />
+              {campus.name} — Campus Map
+            </h2>
+            {campus.description && !commuteMode && (
+              <p className="text-xs text-gray-500 mt-0.5">{campus.description}</p>
+            )}
+          </div>
+
+          {commuteMode && (
+            <div className="flex items-center gap-2 pl-3 border-l border-white/10 flex-wrap">
+              {/* Teacher selector */}
+              <div className="flex items-center gap-1.5 bg-black/40 px-2.5 py-1 rounded-xl border border-violet-500/30">
+                <Users size={12} className="text-violet-400" />
+                <select
+                  className="bg-transparent text-xs font-semibold text-violet-200 outline-none cursor-pointer"
+                  value={commuteTeacherId}
+                  onChange={e => setCommuteTeacherId(e.target.value)}
+                >
+                  <option value="" className="bg-gray-900 text-gray-300">— Select Teacher —</option>
+                  {teachers.map(t => (
+                    <option key={t.id} value={t.id} className="bg-gray-900 text-gray-200">{t.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Day pills */}
+              <div className="flex items-center gap-0.5 bg-black/40 p-0.5 rounded-xl border border-white/10">
+                {DAY_SHORT.map((d, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setCommuteDayOfWeek(i)}
+                    className={`px-2 py-0.5 text-[10px] rounded-lg font-bold transition-all ${
+                      commuteDayOfWeek === i
+                        ? 'bg-violet-600 text-white shadow-sm'
+                        : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                    }`}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+
+              {/* Commute summary badge */}
+              {commute && (
+                <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-violet-600/20 border border-violet-500/40 text-violet-200 text-xs font-mono font-bold shadow-sm">
+                  <Footprints size={12} className="text-violet-400" />
+                  <span>{commute.total_distance_m}m total</span>
+                  <span className="text-[10px] font-normal text-violet-300/70">
+                    ({commute.reachable_hops}/{commute.total_hops} hops)
+                  </span>
+                </div>
+              )}
+
+              {commuteLoading && (
+                <div className="flex items-center gap-1 text-[11px] text-violet-300 animate-pulse">
+                  <Loader2 size={12} className="animate-spin" />
+                  <span>Calculating path…</span>
+                </div>
+              )}
+            </div>
           )}
         </div>
+
+        {/* Right Action Buttons */}
         <div className="flex items-center gap-2">
+          {/* Find Room Distance */}
           <button
             id="room-distance-calc-btn"
-            onClick={() => { setShowCalcPanel(o => !o); setShowEntrancePanel(false) }}
+            onClick={() => {
+              setShowCalcPanel(o => !o)
+              setShowEntrancePanel(false)
+              if (!showCalcPanel && commuteMode) setCommuteMode(false)
+            }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
               showCalcPanel
                 ? 'bg-indigo-600/30 text-indigo-200 border-indigo-500/50'
@@ -1142,9 +1728,15 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
             <Ruler size={13} />
             Find Room Distance
           </button>
+
+          {/* Entrance Links */}
           <button
             id="campus-entrance-pairs-btn"
-            onClick={() => { setShowEntrancePanel(o => !o); setShowCalcPanel(false) }}
+            onClick={() => {
+              setShowEntrancePanel(o => !o)
+              setShowCalcPanel(false)
+              if (!showEntrancePanel && commuteMode) setCommuteMode(false)
+            }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
               showEntrancePanel
                 ? 'bg-amber-600/30 text-amber-200 border-amber-500/50'
@@ -1155,22 +1747,60 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
             <DoorOpen size={13} />
             Entrance Links
           </button>
+
+          {/* Teacher Commute Mode Toggle */}
           <button
-            id="add-building-btn"
-            onClick={onAddBuilding}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/30 hover:text-indigo-200 transition-all"
+            id="teacher-commute-btn"
+            onClick={toggleCommuteMode}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+              commuteMode
+                ? 'bg-violet-600 text-white border-violet-500 shadow-md shadow-violet-600/30 ring-2 ring-violet-500/40'
+                : 'bg-white/5 text-gray-400 border-white/10 hover:bg-violet-600/15 hover:text-violet-300 hover:border-violet-500/30'
+            }`}
+            title="Overlay a teacher's full daily commute path with Module 7f distances"
           >
-            <Plus size={13} /> Add Building
+            <Route size={13} />
+            {commuteMode ? 'Commute Mode Active' : 'Teacher Commute'}
           </button>
+
+          {/* Commute Itinerary Drawer Toggle (only when in Commute Mode) */}
+          {commuteMode && (
+            <button
+              onClick={() => setShowCommutePanel(o => !o)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                showCommutePanel
+                  ? 'bg-violet-600/30 text-violet-200 border-violet-500/50'
+                  : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-gray-200'
+              }`}
+              title="Toggle detailed commute itinerary list"
+            >
+              <Navigation size={13} />
+              Itinerary
+            </button>
+          )}
+
+          {/* Add Building Button */}
+          {!commuteMode && (
+            <button
+              id="add-building-btn"
+              onClick={onAddBuilding}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/30 hover:text-indigo-200 transition-all"
+            >
+              <Plus size={13} /> Add Building
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Map canvas */}
-      <div className="campus-map-canvas">
+      {/* Map canvas with SVG commute path overlay */}
+      <div className="campus-map-canvas relative overflow-auto flex-1">
         <div
           ref={mapRef}
           style={{ width: MAP_W, height: MAP_H, position: 'relative', minWidth: '100%', minHeight: '100%' }}
-          onClick={() => onBuildingSelect(null)}
+          onClick={() => {
+            onBuildingSelect(null)
+            setSelectedHopIndex(null)
+          }}
         >
           {buildings.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -1182,105 +1812,298 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
             </div>
           )}
 
-          {buildings.map(b => (
-            <div
-              key={b.id}
-              className={`building-box ${selectedBuildingId === b.id ? 'selected' : ''}`}
-              style={{
-                left:   b.pos_x,
-                top:    b.pos_y,
-                width:  b.width,
-                height: b.height,
-                color:  b.color,
-                background: b.color + '22',
-              }}
-              onMouseDown={(e) => { startDrag(e, b); onBuildingSelect(b.id) }}
-              onDoubleClick={(e) => {
-                e.stopPropagation()
-                if (b.floors && b.floors.length > 0 && onSelectFloor) {
-                  onSelectFloor({ ...b.floors[0], building_id: b.id })
-                }
-              }}
-              onClick={(e) => e.stopPropagation()}
-              title={b.floors?.length ? "Double click to open floor grid painter" : undefined}
+          {/* SVG OVERLAY FOR TEACHER COMMUTE PATHS */}
+          {commuteMode && (
+            <svg
+              className="absolute inset-0 pointer-events-none z-10"
+              style={{ width: MAP_W, height: MAP_H }}
             >
-              <Building2 size={16} style={{ color: b.color }} className="mb-0.5" />
-              <span className="text-[11px] font-bold leading-tight px-1 text-center truncate max-w-full" style={{ color: b.color }}>
-                {b.name}
-              </span>
-              <span className="text-[9px] opacity-60 font-mono">{b.code}</span>
-              
-              <button
-                type="button"
-                onClick={(e) => {
+              <defs>
+                <filter id="commute-glow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="3.5" result="blur" />
+                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                </filter>
+                {['violet', 'emerald', 'amber', 'red', 'gray'].map(c => {
+                  const colorHex = {
+                    violet: '#a855f7',
+                    emerald: '#10b981',
+                    amber: '#f59e0b',
+                    red: '#ef4444',
+                    gray: '#9ca3af',
+                  }[c]
+                  return (
+                    <marker
+                      key={c}
+                      id={`commute-arrow-${c}`}
+                      viewBox="0 0 10 10"
+                      refX="7"
+                      refY="5"
+                      markerWidth="6"
+                      markerHeight="6"
+                      orient="auto-start-reverse"
+                    >
+                      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill={colorHex} />
+                    </marker>
+                  )
+                })}
+              </defs>
+
+              {/* Render Hop Paths */}
+              {hopRenderData.map(({ hop, index: i, pathD, midX, midY, hex, markerKey, isSame }) => {
+                const isHovered = hoveredHopIndex === i
+                const isSelected = selectedHopIndex === i
+                const isAnyHovered = hoveredHopIndex !== null || selectedHopIndex !== null
+                const opacity = (isHovered || isSelected) ? 1.0 : (isAnyHovered ? 0.35 : 0.85)
+                const strokeW = (isHovered || isSelected) ? 4.5 : 2.5
+
+                return (
+                  <g key={`hop-path-${i}`} className="pointer-events-auto">
+                    {/* Background glow stroke */}
+                    {(isHovered || isSelected) && (
+                      <path
+                        d={pathD}
+                        fill="none"
+                        stroke={hex}
+                        strokeWidth={strokeW + 6}
+                        strokeOpacity={0.4}
+                        filter="url(#commute-glow)"
+                      />
+                    )}
+
+                    {/* Animated flow path */}
+                    <path
+                      d={pathD}
+                      fill="none"
+                      stroke={isHovered || isSelected ? '#ffffff' : hex}
+                      strokeWidth={strokeW}
+                      strokeOpacity={opacity}
+                      strokeDasharray={hop.reachable ? "8 6" : "4 4"}
+                      className={hop.reachable ? "commute-flow-line cursor-pointer" : "cursor-pointer"}
+                      markerEnd={`url(#commute-arrow-${markerKey})`}
+                      onMouseEnter={() => setHoveredHopIndex(i)}
+                      onMouseLeave={() => setHoveredHopIndex(null)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setSelectedHopIndex(selectedHopIndex === i ? null : i)
+                      }}
+                    />
+
+                    {/* Midpoint distance label badge */}
+                    <foreignObject
+                      x={midX - 45}
+                      y={midY - 14}
+                      width="90"
+                      height="28"
+                      className="overflow-visible pointer-events-auto"
+                    >
+                      <div
+                        onMouseEnter={() => setHoveredHopIndex(i)}
+                        onMouseLeave={() => setHoveredHopIndex(null)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedHopIndex(selectedHopIndex === i ? null : i)
+                        }}
+                        className={`cursor-pointer px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border shadow-lg flex items-center justify-center gap-1 transition-all select-none ${
+                          isHovered || isSelected ? 'scale-125 z-40' : 'hover:scale-110'
+                        }`}
+                        style={{
+                          background: isHovered || isSelected ? hex : '#12141f',
+                          borderColor: hex,
+                          color: isHovered || isSelected ? '#ffffff' : hex,
+                          boxShadow: isHovered || isSelected ? `0 0 16px ${hex}` : '0 2px 8px rgba(0,0,0,0.7)',
+                        }}
+                        title={`Hop #${i + 1}: ${hop.from_room_name} → ${hop.to_room_name} (${hop.reachable ? `${hop.distance_m}m · ${hop.distance_cells} cells` : 'Unreachable'})`}
+                      >
+                        <span className="text-[9px] opacity-80 font-sans font-bold">#{i + 1}</span>
+                        <span>{hop.reachable ? `${hop.distance_m}m` : '✕'}</span>
+                      </div>
+                    </foreignObject>
+                  </g>
+                )
+              })}
+            </svg>
+          )}
+
+          {/* BUILDINGS */}
+          {buildings.map(b => {
+            const bMeta = commuteMode && commuteBldgMeta[b.id]
+            const isCommuteBldg = !!bMeta
+            const isHoveredHopBldg = hoveredHopIndex != null && commute?.hops?.[hoveredHopIndex] && (
+              commute.hops[hoveredHopIndex].from_building_id === b.id ||
+              commute.hops[hoveredHopIndex].to_building_id === b.id
+            )
+
+            return (
+              <div
+                key={b.id}
+                className={`building-box ${selectedBuildingId === b.id ? 'selected' : ''} ${
+                  isCommuteBldg ? 'ring-2 ring-violet-500/80 shadow-[0_0_24px_rgba(168,85,247,0.4)]' : ''
+                } ${isHoveredHopBldg ? 'ring-4 ring-white shadow-[0_0_30px_rgba(255,255,255,0.7)]' : ''}`}
+                style={{
+                  left:   b.pos_x,
+                  top:    b.pos_y,
+                  width:  b.width,
+                  height: b.height,
+                  color:  b.color,
+                  background: isCommuteBldg ? 'rgba(139,92,246,0.18)' : b.color + '22',
+                  zIndex: isHoveredHopBldg ? 25 : (isCommuteBldg ? 20 : 1),
+                }}
+                onMouseDown={(e) => { startDrag(e, b); onBuildingSelect(b.id) }}
+                onDoubleClick={(e) => {
                   e.stopPropagation()
                   if (b.floors && b.floors.length > 0 && onSelectFloor) {
                     onSelectFloor({ ...b.floors[0], building_id: b.id })
-                  } else {
-                    onAddFloor(b)
                   }
                 }}
-                className="text-[10px] font-semibold px-2 py-0.5 mt-0.5 rounded-full bg-black/50 text-gray-200 hover:text-indigo-300 hover:bg-black/80 border border-white/10 hover:border-indigo-500/50 shadow-sm flex items-center gap-1 transition-all"
-                title={b.floors?.length ? "Click to open floor plan drawing canvas" : "Click to add a floor"}
+                onClick={(e) => e.stopPropagation()}
+                title={b.floors?.length ? "Double click to open floor grid painter" : undefined}
               >
-                <Layers size={10} className="text-indigo-400" />
-                {b.floors?.length ?? 0} {(b.floors?.length ?? 0) === 1 ? 'floor' : 'floors'}
-              </button>
+                {/* Commute building badge header */}
+                {commuteMode && bMeta && (
+                  <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex items-center gap-1 pointer-events-none z-30 whitespace-nowrap">
+                    {bMeta.hasStaffroom && (
+                      <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-violet-600 text-white shadow-md flex items-center gap-1 border border-violet-400/50">
+                        🏠 Staffroom
+                      </span>
+                    )}
+                    {bMeta.periods.length > 0 && (
+                      <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-indigo-950/90 text-indigo-200 border border-indigo-400/40 shadow-md">
+                        P: {bMeta.periods.join(', ')}
+                      </span>
+                    )}
+                  </div>
+                )}
 
-              {/* Floor quick-links when building is selected */}
-              {selectedBuildingId === b.id && b.floors && b.floors.length > 0 && (
-                <div 
-                  className="flex flex-wrap gap-1 justify-center mt-1 max-w-full px-1"
-                  onClick={e => e.stopPropagation()}
+                <Building2 size={16} style={{ color: b.color }} className="mb-0.5" />
+                <span className="text-[11px] font-bold leading-tight px-1 text-center truncate max-w-full" style={{ color: b.color }}>
+                  {b.name}
+                </span>
+                <span className="text-[9px] opacity-60 font-mono">{b.code}</span>
+                
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (b.floors && b.floors.length > 0 && onSelectFloor) {
+                      onSelectFloor({ ...b.floors[0], building_id: b.id })
+                    } else {
+                      onAddFloor(b)
+                    }
+                  }}
+                  className="text-[10px] font-semibold px-2 py-0.5 mt-0.5 rounded-full bg-black/50 text-gray-200 hover:text-indigo-300 hover:bg-black/80 border border-white/10 hover:border-indigo-500/50 shadow-sm flex items-center gap-1 transition-all"
+                  title={b.floors?.length ? "Click to open floor plan drawing canvas" : "Click to add a floor"}
                 >
-                  {b.floors.map(fl => (
+                  <Layers size={10} className="text-indigo-400" />
+                  {b.floors?.length ?? 0} {(b.floors?.length ?? 0) === 1 ? 'floor' : 'floors'}
+                </button>
+
+                {/* Floor quick-links when building is selected */}
+                {selectedBuildingId === b.id && b.floors && b.floors.length > 0 && (
+                  <div 
+                    className="flex flex-wrap gap-1 justify-center mt-1 max-w-full px-1"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    {b.floors.map(fl => (
+                      <button
+                        key={fl.id}
+                        onClick={() => onSelectFloor && onSelectFloor({ ...fl, building_id: b.id })}
+                        className="px-1.5 py-0.5 text-[9px] rounded font-medium bg-indigo-600/40 hover:bg-indigo-600 text-indigo-100 border border-indigo-400/30 transition-colors"
+                        title={`Open ${fl.name} drawing canvas`}
+                      >
+                        {fl.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Context actions (visible when selected) */}
+                {selectedBuildingId === b.id && !commuteMode && (
+                  <div
+                    className="absolute -top-1 -right-1 flex gap-0.5"
+                    onClick={e => e.stopPropagation()}
+                  >
                     <button
-                      key={fl.id}
-                      onClick={() => onSelectFloor && onSelectFloor({ ...fl, building_id: b.id })}
-                      className="px-1.5 py-0.5 text-[9px] rounded font-medium bg-indigo-600/40 hover:bg-indigo-600 text-indigo-100 border border-indigo-400/30 transition-colors"
-                      title={`Open ${fl.name} drawing canvas`}
+                      title="Add floor"
+                      onClick={() => onAddFloor(b)}
+                      className="w-5 h-5 rounded-full bg-green-600 hover:bg-green-500 flex items-center justify-center transition-colors shadow-md"
                     >
-                      {fl.name}
+                      <Plus size={9} className="text-white" />
                     </button>
-                  ))}
-                </div>
-              )}
+                    <button
+                      title="Rename"
+                      onClick={() => onRenameBuilding(b)}
+                      className="w-5 h-5 rounded-full bg-indigo-600 hover:bg-indigo-500 flex items-center justify-center transition-colors shadow-md"
+                    >
+                      <Edit2 size={9} className="text-white" />
+                    </button>
+                    <button
+                      title="Delete building"
+                      onClick={() => onDeleteBuilding(b)}
+                      className="w-5 h-5 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center transition-colors shadow-md"
+                    >
+                      <Trash2 size={9} className="text-white" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
 
-              {/* Context actions (visible when selected) */}
-              {selectedBuildingId === b.id && (
-                <div
-                  className="absolute -top-1 -right-1 flex gap-0.5"
-                  onClick={e => e.stopPropagation()}
-                >
-                  <button
-                    title="Add floor"
-                    onClick={() => onAddFloor(b)}
-                    className="w-5 h-5 rounded-full bg-green-600 hover:bg-green-500 flex items-center justify-center transition-colors shadow-md"
-                  >
-                    <Plus size={9} className="text-white" />
-                  </button>
-                  <button
-                    title="Rename"
-                    onClick={() => onRenameBuilding(b)}
-                    className="w-5 h-5 rounded-full bg-indigo-600 hover:bg-indigo-500 flex items-center justify-center transition-colors shadow-md"
-                  >
-                    <Edit2 size={9} className="text-white" />
-                  </button>
-                  <button
-                    title="Delete building"
-                    onClick={() => onDeleteBuilding(b)}
-                    className="w-5 h-5 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center transition-colors shadow-md"
-                  >
-                    <Trash2 size={9} className="text-white" />
-                  </button>
+          {/* ACTIVE HOP FLOATING CARD TOOLTIP */}
+          {commuteMode && activeHop && activeHopIdx != null && (
+            <div
+              className="absolute bottom-5 left-5 z-40 max-w-sm rounded-2xl bg-[#121420]/95 border border-violet-500/40 p-3.5 shadow-2xl backdrop-blur-md pointer-events-auto transition-all animate-fadeIn"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-white/10">
+                <span className="text-[11px] font-bold text-violet-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Navigation size={12} className="text-violet-400" />
+                  Hop #{activeHopIdx + 1} Details
+                </span>
+                <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${
+                  !activeHop.reachable ? 'bg-red-500/20 text-red-300 border-red-500/40'
+                    : (activeHop.distance_m || 0) < 30 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                    : (activeHop.distance_m || 0) < 80 ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                    : 'bg-violet-500/20 text-violet-300 border-violet-500/40'
+                }`}>
+                  {activeHop.reachable ? `${activeHop.distance_m}m · ${activeHop.distance_cells} cells` : 'Unreachable'}
+                </span>
+              </div>
+
+              <div className="space-y-1.5 text-xs">
+                <div className="flex items-center justify-between text-gray-300">
+                  <span className="text-gray-500 text-[10px]">From:</span>
+                  <span className="font-semibold text-gray-200">
+                    {activeHop.from_room_name} <span className="text-gray-500 text-[10px]">({activeHop.from_building_name || 'Campus'})</span>
+                  </span>
                 </div>
-              )}
+                <div className="flex items-center justify-between text-gray-300">
+                  <span className="text-gray-500 text-[10px]">To:</span>
+                  <span className="font-semibold text-violet-200">
+                    {activeHop.to_room_name} <span className="text-gray-500 text-[10px]">({activeHop.to_building_name || 'Campus'})</span>
+                  </span>
+                </div>
+                {activeHop.period_index != null && (
+                  <div className="flex items-center justify-between text-gray-300 pt-1 border-t border-white/5">
+                    <span className="text-gray-500 text-[10px]">Period:</span>
+                    <span className="font-mono text-gray-200 font-bold">
+                      Period {activeHop.period_index + 1}
+                      {activeHop.subject_name && ` · ${activeHop.subject_name}`}
+                      {activeHop.section_name && ` (${activeHop.section_name})`}
+                    </span>
+                  </div>
+                )}
+                {activeHop.route_type && (
+                  <div className="flex items-center justify-between text-gray-400 text-[10px]">
+                    <span className="text-gray-500">Route Type:</span>
+                    <span className="font-mono capitalize text-gray-300">{activeHop.route_type.replace('_', ' ')}</span>
+                  </div>
+                )}
+              </div>
             </div>
-          ))}
+          )}
         </div>
       </div>
-
-
 
       {/* Room Distance Calculator Side Panel */}
       {showCalcPanel && (
@@ -1306,10 +2129,46 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
           </div>
         </div>
       )}
+
+      {/* Teacher Commute Path Side Drawer (Non-blocking so user can view/pan map) */}
+      {commuteMode && showCommutePanel && (
+        <div className="commute-drawer-overlay">
+          <div className="commute-drawer" onClick={e => e.stopPropagation()}>
+            <TeacherCommutePanel
+              campusId={campus.id}
+              teachers={teachers}
+              timetables={timetables}
+              teacherId={commuteTeacherId}
+              setTeacherId={setCommuteTeacherId}
+              timetableId={commuteTimetableId}
+              setTimetableId={setCommuteTimetableId}
+              dayOfWeek={commuteDayOfWeek}
+              setDayOfWeek={setCommuteDayOfWeek}
+              commute={commute}
+              loading={commuteLoading}
+              loadingMeta={loadingMeta}
+              error={commuteError}
+              hoveredHopIndex={hoveredHopIndex}
+              setHoveredHopIndex={setHoveredHopIndex}
+              selectedHopIndex={selectedHopIndex}
+              setSelectedHopIndex={setSelectedHopIndex}
+              onClose={() => setShowCommutePanel(false)}
+              onRefresh={() => {
+                if (commuteTeacherId && commuteTimetableId) {
+                  setCommuteLoading(true)
+                  campusApi.teacherCommute(campus.id, commuteTeacherId, commuteTimetableId, commuteDayOfWeek)
+                    .then(res => setCommute(res.data))
+                    .catch(err => setCommuteError(err?.message))
+                    .finally(() => setCommuteLoading(false))
+                }
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
-
 // ---------------------------------------------------------------------------
 // Tree Node
 // ---------------------------------------------------------------------------

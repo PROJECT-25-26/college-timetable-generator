@@ -168,6 +168,14 @@ export const campusApi = {
   entrancePairs: (campusId) => api.get(`/campuses/${campusId}/entrance-pairs`),
   /** PUT /api/v1/campuses/{campusId}/entrance-pairs — bulk update per-gate entrance pair distances */
   saveEntrancePairs: (campusId, pairs) => api.put(`/campuses/${campusId}/entrance-pairs`, { pairs }),
+  /**
+   * GET /api/v1/campuses/{campusId}/teacher-commute
+   * Returns the full daily commute path for a teacher on a given day using Module 7f distance data.
+   */
+  teacherCommute: (campusId, teacherId, timetableId, dayOfWeek = 0) =>
+    api.get(`/campuses/${campusId}/teacher-commute`, {
+      params: { teacher_id: teacherId, timetable_id: timetableId, day_of_week: dayOfWeek },
+    }),
 }
 
 

@@ -1184,3 +1184,60 @@ body {
   cursor: not-allowed;
 }
 
+/* ─── Teacher Commute Path Overlay ────────────────────────────── */
+@keyframes commuteFlow {
+  from {
+    stroke-dashoffset: 28;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes pulseHalo {
+  0%, 100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.03);
+  }
+}
+
+.commute-flow-line {
+  stroke-dasharray: 8 6;
+  animation: commuteFlow 1.2s linear infinite;
+}
+
+.commute-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.commute-drawer {
+  pointer-events: auto;
+  width: 100%;
+  max-width: 440px;
+  height: 100%;
+  background: #11131e;
+  border-left: 1px solid rgba(139, 92, 246, 0.25);
+  box-shadow: -14px 0 40px rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  animation: slideInRight 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.commute-hop-card {
+  transition: all 0.15s ease-out;
+}
+.commute-hop-card:hover, .commute-hop-card.active {
+  transform: translateX(3px);
+  filter: brightness(1.15);
+}
+
+

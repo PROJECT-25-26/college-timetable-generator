@@ -33,7 +33,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from database import get_db
-from models.orm import Building, Campus, EntrancePairDistance, Floor, InterBuildingDistance
+from models.orm import (
+    Building, Campus, EntrancePairDistance, Floor, InterBuildingDistance,
+    Teacher, StaffRoom, Timetable, TimetableSlot, Room, Subject, ClassSection, Department,
+)
 from models.schemas import (
     BuildingCreate,
     BuildingOut,
@@ -1214,3 +1217,289 @@ async def save_entrance_pairs(
     await recompute_campus_matrices(db, campus_id)
 
     return new_entries
+
+
+# ===========================================================================
+# Teacher Daily Commute -- Module 7f distance overlay
+# ===========================================================================
+
+from pydantic import BaseModel as _PydanticBaseModel  # local alias
+
+
+class TeacherCommuteWaypoint(_PydanticBaseModel):
+    index: int
+    room_id: str | None
+    room_name: str
+    room_type: str
+    building_id: str | None = None
+    building_name: str | None = None
+    floor_name: str | None = None
+    floor_level: int | None = None
+    period_index: int | None = None
+    subject_name: str | None = None
+    subject_code: str | None = None
+    section_name: str | None = None
+    is_staffroom: bool = False
+
+
+class TeacherCommuteHop(_PydanticBaseModel):
+    step: int
+    from_room_id: str | None
+    from_room_name: str
+    from_room_type: str
+    from_building_id: str | None = None
+    from_building_name: str | None = None
+    from_floor_name: str | None = None
+    from_floor_level: int | None = None
+    to_room_id: str | None
+    to_room_name: str
+    to_room_type: str
+    to_building_id: str | None = None
+    to_building_name: str | None = None
+    to_floor_name: str | None = None
+    to_floor_level: int | None = None
+    distance_m: float | None
+    distance_cells: int | None
+    reachable: bool
+    route_type: str | None = None
+    period_index: int | None
+    subject_name: str | None
+    subject_code: str | None
+    section_name: str | None
+    day_of_week: int | None
+
+
+class TeacherCommuteResponse(_PydanticBaseModel):
+    teacher_id: str
+    teacher_name: str
+    staffroom_id: str | None
+    staffroom_name: str | None
+    staffroom_building_id: str | None = None
+    staffroom_building_name: str | None = None
+    timetable_id: str
+    day_of_week: int
+    day_name: str
+    total_distance_m: float
+    reachable_hops: int
+    total_hops: int
+    hops: list[TeacherCommuteHop]
+    waypoints: list[TeacherCommuteWaypoint] = []
+
+
+_COMMUTE_DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+
+@router.get("/campuses/{campus_id}/teacher-commute", response_model=TeacherCommuteResponse)
+@router.get("/campuses/{campus_id}/teacher-commute/", response_model=TeacherCommuteResponse, include_in_schema=False)
+async def get_teacher_commute(
+    campus_id: str,
+    teacher_id: str,
+    timetable_id: str,
+    day_of_week: int = 0,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Compute the full daily walking commute path for a teacher on a given day.
+
+    Journey: Staffroom -> Period-1 room -> Period-2 room -> ... -> Staffroom
+
+    Uses Module 7f campus-wide precomputed distance matrices to label each hop.
+    """
+    campus = await db.get(Campus, campus_id)
+    if not campus:
+        raise HTTPException(status_code=404, detail="Campus not found")
+
+    teacher = await db.get(Teacher, teacher_id)
+    if not teacher:
+        raise HTTPException(status_code=404, detail="Teacher not found")
+
+    mapped_rooms = await list_mapped_rooms(campus_id, db)
+    mapped_room_dict = {r.id: r for r in mapped_rooms}
+
+    staffroom_id: str | None = None
+    staffroom_name: str | None = None
+    staffroom_building_id: str | None = None
+    staffroom_building_name: str | None = None
+
+    if teacher.department_id:
+        sr = (await db.execute(
+            select(StaffRoom).where(StaffRoom.department_id == teacher.department_id)
+        )).scalar_one_or_none()
+        if sr is not None:
+            staffroom_id = sr.id
+            staffroom_name = sr.label
+
+    # Match staffroom against mapped staffrooms on this campus if possible
+    mapped_staffrooms = [r for r in mapped_rooms if r.type == "staffroom"]
+    if staffroom_id and staffroom_id in mapped_room_dict:
+        mr = mapped_room_dict[staffroom_id]
+        staffroom_name = staffroom_name or mr.name
+        staffroom_building_id = mr.building_id
+        staffroom_building_name = mr.building_name
+    elif mapped_staffrooms:
+        mr = mapped_staffrooms[0]
+        staffroom_id = mr.id
+        staffroom_name = staffroom_name or mr.name
+        staffroom_building_id = mr.building_id
+        staffroom_building_name = mr.building_name
+
+    slot_rows = (await db.execute(
+        select(TimetableSlot)
+        .where(
+            TimetableSlot.timetable_id == timetable_id,
+            TimetableSlot.teacher_id == teacher_id,
+            TimetableSlot.day_of_week == day_of_week,
+        )
+        .order_by(TimetableSlot.period_index)
+    )).scalars().all()
+
+    room_ids    = {s.room_id    for s in slot_rows if s.room_id}
+    subject_ids = {s.subject_id for s in slot_rows if s.subject_id}
+    section_ids = {s.section_id for s in slot_rows if s.section_id}
+
+    room_map: dict[str, Room] = {}
+    if room_ids:
+        rows = (await db.execute(select(Room).where(Room.id.in_(room_ids)))).scalars().all()
+        room_map = {r.id: r for r in rows}
+
+    subj_map: dict[str, Subject] = {}
+    if subject_ids:
+        rows = (await db.execute(select(Subject).where(Subject.id.in_(subject_ids)))).scalars().all()
+        subj_map = {s.id: s for s in rows}
+
+    sect_map: dict[str, ClassSection] = {}
+    if section_ids:
+        rows = (await db.execute(
+            select(ClassSection).where(ClassSection.id.in_(section_ids))
+        )).scalars().all()
+        sect_map = {s.id: s for s in rows}
+
+    matrices = await recompute_campus_matrices(db, campus_id)
+    all_dists  = matrices.get("allDistances", {})
+    all_routes = matrices.get("allRoutes", {})
+    sr_dists   = matrices.get("staffRoomDistance", {})
+
+    def _get_dist(from_id, to_id):
+        if not from_id or not to_id:
+            return None, None, None
+        if from_id == to_id:
+            return 0, 0.0, "same_room"
+        cells = sr_dists.get(from_id, {}).get(to_id) or sr_dists.get(to_id, {}).get(from_id)
+        if cells is None:
+            cells = all_dists.get(from_id, {}).get(to_id) or all_dists.get(to_id, {}).get(from_id)
+        if cells is None or cells < 0:
+            return None, None, None
+        route_meta = (
+            all_routes.get(from_id, {}).get(to_id)
+            or all_routes.get(to_id, {}).get(from_id)
+            or {}
+        )
+        dist_m = route_meta.get("distance_m")
+        if dist_m is None:
+            dist_m = float(cells)
+        r_type = route_meta.get("route_type", "same_floor")
+        return cells, round(float(dist_m), 2), r_type
+
+    class _WP:
+        def __init__(self, rid, name, rtype, pidx, sn, sc, secn, dow, is_sr=False):
+            self.rid = rid; self.name = name; self.rtype = rtype; self.pidx = pidx
+            self.sn = sn; self.sc = sc; self.secn = secn; self.dow = dow; self.is_sr = is_sr
+
+    day_name = _COMMUTE_DAY_NAMES[day_of_week] if 0 <= day_of_week < 7 else f"Day {day_of_week}"
+
+    if not slot_rows:
+        return TeacherCommuteResponse(
+            teacher_id=teacher.id, teacher_name=teacher.name,
+            staffroom_id=staffroom_id, staffroom_name=staffroom_name,
+            staffroom_building_id=staffroom_building_id,
+            staffroom_building_name=staffroom_building_name,
+            timetable_id=timetable_id, day_of_week=day_of_week, day_name=day_name,
+            total_distance_m=0.0,
+            reachable_hops=0, total_hops=0, hops=[], waypoints=[],
+        )
+
+    wps = [_WP(staffroom_id, staffroom_name or "Staffroom", "staffroom", None, None, None, None, None, is_sr=True)]
+    for slot in slot_rows:
+        room = room_map.get(slot.room_id) if slot.room_id else None
+        subj = subj_map.get(slot.subject_id) if slot.subject_id else None
+        sect = sect_map.get(slot.section_id) if slot.section_id else None
+        wps.append(_WP(
+            rid=slot.room_id,
+            name=room.name if room else (f"Room {slot.room_id[:8]}" if slot.room_id else "Unknown"),
+            rtype=room.room_type if room else "unknown",
+            pidx=slot.period_index,
+            sn=subj.name if subj else None,
+            sc=subj.code if subj else None,
+            secn=sect.name if sect else None,
+            dow=slot.day_of_week,
+            is_sr=False,
+        ))
+    wps.append(_WP(staffroom_id, staffroom_name or "Staffroom", "staffroom", None, None, None, None, None, is_sr=True))
+
+    waypoint_models = []
+    for idx, wp in enumerate(wps):
+        mr = mapped_room_dict.get(wp.rid)
+        b_id = mr.building_id if mr else (staffroom_building_id if wp.is_sr else None)
+        b_name = mr.building_name if mr else (staffroom_building_name if wp.is_sr else None)
+        fl_name = mr.floor_name if mr else None
+        fl_lvl = mr.level if mr else None
+        waypoint_models.append(TeacherCommuteWaypoint(
+            index=idx,
+            room_id=wp.rid,
+            room_name=wp.name,
+            room_type=wp.rtype,
+            building_id=b_id,
+            building_name=b_name,
+            floor_name=fl_name,
+            floor_level=fl_lvl,
+            period_index=wp.pidx,
+            subject_name=wp.sn,
+            subject_code=wp.sc,
+            section_name=wp.secn,
+            is_staffroom=wp.is_sr,
+        ))
+
+    hops = []
+    total_dist_m = 0.0
+    reachable_count = 0
+    for i in range(len(wps) - 1):
+        frm, to_ = wps[i], wps[i + 1]
+        frm_mr = mapped_room_dict.get(frm.rid)
+        to_mr  = mapped_room_dict.get(to_.rid)
+
+        frm_b_id = frm_mr.building_id if frm_mr else (staffroom_building_id if frm.is_sr else None)
+        frm_b_nm = frm_mr.building_name if frm_mr else (staffroom_building_name if frm.is_sr else None)
+        to_b_id  = to_mr.building_id if to_mr else (staffroom_building_id if to_.is_sr else None)
+        to_b_nm  = to_mr.building_name if to_mr else (staffroom_building_name if to_.is_sr else None)
+
+        cells, dist_m, r_type = _get_dist(frm.rid, to_.rid)
+        reachable = dist_m is not None
+        if reachable:
+            total_dist_m += dist_m
+            reachable_count += 1
+        hops.append(TeacherCommuteHop(
+            step=i,
+            from_room_id=frm.rid, from_room_name=frm.name, from_room_type=frm.rtype,
+            from_building_id=frm_b_id, from_building_name=frm_b_nm,
+            from_floor_name=frm_mr.floor_name if frm_mr else None,
+            from_floor_level=frm_mr.level if frm_mr else None,
+            to_room_id=to_.rid, to_room_name=to_.name, to_room_type=to_.rtype,
+            to_building_id=to_b_id, to_building_name=to_b_nm,
+            to_floor_name=to_mr.floor_name if to_mr else None,
+            to_floor_level=to_mr.level if to_mr else None,
+            distance_m=dist_m, distance_cells=cells, reachable=reachable,
+            route_type=r_type,
+            period_index=to_.pidx, subject_name=to_.sn, subject_code=to_.sc,
+            section_name=to_.secn, day_of_week=to_.dow,
+        ))
+
+    return TeacherCommuteResponse(
+        teacher_id=teacher.id, teacher_name=teacher.name,
+        staffroom_id=staffroom_id, staffroom_name=staffroom_name,
+        staffroom_building_id=staffroom_building_id,
+        staffroom_building_name=staffroom_building_name,
+        timetable_id=timetable_id, day_of_week=day_of_week, day_name=day_name,
+        total_distance_m=round(total_dist_m, 2),
+        reachable_hops=reachable_count, total_hops=len(hops),
+        hops=hops, waypoints=waypoint_models,
+    )
