@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from models.schemas import HealthResponse
-from routers import campus, class_sections, departments, generate, rooms, subjects, teachers, timetables
+from routers import analytics, campus, class_sections, departments, generate, rooms, subjects, teachers, timetables
 
 
 @asynccontextmanager
@@ -54,6 +54,7 @@ app.include_router(class_sections.router, prefix="/api/v1")
 app.include_router(generate.router,    prefix="/api/v1")
 app.include_router(timetables.router,  prefix="/api/v1")
 app.include_router(campus.router,      prefix="/api/v1")
+app.include_router(analytics.router,   prefix="/api/v1")
 
 
 # ---------------------------------------------------------------------------

@@ -1363,6 +1363,10 @@ function TeacherCommutePanel({
                                         <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-violet-600/30 text-violet-200 border border-violet-500/40">
                                           🏠 Return · Staffroom
                                         </span>
+                                      ) : (wp.is_staffroom && wp.is_break) ? (
+                                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-200 border border-amber-500/40 shadow-sm flex items-center gap-1">
+                                          ☕ Staffroom Break ({wp.gap_periods} free period{wp.gap_periods > 1 ? 's' : ''})
+                                        </span>
                                       ) : wp.period_index != null && (
                                         <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-white/10 text-gray-300 border border-white/10 font-mono">
                                           P{wp.period_index + 1}
@@ -1912,7 +1916,7 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
                           color: isHovered || isSelected ? '#ffffff' : hex,
                           boxShadow: isHovered || isSelected ? `0 0 16px ${hex}` : '0 2px 8px rgba(0,0,0,0.7)',
                         }}
-                        title={`Hop #${i + 1}: ${hop.from_room_name} → ${hop.to_room_name} (${hop.reachable ? `${hop.distance_m}m · ${hop.distance_cells} cells` : 'Unreachable'})`}
+                        title={`Hop #${i + 1}: ${hop.from_room_name} → ${hop.to_room_name} (${hop.is_break_return ? 'Break Return · ' : hop.is_break_departure ? 'Break Departure · ' : ''}${hop.reachable ? `${hop.distance_m}m · ${hop.distance_cells} cells` : 'Unreachable'})`}
                       >
                         <span className="text-[9px] opacity-80 font-sans font-bold">#{i + 1}</span>
                         <span>{hop.reachable ? `${hop.distance_m}m` : '✕'}</span>
@@ -2083,7 +2087,23 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
                     {activeHop.to_room_name} <span className="text-gray-500 text-[10px]">({activeHop.to_building_name || 'Campus'})</span>
                   </span>
                 </div>
-                {activeHop.period_index != null && (
+                {activeHop.is_break_return && (
+                  <div className="flex items-center justify-between text-amber-300 pt-1 border-t border-white/5">
+                    <span className="text-gray-500 text-[10px]">Activity:</span>
+                    <span className="font-semibold text-[11px] text-amber-300">
+                      ☕ Return to Staffroom for Break ({activeHop.gap_periods} free period{activeHop.gap_periods > 1 ? 's' : ''})
+                    </span>
+                  </div>
+                )}
+                {activeHop.is_break_departure && (
+                  <div className="flex items-center justify-between text-violet-300 pt-1 border-t border-white/5">
+                    <span className="text-gray-500 text-[10px]">Activity:</span>
+                    <span className="font-semibold text-[11px] text-violet-300">
+                      Walk to Period {activeHop.period_index != null ? activeHop.period_index + 1 : ''} Class
+                    </span>
+                  </div>
+                )}
+                {activeHop.period_index != null && !activeHop.is_break_return && (
                   <div className="flex items-center justify-between text-gray-300 pt-1 border-t border-white/5">
                     <span className="text-gray-500 text-[10px]">Period:</span>
                     <span className="font-mono text-gray-200 font-bold">

@@ -1240,6 +1240,8 @@ class TeacherCommuteWaypoint(_PydanticBaseModel):
     subject_code: str | None = None
     section_name: str | None = None
     is_staffroom: bool = False
+    is_break: bool = False
+    gap_periods: int = 0
 
 
 class TeacherCommuteHop(_PydanticBaseModel):
@@ -1267,6 +1269,19 @@ class TeacherCommuteHop(_PydanticBaseModel):
     subject_code: str | None
     section_name: str | None
     day_of_week: int | None
+    is_return_to_staffroom: bool = False
+    is_break_departure: bool = False
+    is_break_return: bool = False
+    gap_periods: int = 0
+
+
+class TeacherCommuteDaySummary(_PydanticBaseModel):
+    day_of_week: int
+    day_name: str
+    total_distance_m: float
+    periods_count: int
+    hops_count: int
+    reachable_hops: int
 
 
 class TeacherCommuteResponse(_PydanticBaseModel):
@@ -1284,6 +1299,7 @@ class TeacherCommuteResponse(_PydanticBaseModel):
     total_hops: int
     hops: list[TeacherCommuteHop]
     waypoints: list[TeacherCommuteWaypoint] = []
+    weekly_summary: list[TeacherCommuteDaySummary] = []
 
 
 _COMMUTE_DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
@@ -1343,15 +1359,16 @@ async def get_teacher_commute(
         staffroom_building_id = mr.building_id
         staffroom_building_name = mr.building_name
 
-    slot_rows = (await db.execute(
+    all_teacher_slots = (await db.execute(
         select(TimetableSlot)
         .where(
             TimetableSlot.timetable_id == timetable_id,
             TimetableSlot.teacher_id == teacher_id,
-            TimetableSlot.day_of_week == day_of_week,
         )
-        .order_by(TimetableSlot.period_index)
+        .order_by(TimetableSlot.day_of_week, TimetableSlot.period_index)
     )).scalars().all()
+
+    slot_rows = [s for s in all_teacher_slots if s.day_of_week == day_of_week]
 
     room_ids    = {s.room_id    for s in slot_rows if s.room_id}
     subject_ids = {s.subject_id for s in slot_rows if s.subject_id}
@@ -1401,11 +1418,61 @@ async def get_teacher_commute(
         return cells, round(float(dist_m), 2), r_type
 
     class _WP:
-        def __init__(self, rid, name, rtype, pidx, sn, sc, secn, dow, is_sr=False):
+        def __init__(self, rid, name, rtype, pidx, sn, sc, secn, dow, is_sr=False, is_break=False, gap_periods=0):
             self.rid = rid; self.name = name; self.rtype = rtype; self.pidx = pidx
             self.sn = sn; self.sc = sc; self.secn = secn; self.dow = dow; self.is_sr = is_sr
+            self.is_break = is_break; self.gap_periods = gap_periods
 
     day_name = _COMMUTE_DAY_NAMES[day_of_week] if 0 <= day_of_week < 7 else f"Day {day_of_week}"
+
+    # Compute weekly summary across all days (including gap returns to staffroom)
+    weekly_summary: list[TeacherCommuteDaySummary] = []
+    slots_by_day: dict[int, list[TimetableSlot]] = {}
+    for s in all_teacher_slots:
+        slots_by_day.setdefault(s.day_of_week, []).append(s)
+
+    for d_idx in range(7):
+        d_name = _COMMUTE_DAY_NAMES[d_idx]
+        d_slots = slots_by_day.get(d_idx, [])
+        if not d_slots:
+            weekly_summary.append(TeacherCommuteDaySummary(
+                day_of_week=d_idx,
+                day_name=d_name,
+                total_distance_m=0.0,
+                periods_count=0,
+                hops_count=0,
+                reachable_hops=0,
+            ))
+            continue
+
+        d_rids = [staffroom_id]
+        for s_i, s in enumerate(d_slots):
+            if s_i > 0:
+                prev_s = d_slots[s_i - 1]
+                if s.period_index - prev_s.period_index > 1:
+                    # Return to staffroom during free period gap!
+                    d_rids.append(staffroom_id)
+            d_rids.append(s.room_id)
+        d_rids.append(staffroom_id)
+
+        d_dist = 0.0
+        d_reach = 0
+        d_hops = 0
+        for k in range(len(d_rids) - 1):
+            c_cells, c_dist_m, _ = _get_dist(d_rids[k], d_rids[k + 1])
+            if c_dist_m is not None:
+                d_dist += c_dist_m
+                d_reach += 1
+            d_hops += 1
+
+        weekly_summary.append(TeacherCommuteDaySummary(
+            day_of_week=d_idx,
+            day_name=d_name,
+            total_distance_m=round(d_dist, 2),
+            periods_count=len(d_slots),
+            hops_count=d_hops,
+            reachable_hops=d_reach,
+        ))
 
     if not slot_rows:
         return TeacherCommuteResponse(
@@ -1416,10 +1483,32 @@ async def get_teacher_commute(
             timetable_id=timetable_id, day_of_week=day_of_week, day_name=day_name,
             total_distance_m=0.0,
             reachable_hops=0, total_hops=0, hops=[], waypoints=[],
+            weekly_summary=weekly_summary,
         )
 
-    wps = [_WP(staffroom_id, staffroom_name or "Staffroom", "staffroom", None, None, None, None, None, is_sr=True)]
-    for slot in slot_rows:
+    # Build sequence of waypoints:
+    # Staffroom -> Period 1 Room -> (if gap > 1: return to Staffroom -> next Period Room) -> ... -> Staffroom
+    wps = [_WP(staffroom_id, staffroom_name or "Staffroom", "staffroom", None, None, None, None, None, is_sr=True, is_break=False)]
+    for slot_idx, slot in enumerate(slot_rows):
+        if slot_idx > 0:
+            prev_slot = slot_rows[slot_idx - 1]
+            if slot.period_index - prev_slot.period_index > 1:
+                gap = slot.period_index - prev_slot.period_index - 1
+                # Return to Staffroom during gap
+                wps.append(_WP(
+                    rid=staffroom_id,
+                    name=staffroom_name or "Staffroom",
+                    rtype="staffroom",
+                    pidx=None,
+                    sn=None,
+                    sc=None,
+                    secn=None,
+                    dow=slot.day_of_week,
+                    is_sr=True,
+                    is_break=True,
+                    gap_periods=gap,
+                ))
+
         room = room_map.get(slot.room_id) if slot.room_id else None
         subj = subj_map.get(slot.subject_id) if slot.subject_id else None
         sect = sect_map.get(slot.section_id) if slot.section_id else None
@@ -1433,8 +1522,9 @@ async def get_teacher_commute(
             secn=sect.name if sect else None,
             dow=slot.day_of_week,
             is_sr=False,
+            is_break=False,
         ))
-    wps.append(_WP(staffroom_id, staffroom_name or "Staffroom", "staffroom", None, None, None, None, None, is_sr=True))
+    wps.append(_WP(staffroom_id, staffroom_name or "Staffroom", "staffroom", None, None, None, None, None, is_sr=True, is_break=False))
 
     waypoint_models = []
     for idx, wp in enumerate(wps):
@@ -1457,6 +1547,8 @@ async def get_teacher_commute(
             subject_code=wp.sc,
             section_name=wp.secn,
             is_staffroom=wp.is_sr,
+            is_break=wp.is_break,
+            gap_periods=wp.gap_periods,
         ))
 
     hops = []
@@ -1477,6 +1569,11 @@ async def get_teacher_commute(
         if reachable:
             total_dist_m += dist_m
             reachable_count += 1
+
+        is_break_return = to_.is_sr and to_.is_break
+        is_break_dep = frm.is_sr and frm.is_break
+        is_ret_sr = to_.is_sr
+
         hops.append(TeacherCommuteHop(
             step=i,
             from_room_id=frm.rid, from_room_name=frm.name, from_room_type=frm.rtype,
@@ -1491,6 +1588,10 @@ async def get_teacher_commute(
             route_type=r_type,
             period_index=to_.pidx, subject_name=to_.sn, subject_code=to_.sc,
             section_name=to_.secn, day_of_week=to_.dow,
+            is_return_to_staffroom=is_ret_sr,
+            is_break_departure=is_break_dep,
+            is_break_return=is_break_return,
+            gap_periods=to_.gap_periods or frm.gap_periods,
         ))
 
     return TeacherCommuteResponse(
@@ -1502,4 +1603,5 @@ async def get_teacher_commute(
         total_distance_m=round(total_dist_m, 2),
         reachable_hops=reachable_count, total_hops=len(hops),
         hops=hops, waypoints=waypoint_models,
+        weekly_summary=weekly_summary,
     )

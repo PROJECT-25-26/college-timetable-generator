@@ -18,6 +18,7 @@ import {
 import { useAuth } from '../context/AuthContext'
 import { teachersApi, subjectsApi, timetablesApi, classSectionsApi, roomsApi } from '../api'
 import TimetableViewGrid from '../components/TimetableViewGrid'
+import TeacherCommuteTimeline from '../components/TeacherCommuteTimeline'
 
 const DAYS    = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const PERIODS = Array.from({ length: 8 }, (_, i) => `Period ${i + 1}`)
@@ -76,6 +77,7 @@ export default function TeacherDashboard() {
   const { user, requests, addRequest } = useAuth()
 
   const [teacher, setTeacher]   = useState(null)
+  const [allTeachers, setAllTeachers] = useState([])
   const [allSubjects, setAllSubjects] = useState([])
   const [loadErr, setLoadErr]   = useState(null)
   const [busy,    setBusy]      = useState(true)
@@ -180,6 +182,7 @@ export default function TeacherDashboard() {
         setSectionMap(Object.fromEntries(secRes.data.map(s => [s.id, { name: s.name, code: s.code }])))
         setRoomMap(Object.fromEntries(rmRes.data.map(r => [r.id, { code: r.code, name: r.name }])))
         setTeacherMap(Object.fromEntries(tchRes.data.map(t => [t.id, { name: t.name }])))
+        setAllTeachers(tchRes.data ?? [])
 
         // Fetch timetable — try latest() first, fallback to list() -> get(id)
         let ttData = null
@@ -380,6 +383,16 @@ export default function TeacherDashboard() {
           })()
         )}
       </section>
+
+      {/* ─── Daily Commute Path section ─── */}
+      {teacher && (
+        <TeacherCommuteTimeline
+          teacher={teacher}
+          teachersList={allTeachers}
+          onSelectTeacher={setTeacher}
+          timetableId={timetable?.id}
+        />
+      )}
 
       {busy && (
         <div className="glass-card p-10 flex items-center justify-center gap-3 text-gray-400">

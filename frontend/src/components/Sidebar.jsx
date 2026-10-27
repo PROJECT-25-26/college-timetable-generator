@@ -12,6 +12,7 @@ import {
   LogOut,
   ShieldCheck,
   Map,
+  BarChart2,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
@@ -25,6 +26,7 @@ const ADMIN_NAV = [
   { to: '/class-sections', label: 'Class Sections', icon: Users },
   { to: '/generate',       label: 'Generate',       icon: Zap },
   { to: '/requests',       label: 'Requests',       icon: Inbox, badge: true },
+  { to: '/analytics',     label: 'Analytics',      icon: BarChart2 },
 ]
 
 const TEACHER_NAV = [

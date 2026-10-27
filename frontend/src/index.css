@@ -1240,4 +1240,33 @@ body {
   filter: brightness(1.15);
 }
 
+/* ─── Analytics Dashboard ─────────────────────────────────────── */
+@keyframes barGrow {
+  from { width: 0 !important; }
+  to   { width: var(--bar-target-w); }
+}
 
+.analytics-bar {
+  animation: barGrow 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.pref-preferred { background: #22c55e; }
+.pref-willing   { background: #60a5fa; }
+.pref-avoid     { background: #f87171; }
+
+.analytics-stacked-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 99px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.07);
+}
+
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.analytics-panel-enter {
+  animation: fadeSlideUp 0.25s ease-out both;
+}

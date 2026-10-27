@@ -219,3 +219,48 @@ export const staffroomsApi = {
   /** GET /api/v1/departments/staffrooms/{id} */
   get: (id) => api.get(`/departments/staffrooms/${id}`),
 }
+
+// ---------------------------------------------------------------------------
+// Analytics — Admin dashboard endpoints
+// ---------------------------------------------------------------------------
+export const analyticsApi = {
+  /**
+   * GET /api/v1/analytics/workload?timetable_id=...
+   * Teacher workload distribution (periods/week per teacher).
+   */
+  workload: (timetableId) =>
+    api.get('/analytics/workload', { params: timetableId ? { timetable_id: timetableId } : {} }),
+
+  /**
+   * GET /api/v1/analytics/preferences?timetable_id=...
+   * Per-teacher preference breakdown (% Preferred / % Willing / % Avoid).
+   */
+  preferences: (timetableId) =>
+    api.get('/analytics/preferences', { params: timetableId ? { timetable_id: timetableId } : {} }),
+
+  /**
+   * GET /api/v1/analytics/room-utilisation?timetable_id=...&campus_id=...&periods_per_day=...&working_days=...
+   * Room occupancy % with proximity-ranked substitutes.
+   */
+  roomUtil: (timetableId, campusId = null, periodsPerDay = 8, workingDays = [0, 1, 2, 3, 4]) =>
+    api.get('/analytics/room-utilisation', {
+      params: {
+        ...(timetableId ? { timetable_id: timetableId } : {}),
+        ...(campusId ? { campus_id: campusId } : {}),
+        periods_per_day: periodsPerDay,
+        working_days: workingDays.join(','),
+      },
+    }),
+
+  /**
+   * GET /api/v1/analytics/commute-costs?timetable_id=...&campus_id=...
+   * Per-teacher weekly commute distance report.
+   */
+  commuteCosts: (timetableId, campusId = null) =>
+    api.get('/analytics/commute-costs', {
+      params: {
+        ...(timetableId ? { timetable_id: timetableId } : {}),
+        ...(campusId ? { campus_id: campusId } : {}),
+      },
+    }),
+}
