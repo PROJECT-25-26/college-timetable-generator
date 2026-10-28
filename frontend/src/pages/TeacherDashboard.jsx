@@ -13,12 +13,14 @@ import { useEffect, useState } from 'react'
 import {
   BookOpen, Clock, SendHorizonal, CheckCircle2, XCircle, Loader2,
   CalendarDays, AlertCircle, ClipboardList, User, Star, Check, X,
-  Pencil, Save, RotateCcw, Plus, Trash2, Calendar,
+  Pencil, Save, RotateCcw, Plus, Trash2, Calendar, Download, FileText, FileSpreadsheet,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { teachersApi, subjectsApi, timetablesApi, classSectionsApi, roomsApi } from '../api'
 import TimetableViewGrid from '../components/TimetableViewGrid'
 import TeacherCommuteTimeline from '../components/TeacherCommuteTimeline'
+import ExportModal from '../components/ExportModal'
+
 
 const DAYS    = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const PERIODS = Array.from({ length: 8 }, (_, i) => `Period ${i + 1}`)
@@ -103,6 +105,7 @@ export default function TeacherDashboard() {
   const [teacherMap,    setTeacherMap]    = useState({})
   const [workingDays,   setWorkingDays]   = useState([0, 1, 2, 3, 4])
   const [periodsPerDay, setPeriodsPerDay] = useState(8)
+  const [exportModalOpen, setExportModalOpen] = useState(false)
 
   // Fetch teacher detail + all subjects with fallback matching
   useEffect(() => {
@@ -323,9 +326,17 @@ export default function TeacherDashboard() {
           <Calendar size={17} className="text-brand-400" />
           <h3 className="text-sm font-semibold text-gray-200">My Timetable</h3>
           {timetable && (
-            <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-              {timetable.slots?.filter(s => s.teacher_id === (teacher?.id || user?.id)).length ?? 0} periods/week
-            </span>
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                onClick={() => setExportModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg bg-brand-600/20 border border-brand-500/30 text-brand-300 hover:bg-brand-600/30 transition-all shadow-sm"
+              >
+                <Download size={12} /> Export Schedule
+              </button>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                {timetable.slots?.filter(s => s.teacher_id === (teacher?.id || user?.id)).length ?? 0} periods/week
+              </span>
+            </div>
           )}
         </div>
 
@@ -738,6 +749,19 @@ export default function TeacherDashboard() {
           </div>
         )}
       </section>
+
+      {/* Export Modal */}
+      <ExportModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        timetable={timetable}
+        sectionMap={sectionMap}
+        teacherMap={teacherMap}
+        subjectMap={subjectMap}
+        roomMap={roomMap}
+        initialScope="teacher"
+        initialEntityId={teacher?.id || user?.id || ''}
+      />
     </div>
   )
 }

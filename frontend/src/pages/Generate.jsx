@@ -1,12 +1,13 @@
 import {
   Zap, CheckCircle2, XCircle, AlertTriangle,
   Trash2, Download, RefreshCw, History, Settings,
-  Loader2, X, Users, DoorOpen, LayoutGrid, Save, RotateCcw, Undo2, Lock, RefreshCcw,
+  Loader2, X, Users, DoorOpen, LayoutGrid, Save, RotateCcw, Undo2, Lock, RefreshCcw, FileText, FileSpreadsheet,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { generateApi, timetablesApi, subjectsApi, teachersApi, classSectionsApi, roomsApi } from '../api'
 import { useToast } from '../hooks/useToast'
 import TimetableViewGrid from '../components/TimetableViewGrid'
+import ExportModal from '../components/ExportModal'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const DAY_LABELS  = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -145,7 +146,7 @@ function IdleState() {
   )
 }
 
-function StatusBanner({ result, onExport }) {
+function StatusBanner({ result, onOpenExportModal }) {
   const isOk          = result.status === 'ok'
   const isInfeasible  = result.status === 'infeasible'
 
@@ -174,10 +175,10 @@ function StatusBanner({ result, onExport }) {
         )}
         {isOk && (
           <button
-            onClick={onExport}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-white/10 border border-white/15 text-gray-200 hover:bg-white/15 transition-colors"
+            onClick={onOpenExportModal}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-brand-600 hover:bg-brand-500 text-white transition-all shadow-sm shadow-brand-500/20"
           >
-            <Download size={13} /> Export CSV
+            <Download size={13} /> Export Schedule
           </button>
         )}
       </div>
@@ -225,6 +226,9 @@ export default function Generate() {
   // Lock state — Set of slot IDs the user has pinned for next regeneration
   const [lockedSlotIds,   setLockedSlotIds]   = useState(() => new Set())
   const [isRegenerating,  setIsRegenerating]  = useState(false)
+
+  // Export modal
+  const [exportModalOpen, setExportModalOpen] = useState(false)
 
 
   // Past runs
@@ -812,7 +816,7 @@ export default function Generate() {
 
         {phase === 'done' && result && (
           <div>
-            <StatusBanner result={result} onExport={handleExport} />
+            <StatusBanner result={result} onOpenExportModal={() => setExportModalOpen(true)} />
 
             {/* ── Locked-slots / Regenerate banner ──────────────── */}
             {lockedSlotIds.size > 0 && (
@@ -942,6 +946,18 @@ export default function Generate() {
           to   { width: 90% }
         }
       `}</style>
+
+      {/* Export Modal */}
+      <ExportModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        timetable={result}
+        sectionMap={sectionMap}
+        teacherMap={teacherMap}
+        subjectMap={subjectMap}
+        roomMap={roomMap}
+        initialScope={viewMode === 'teacher' ? 'teacher' : viewMode === 'section' ? 'class' : 'master'}
+      />
     </div>
   )
 }

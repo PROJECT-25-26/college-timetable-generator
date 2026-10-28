@@ -135,6 +135,24 @@ export const timetablesApi = {
 
   /** DELETE /api/v1/timetables/{id} — delete run + cascade slots */
   remove: (id) => api.delete(`/timetables/${id}`),
+
+  /** GET /api/v1/timetables/{id}/export/pdf — download PDF export */
+  exportPdf: (id, scope = 'master', entityId = null) =>
+    api.get(`/timetables/${id}/export/pdf`, {
+      params: { scope, entity_id: entityId || undefined },
+      responseType: 'blob',
+    }),
+
+  /** GET /api/v1/timetables/{id}/export/excel — download Excel export */
+  exportExcel: (id, scope = 'master', entityId = null) =>
+    api.get(`/timetables/${id}/export/excel`, {
+      params: { scope, entity_id: entityId || undefined },
+      responseType: 'blob',
+    }),
+
+  /** GET /api/v1/timetables/{id}/search — search teacher/room schedules or free slots */
+  search: (id = 'latest', params = {}) =>
+    api.get(`/timetables/${id}/search`, { params }),
 }
 
 // ---------------------------------------------------------------------------
