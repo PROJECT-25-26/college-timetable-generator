@@ -302,13 +302,14 @@ export default function Generate() {
     setPhase('solving')
     setResult(null)
     abortRef.current = new AbortController()
+    const startTime = Date.now()
 
     try {
-      // Step 1: get the assembled payload
-      const payloadRes = await generateApi.payload(periodsPerDay, workingDays, travelWeight)
-      const payload    = payloadRes.data
+      // Step 1: get the assembled payload with user timeout
+      const payloadRes = await generateApi.payload(periodsPerDay, workingDays, travelWeight, timeout)
+      const payload    = { ...payloadRes.data, timeout_seconds: timeout }
 
-      // Step 2: run solver (may take up to 60s)
+      // Step 2: run solver
       const res  = await generateApi.generate(payload, abortRef.current.signal)
       const data = res.data
 
@@ -323,10 +324,44 @@ export default function Generate() {
       else if (data.status === 'infeasible') toast.error('No feasible timetable found', 8000)
       else toast.info('Solver timed out — no solution found', 8000)
     } catch (err) {
-      setPhase('idle')
       if (err.code === 'ERR_CANCELED') {
+        setPhase('idle')
         toast.info('Generation cancelled')
-      } else {
+        return
+      }
+
+      // Resilient check: In case of upstream timeout (e.g. 504) or network interruption,
+      // the backend solver might have still completed and persisted the generated timetable.
+      let recovered = false
+      try {
+        toast.info('Checking for generated timetable…')
+        for (let attempt = 0; attempt < 3; attempt++) {
+          if (attempt > 0) await new Promise(r => setTimeout(r, 2000))
+          const runsRes = await timetablesApi.list()
+          const runs = runsRes.data || []
+          if (runs.length > 0) {
+            const latest = runs[0]
+            const createdAt = new Date(latest.created_at).getTime()
+            if (createdAt >= startTime - 15_000 && latest.status === 'ok') {
+              const fullRun = await timetablesApi.get(latest.id)
+              setResult(fullRun.data)
+              setPendingEdits(false)
+              setSlotHistory([])
+              setLockedSlotIds(new Set())
+              setPhase('done')
+              loadPastRuns()
+              toast.success(`Timetable retrieved successfully (${fullRun.data.slots?.length ?? 0} slots)`)
+              recovered = true
+              break
+            }
+          }
+        }
+      } catch {
+        // Recovery attempt failed; ignore and proceed to error state
+      }
+
+      if (!recovered) {
+        setPhase('idle')
         toast.error(err.message ?? 'Generation failed')
       }
     }
@@ -484,6 +519,7 @@ export default function Generate() {
 
     setIsRegenerating(true)
     abortRef.current = new AbortController()
+    const startTime = Date.now()
 
     try {
       // Build the locked_slots array from the current result
@@ -500,10 +536,11 @@ export default function Generate() {
 
       toast.info(`Regenerating with ${lockedSlots.length} locked slot(s)…`)
 
-      // Fetch fresh payload then regenerate with locked slots pinned
-      const payloadRes = await generateApi.payload(periodsPerDay, workingDays, travelWeight)
+      // Fetch fresh payload then regenerate with locked slots pinned and user timeout
+      const payloadRes = await generateApi.payload(periodsPerDay, workingDays, travelWeight, timeout)
+      const payload    = { ...payloadRes.data, timeout_seconds: timeout }
       const res = await generateApi.regenerate(
-        payloadRes.data,
+        payload,
         lockedSlots,
         abortRef.current.signal,
       )
@@ -523,13 +560,45 @@ export default function Generate() {
       else
         toast.info('Solver timed out — try fewer locked slots or shorter timeout.', 8000)
     } catch (err) {
-      if (err.code !== 'ERR_CANCELED') {
+      if (err.code === 'ERR_CANCELED') {
+        toast.info('Regeneration cancelled')
+        return
+      }
+
+      let recovered = false
+      try {
+        for (let attempt = 0; attempt < 3; attempt++) {
+          if (attempt > 0) await new Promise(r => setTimeout(r, 2000))
+          const runsRes = await timetablesApi.list()
+          const runs = runsRes.data || []
+          if (runs.length > 0) {
+            const latest = runs[0]
+            const createdAt = new Date(latest.created_at).getTime()
+            if (createdAt >= startTime - 15_000 && latest.status === 'ok') {
+              const fullRun = await timetablesApi.get(latest.id)
+              setResult(fullRun.data)
+              setPendingEdits(false)
+              setSlotHistory([])
+              setLockedSlotIds(new Set())
+              setPhase('done')
+              loadPastRuns()
+              toast.success(`Regenerated timetable retrieved (${fullRun.data.slots?.length ?? 0} slots)`)
+              recovered = true
+              break
+            }
+          }
+        }
+      } catch {
+        // Recovery failed
+      }
+
+      if (!recovered) {
         toast.error(err.message ?? 'Regeneration failed')
       }
     } finally {
       setIsRegenerating(false)
     }
-  }, [result, lockedSlotIds, periodsPerDay, workingDays, travelWeight, loadPastRuns, toast])
+  }, [result, lockedSlotIds, periodsPerDay, workingDays, travelWeight, timeout, loadPastRuns, toast])
 
 
   async function handleDeleteRun(id, e) {

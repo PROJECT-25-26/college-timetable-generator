@@ -121,6 +121,7 @@ async def get_payload(
     periods_per_day: int = 8,
     working_days: str = "0,1,2,3,4",
     travel_weight: int = 2,
+    timeout_seconds: int = 60,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -131,6 +132,7 @@ async def get_payload(
     - `periods_per_day` (default 8)
     - `working_days`    (default \"0,1,2,3,4\" = Mon–Fri, comma-separated 0-based ints)
     - `travel_weight`   (default 2, 0 disables walking distance penalty)
+    - `timeout_seconds` (default 60, solver wall-clock limit in seconds)
 
     Returns HTTP 422 if any critical cross-reference issues are detected
     (e.g. a section has no homeroom, or no teacher is eligible for a subject).
@@ -148,6 +150,7 @@ async def get_payload(
         periods_per_day=periods_per_day,
         working_days=days,
         travel_weight=travel_weight,
+        timeout_seconds=timeout_seconds,
     )
     return req
 
@@ -213,6 +216,7 @@ async def _assemble_payload(
     periods_per_day: int,
     working_days: list[int],
     travel_weight: int = 2,
+    timeout_seconds: int = 60,
 ) -> TimetableRequest:
     """Query all entities and map ORM rows to solver schema objects."""
 
@@ -345,6 +349,7 @@ async def _assemble_payload(
         room_distances=room_distances,
         staffroom_distances=staffroom_distances,
         travel_weight=travel_weight,
+        timeout_seconds=timeout_seconds,
     )
     _validate_request(req)
     return req
@@ -416,7 +421,8 @@ def _run_solver(req: TimetableRequest) -> TimetableResponse:
     build_objectives(model, req, var_sets, travel_weight=req.travel_weight)
 
     solver = cp_model.CpSolver()
-    solver.parameters.max_time_in_seconds = _SOLVER_TIMEOUT_SECONDS
+    solver_timeout = float(getattr(req, "timeout_seconds", 60) or _SOLVER_TIMEOUT_SECONDS)
+    solver.parameters.max_time_in_seconds = solver_timeout
     solver.parameters.log_search_progress = False
 
     status_code = solver.solve(model)
@@ -454,7 +460,7 @@ def _run_solver(req: TimetableRequest) -> TimetableResponse:
         slots=[],
         solver_wall_time_ms=elapsed_ms,
         message=(
-            f"Solver found no solution within {_SOLVER_TIMEOUT_SECONDS:.0f}s "
+            f"Solver found no solution within {solver_timeout:.0f}s "
             f"(status: {status_name})."
         ),
     )

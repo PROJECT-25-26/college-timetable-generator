@@ -81,10 +81,10 @@ export const generateApi = {
    * POST /api/v1/generate-timetable
    * Accepts a TimetableRequest body; persists and returns TimetableOut.
    * Supports an AbortSignal for cancel-during-solve.
-   * Timeout is set to 130s (solver cap = 60s + network headroom).
+   * Timeout is set to 300s (solver cap + network headroom).
    */
   generate: (data, signal) =>
-    api.post('/generate-timetable', data, { signal, timeout: 130_000 }),
+    api.post('/generate-timetable', data, { signal, timeout: 300_000 }),
 
   /**
    * POST /api/v1/generate-timetable — with locked_slots injected.
@@ -96,19 +96,20 @@ export const generateApi = {
     api.post(
       '/generate-timetable',
       { ...data, locked_slots: lockedSlots },
-      { signal, timeout: 130_000 },
+      { signal, timeout: 300_000 },
     ),
 
   /**
    * GET /api/v1/generate-timetable/payload
    * Returns a fully-assembled TimetableRequest from current DB state.
    */
-  payload: (periodsPerDay = 8, workingDays = [0, 1, 2, 3, 4], travelWeight = 2) =>
+  payload: (periodsPerDay = 8, workingDays = [0, 1, 2, 3, 4], travelWeight = 2, timeoutSeconds = 60) =>
     api.get('/generate-timetable/payload', {
       params: {
         periods_per_day: periodsPerDay,
         working_days: workingDays.join(','),
         travel_weight: travelWeight,
+        timeout_seconds: timeoutSeconds,
       },
     }),
 

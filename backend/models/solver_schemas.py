@@ -208,6 +208,8 @@ class TimetableRequest(BaseModel):
     staffroom_distances: dict[str, dict[str, int]] = {}
     # O3 soft penalty per cell of walking distance (0 disables travel penalty)
     travel_weight: int = Field(2, ge=0, description="O3 soft penalty per cell of walking distance (0 disables travel penalty)")
+    # Maximum wall-clock seconds the solver is allowed to run (default: 60, up to 300)
+    timeout_seconds: int = Field(60, ge=5, le=300, description="Solver wall-clock timeout in seconds")
 
 
 # ===========================================================================
