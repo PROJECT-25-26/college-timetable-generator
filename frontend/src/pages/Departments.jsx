@@ -163,12 +163,17 @@ export default function Departments() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 w-full max-w-[1600px] mx-auto animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-100">Departments</h2>
-          <p className="text-xs text-gray-500 mt-0.5">Manage academic departments</p>
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-xl font-bold text-gray-100">Departments</h2>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-500/10 text-brand-400 border border-brand-500/20">
+              {rows.length} {rows.length === 1 ? 'department' : 'departments'}
+            </span>
+          </div>
+          <p className="text-xs text-gray-400 mt-1">Manage academic departments and assigned staffrooms</p>
         </div>
         <div className="flex items-center gap-2">
           <button

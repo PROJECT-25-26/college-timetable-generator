@@ -27,7 +27,7 @@ export default function Requests() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl animate-fade-in">
+    <div className="space-y-6 w-full max-w-[1600px] mx-auto animate-fade-in">
       {/* Header */}
       <div className="glass-card p-6">
         <div className="flex items-center gap-3 mb-1">
@@ -36,11 +36,11 @@ export default function Requests() {
           </div>
           <div>
             <h2 className="text-lg font-bold text-white">Schedule Change Requests</h2>
-            <p className="text-gray-400 text-xs mt-0.5">Review and action teacher-submitted requests</p>
+            <p className="text-gray-400 text-xs mt-0.5">Review and action teacher-submitted schedule adjustments</p>
           </div>
           {counts.pending > 0 && (
-            <span className="ml-auto px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
-              {counts.pending} pending
+            <span className="ml-auto px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
+              {counts.pending} pending action
             </span>
           )}
         </div>
@@ -55,9 +55,9 @@ export default function Requests() {
             id={`req-filter-${f}`}
             onClick={() => setFilter(f)}
             className={[
-              'px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all border',
+              'px-3.5 py-1.5 rounded-xl text-xs font-medium capitalize transition-all border',
               filter === f
-                ? 'bg-brand-600/25 text-brand-300 border-brand-500/30'
+                ? 'bg-brand-600/25 text-brand-300 border-brand-500/30 shadow-sm'
                 : 'text-gray-400 border-white/10 hover:bg-white/5 hover:text-gray-200',
             ].join(' ')}
           >
@@ -76,7 +76,7 @@ export default function Requests() {
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {visible.map(req => {
             const cfg = STATUS_CONFIG[req.status]
             return (

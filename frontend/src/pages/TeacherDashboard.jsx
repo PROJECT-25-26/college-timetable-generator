@@ -303,7 +303,7 @@ export default function TeacherDashboard() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl animate-fade-in">
+    <div className="space-y-6 w-full max-w-[1600px] mx-auto animate-fade-in">
 
       {/* Welcome banner */}
       <div className="glass-card p-6 flex items-center gap-5">
@@ -420,9 +420,9 @@ export default function TeacherDashboard() {
       )}
 
       {teacher && (
-        <>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
           {/* ─── Subject Preferences section ─── */}
-          <section className="glass-card p-6">
+          <section className="glass-card p-6 h-full flex flex-col">
             <div className="flex items-center gap-2 mb-4">
               <BookOpen size={17} className="text-brand-400" />
               <h3 className="text-sm font-semibold text-gray-200">Subject Preferences</h3>
@@ -607,7 +607,7 @@ export default function TeacherDashboard() {
           </section>
 
           {/* Unavailable slots */}
-          <section className="glass-card p-6">
+          <section className="glass-card p-6 h-full flex flex-col">
             <div className="flex items-center gap-2 mb-4">
               <Clock size={17} className="text-amber-400" />
               <h3 className="text-sm font-semibold text-gray-200">My Unavailable Slots</h3>
@@ -627,12 +627,14 @@ export default function TeacherDashboard() {
               </div>
             )}
           </section>
-        </>
+        </div>
       )}
 
-      {/* Schedule change request form */}
-      <section className="glass-card p-6">
-        <div className="flex items-center gap-2 mb-5">
+      {/* ─── Requests & Change Workflow Row ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        {/* Schedule change request form */}
+        <section className="glass-card p-6 h-full flex flex-col">
+          <div className="flex items-center gap-2 mb-5">
           <CalendarDays size={17} className="text-sky-400" />
           <h3 className="text-sm font-semibold text-gray-200">Request a Schedule Change</h3>
         </div>
@@ -702,7 +704,7 @@ export default function TeacherDashboard() {
       </section>
 
       {/* My request history */}
-      <section className="glass-card p-6">
+      <section className="glass-card p-6 h-full flex flex-col">
         <div className="flex items-center gap-2 mb-4">
           <ClipboardList size={17} className="text-purple-400" />
           <h3 className="text-sm font-semibold text-gray-200">My Requests</h3>
@@ -749,6 +751,7 @@ export default function TeacherDashboard() {
           </div>
         )}
       </section>
+      </div>
 
       {/* Export Modal */}
       <ExportModal

@@ -79,41 +79,70 @@ function WorkloadPanel({ data, loading }) {
     <p className="text-gray-500 text-sm mt-6 text-center">No workload data available for this run.</p>
   );
 
+  const totalTeachers = data.teachers.length;
+  const totalAssigned = data.teachers.reduce((s, t) => s + (t.periods_per_week || 0), 0);
+  const avgLoad = (totalAssigned / (totalTeachers || 1)).toFixed(1);
+  const overloaded = data.teachers.filter((t) => t.utilisation_pct > 100).length;
+  const highLoad = data.teachers.filter((t) => t.utilisation_pct >= 85 && t.utilisation_pct <= 100).length;
+
   const maxP = Math.max(...data.teachers.map((t) => t.periods_per_week), 1);
   return (
-    <div className="space-y-1 mt-4">
-      {data.teachers.map((t) => {
-        const pct = (t.periods_per_week / maxP) * 100;
-        const color = UTIL_COLOR(t.utilisation_pct);
-        return (
-          <div key={t.teacher_id} className="group flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors">
-            <div style={{ width: 148, minWidth: 148 }}>
-              <p className="text-sm font-medium text-gray-200 truncate">{t.teacher_name}</p>
-              <p className="text-xs text-gray-500 truncate">{t.department}</p>
+    <div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+        {[
+          { label: "Active Faculty", val: totalTeachers, icon: "👥", color: "#a78bfa" },
+          { label: "Total Assigned Periods", val: `${totalAssigned} hrs`, icon: "⏱️", color: "#60a5fa" },
+          { label: "Average Workload", val: `${avgLoad} p/wk`, icon: "📊", color: "#34d399" },
+          {
+            label: overloaded > 0 ? "Overloaded Faculty" : "Optimal Load",
+            val: overloaded > 0 ? `${overloaded} Alert` : `${highLoad} High Load`,
+            icon: overloaded > 0 ? "⚠️" : "🎯",
+            color: overloaded > 0 ? "#f87171" : "#fbbf24",
+          },
+        ].map((s) => (
+          <div key={s.label} className="glass-card px-4 py-3 flex flex-col gap-1 border border-white/5">
+            <div className="flex items-center justify-between">
+              <span className="text-base">{s.icon}</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">{s.label}</span>
             </div>
-            <div style={{ flex: 1 }}>
-              <AnimBar pct={pct} color={color} height={9} />
-            </div>
-            <div style={{ width: 72, textAlign: "right" }}>
-              <span className="text-sm font-bold tabular-nums" style={{ color }}>
-                {t.periods_per_week}
-              </span>
-              <span className="text-xs text-gray-500"> / {t.max_periods_per_week}</span>
-            </div>
-            <div
-              style={{ width: 52, textAlign: "right" }}
-              className="text-xs font-semibold tabular-nums"
-            >
-              <span
-                className="px-1.5 py-0.5 rounded-md text-xs font-bold"
-                style={{ background: color + "20", color }}
-              >
-                {t.utilisation_pct}%
-              </span>
-            </div>
+            <p className="text-xl font-bold tabular-nums text-white mt-1" style={{ color: s.color }}>{s.val}</p>
           </div>
-        );
-      })}
+        ))}
+      </div>
+      <div className="space-y-1 mt-4">
+        {data.teachers.map((t) => {
+          const pct = (t.periods_per_week / maxP) * 100;
+          const color = UTIL_COLOR(t.utilisation_pct);
+          return (
+            <div key={t.teacher_id} className="group flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors">
+              <div style={{ width: 180, minWidth: 180 }}>
+                <p className="text-sm font-medium text-gray-200 truncate">{t.teacher_name}</p>
+                <p className="text-xs text-gray-500 truncate">{t.department}</p>
+              </div>
+              <div style={{ flex: 1 }}>
+                <AnimBar pct={pct} color={color} height={9} />
+              </div>
+              <div style={{ width: 84, textAlign: "right" }}>
+                <span className="text-sm font-bold tabular-nums" style={{ color }}>
+                  {t.periods_per_week}
+                </span>
+                <span className="text-xs text-gray-500"> / {t.max_periods_per_week}</span>
+              </div>
+              <div
+                style={{ width: 60, textAlign: "right" }}
+                className="text-xs font-semibold tabular-nums"
+              >
+                <span
+                  className="px-2 py-0.5 rounded-md text-xs font-bold"
+                  style={{ background: color + "20", color }}
+                >
+                  {t.utilisation_pct}%
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -529,7 +558,7 @@ export default function AdminAnalytics() {
   const activeLoad = { workload: loadW, preferences: loadP, rooms: loadR, commute: loadC }[tab];
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 w-full max-w-[1600px] mx-auto animate-fade-in">
       {/* ── Header ── */}
       <div className="glass-card p-6">
         <div className="flex items-center gap-4 mb-4">

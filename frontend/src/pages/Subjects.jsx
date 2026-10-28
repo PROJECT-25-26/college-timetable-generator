@@ -301,12 +301,21 @@ export default function Subjects() {
     }
   }
 
+  const totalTheory = rows.filter((s) => !s.lab).length
+  const totalLabSubj = rows.filter((s) => s.lab).length
+  const totalWeeklyPeriods = rows.reduce((sum, s) => sum + (s.weekly_periods || 0), 0)
+
   return (
-    <div className="space-y-6 max-w-4xl">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 w-full max-w-[1600px] mx-auto animate-fade-in">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-100">Subjects</h2>
-          <p className="text-xs text-gray-500 mt-0.5">Define subjects and their weekly period requirements</p>
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-xl font-bold text-gray-100">Subjects</h2>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-500/10 text-brand-400 border border-brand-500/20">
+              {rows.length} {rows.length === 1 ? 'subject' : 'subjects'}
+            </span>
+          </div>
+          <p className="text-xs text-gray-400 mt-1">Define academic subjects, weekly period requirements, and lab specifications</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -327,6 +336,26 @@ export default function Subjects() {
           </button>
         </div>
       </div>
+
+      {/* Quick stats distribution */}
+      {rows.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: 'Total Subjects', val: rows.length, icon: '📚', color: 'text-brand-300' },
+            { label: 'Theory Courses', val: totalTheory, icon: '📖', color: 'text-sky-300' },
+            { label: 'Lab Practicals', val: totalLabSubj, icon: '🧪', color: 'text-purple-300' },
+            { label: 'Total Weekly Periods', val: `${totalWeeklyPeriods} hrs`, icon: '⏱️', color: 'text-emerald-300' },
+          ].map((stat) => (
+            <div key={stat.label} className="glass-card px-4 py-3 flex items-center justify-between border border-white/5">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{stat.label}</p>
+                <p className={`text-xl font-bold tabular-nums mt-0.5 ${stat.color}`}>{stat.val}</p>
+              </div>
+              <span className="text-xl opacity-80">{stat.icon}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <DataTable
         columns={COLUMNS}
