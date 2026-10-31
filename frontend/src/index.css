@@ -160,7 +160,7 @@ body {
 /* ─── Campus map canvas area ─────────────────────────────────── */
 .campus-map-canvas {
   flex: 1;
-  overflow: auto;
+  overflow: hidden;
   position: relative;
   background:
     radial-gradient(circle at 50% 50%, rgb(99 102 241 / 0.04) 0%, transparent 70%),
@@ -383,11 +383,7 @@ body {
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
-  /* dot-grid background */
-  background:
-    radial-gradient(circle at 50% 50%, rgb(99 102 241 / 0.035) 0%, transparent 70%),
-    radial-gradient(rgb(255 255 255 / 0.07) 1px, transparent 1px);
-  background-size: 100% 100%, 24px 24px;
+  background: #0d0f1a;
 }
 
 /* Status bar */
@@ -1057,6 +1053,69 @@ body {
   display: flex;
   flex-direction: column;
   animation: slideInRight 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Campus tools live in the same left navigation column as the campus tree. */
+.campus-side-drawer-overlay {
+  position: fixed;
+  z-index: 45;
+  top: var(--topbar-height);
+  bottom: 0;
+  left: var(--sidebar-width);
+  width: 280px;
+  pointer-events: none;
+  display: flex;
+  background: rgb(17 24 39 / 0.96);
+  border-right: 1px solid rgb(255 255 255 / 0.1);
+  box-shadow: 12px 0 32px rgb(0 0 0 / 0.28);
+}
+
+.campus-side-drawer-overlay .inter-bldg-drawer,
+.campus-side-drawer-overlay .commute-drawer {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  pointer-events: auto;
+  border: 0;
+  box-shadow: none;
+  animation: none;
+}
+
+.campus-side-drawer-overlay .inter-bldg-panel {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.campus-side-drawer-overlay .inter-bldg-header {
+  gap: 0.45rem;
+  font-size: 0.72rem;
+}
+
+.campus-side-drawer-overlay .inter-bldg-body {
+  overflow-y: auto;
+}
+
+/* Floor editor tools use the same left drawer surface as campus tools. */
+.fgp-root > .fgp-blob-panel,
+.fgp-root > .fgp-settings-panel,
+.fgp-root > .fgp-bg-panel {
+  position: fixed;
+  z-index: 45;
+  top: var(--topbar-height);
+  bottom: 0;
+  left: var(--sidebar-width);
+  width: 280px;
+  max-height: calc(100vh - var(--topbar-height));
+  border: 0;
+  border-right: 1px solid rgb(255 255 255 / 0.1);
+  background: rgb(17 24 39 / 0.97);
+  box-shadow: 12px 0 32px rgb(0 0 0 / 0.28);
+}
+
+@media (max-width: 900px) {
+  .campus-side-drawer-overlay {
+    width: min(280px, calc(100vw - var(--sidebar-width)));
+  }
 }
 
 @keyframes slideInRight {

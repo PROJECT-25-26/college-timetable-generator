@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { Bell, Search, LogOut, ShieldCheck, GraduationCap } from 'lucide-react'
+import { Search, LogOut, ShieldCheck, GraduationCap } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import GlobalSearchModal from './GlobalSearchModal'
 
@@ -61,17 +61,6 @@ export default function Topbar() {
               Ctrl+K
             </kbd>
           </button>
-
-          {/* Notifications placeholder — admin only */}
-          {isAdmin && (
-            <button
-              id="topbar-notifications-btn"
-              className="relative p-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10 transition-colors"
-            >
-              <Bell size={16} />
-              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-brand-400" />
-            </button>
-          )}
 
           {/* Divider */}
           <div className="h-6 w-px bg-white/10 hidden sm:block" />

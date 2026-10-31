@@ -632,8 +632,8 @@ function EntrancePairsPanel({ campusId, buildings, onClose }) {
       <div className="inter-bldg-header">
         <DoorOpen size={14} className="text-amber-400" />
         <span>Entrance Pair Distances</span>
-        <button onClick={onClose} className="ml-auto p-1 rounded hover:bg-white/10 text-gray-500 hover:text-gray-300 transition-colors" title="Close">
-          <X size={13} />
+        <button onClick={onClose} className="ml-auto flex items-center gap-1 px-2 py-1 rounded text-[10px] text-gray-400 hover:text-gray-100 hover:bg-white/10 transition-colors" title="Back to campus tree">
+          <ArrowLeft size={12} /> Back
         </button>
       </div>
 
@@ -872,8 +872,8 @@ function RoomDistanceCalculatorPanel({ campusId, onClose }) {
       <div className="inter-bldg-header">
         <Ruler size={14} className="text-indigo-400" />
         <span>Room Distance Calculator</span>
-        <button onClick={onClose} className="ml-auto p-1 rounded hover:bg-white/10 text-gray-500 hover:text-gray-300 transition-colors" title="Close">
-          <X size={13} />
+        <button onClick={onClose} className="ml-auto flex items-center gap-1 px-2 py-1 rounded text-[10px] text-gray-400 hover:text-gray-100 hover:bg-white/10 transition-colors" title="Back to campus tree">
+          <ArrowLeft size={12} /> Back
         </button>
       </div>
 
@@ -1120,9 +1120,9 @@ function TeacherCommutePanel({
         <button
           onClick={onClose}
           className="ml-auto p-1 rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors"
-          title="Close Itinerary Drawer"
+          title="Back to campus tree"
         >
-          <X size={14} />
+          <ArrowLeft size={13} /> Back
         </button>
       </div>
 
@@ -1797,7 +1797,7 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
       </div>
 
       {/* Map canvas with SVG commute path overlay */}
-      <div className="campus-map-canvas relative overflow-auto flex-1">
+      <div className="campus-map-canvas relative flex-1">
         <div
           ref={mapRef}
           style={{ width: MAP_W, height: MAP_H, position: 'relative', minWidth: '100%', minHeight: '100%' }}
@@ -2127,7 +2127,7 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
 
       {/* Room Distance Calculator Side Panel */}
       {showCalcPanel && (
-        <div className="inter-bldg-overlay" onClick={() => setShowCalcPanel(false)}>
+      <div className="campus-side-drawer-overlay">
           <div className="inter-bldg-drawer" onClick={e => e.stopPropagation()}>
             <RoomDistanceCalculatorPanel
               campusId={campus.id}
@@ -2139,7 +2139,7 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
 
       {/* Entrance Pair Distance Side Panel */}
       {showEntrancePanel && (
-        <div className="inter-bldg-overlay" onClick={() => setShowEntrancePanel(false)}>
+      <div className="campus-side-drawer-overlay">
           <div className="inter-bldg-drawer" onClick={e => e.stopPropagation()}>
             <EntrancePairsPanel
               campusId={campus.id}
@@ -2152,7 +2152,7 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
 
       {/* Teacher Commute Path Side Drawer (Non-blocking so user can view/pan map) */}
       {commuteMode && showCommutePanel && (
-        <div className="commute-drawer-overlay">
+        <div className="campus-side-drawer-overlay commute-docked-overlay">
           <div className="commute-drawer" onClick={e => e.stopPropagation()}>
             <TeacherCommutePanel
               campusId={campus.id}
@@ -2634,6 +2634,20 @@ export default function CampusLayout() {
                   Level {activeFloor.level}
                 </p>
               </div>
+              <div className="flex items-center gap-0 self-stretch -my-3">
+                <button
+                  onClick={() => setFloorTab('painter')}
+                  className={`flex items-center gap-1.5 px-3.5 h-full text-xs font-medium border-b-2 transition-all ${floorTab === 'painter' ? 'border-indigo-500 text-indigo-300' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                >
+                  <LayoutGrid size={12} /> Grid Painter
+                </button>
+                <button
+                  onClick={() => setFloorTab('distances')}
+                  className={`flex items-center gap-1.5 px-3.5 h-full text-xs font-medium border-b-2 transition-all ${floorTab === 'distances' ? 'border-indigo-500 text-indigo-300' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                >
+                  <ArrowRightLeft size={12} /> Room Distances
+                </button>
+              </div>
               <button
                 onClick={() => setModal({ type: 'rename-floor', data: activeFloor })}
                 className="p-1.5 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-white/10 transition-all"
@@ -2650,29 +2664,6 @@ export default function CampusLayout() {
               </button>
             </div>
 
-            {/* Tab bar */}
-            <div className="flex items-center gap-0 px-5 border-b border-white/10 bg-gray-900/40">
-              <button
-                onClick={() => setFloorTab('painter')}
-                className={`flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-medium border-b-2 transition-all ${
-                  floorTab === 'painter'
-                    ? 'border-indigo-500 text-indigo-300'
-                    : 'border-transparent text-gray-500 hover:text-gray-300'
-                }`}
-              >
-                <LayoutGrid size={12} /> Grid Painter
-              </button>
-              <button
-                onClick={() => setFloorTab('distances')}
-                className={`flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-medium border-b-2 transition-all ${
-                  floorTab === 'distances'
-                    ? 'border-indigo-500 text-indigo-300'
-                    : 'border-transparent text-gray-500 hover:text-gray-300'
-                }`}
-              >
-                <ArrowRightLeft size={12} /> Room Distances
-              </button>
-            </div>
           </div>
 
           {/* Tab content */}

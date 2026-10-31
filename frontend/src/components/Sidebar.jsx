@@ -19,14 +19,14 @@ import { useAuth } from '../context/AuthContext'
 const ADMIN_NAV = [
   { to: '/',               label: 'Dashboard',      icon: LayoutDashboard, end: true },
   { to: '/departments',    label: 'Departments',    icon: Building2 },
-  { to: '/teachers',       label: 'Teachers',       icon: GraduationCap },
   { to: '/subjects',       label: 'Subjects',       icon: BookOpen },
+  { to: '/teachers',       label: 'Teachers',       icon: GraduationCap },
   { to: '/rooms',          label: 'Rooms',          icon: DoorOpen },
-  { to: '/campus-layout',  label: 'Campus Layout',  icon: Map },
   { to: '/class-sections', label: 'Class Sections', icon: Users },
+  { to: '/campus-layout',  label: 'Campus Layout',  icon: Map },
   { to: '/generate',       label: 'Generate',       icon: Zap },
-  { to: '/requests',       label: 'Requests',       icon: Inbox, badge: true },
   { to: '/analytics',     label: 'Analytics',      icon: BarChart2 },
+  { to: '/requests',       label: 'Requests',       icon: Inbox, badge: true },
 ]
 
 const TEACHER_NAV = [

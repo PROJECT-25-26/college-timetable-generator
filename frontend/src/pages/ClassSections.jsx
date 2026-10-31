@@ -481,18 +481,6 @@ export default function ClassSections() {
         </div>
       )}
 
-      {/* Homeroom model info banner */}
-      <div className="p-4 rounded-2xl bg-white/3 border border-white/8 flex items-start gap-3">
-        <Home size={18} className="text-brand-400 mt-0.5 shrink-0" />
-        <div>
-          <p className="text-sm font-medium text-gray-200">Homeroom Model</p>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Each class section has a fixed <span className="text-brand-300">homeroom classroom</span> — teachers travel to the class for every non-lab period.
-            Lab rooms are <span className="text-amber-300">dynamically allocated</span> from the available pool of lab rooms at timetable generation time.
-          </p>
-        </div>
-      </div>
-
       <DataTable
         columns={COLUMNS}
         data={rows}

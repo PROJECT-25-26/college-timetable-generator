@@ -25,6 +25,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
+  ArrowLeft,
   AlertTriangle,
   Building2,
   ChevronRight,
@@ -515,8 +516,8 @@ function BgImagePanel({ bgImage, bgOpacity, setBgOpacity, bgMode, calibPins, cal
       <div className="fgp-bg-panel-header">
         <Image size={13} className="text-indigo-400" />
         <span>Background Image</span>
-        <button onClick={onClose} className="ml-auto p-0.5 rounded hover:bg-white/10 text-gray-500 hover:text-gray-300 transition-colors">
-          <ChevronRight size={14} />
+        <button onClick={onClose} className="ml-auto flex items-center gap-1 px-2 py-1 rounded text-[10px] text-gray-400 hover:text-gray-100 hover:bg-white/10 transition-colors" title="Back to floor editor">
+          <ArrowLeft size={12} /> Back
         </button>
       </div>
 
@@ -700,8 +701,8 @@ function SettingsPanel({ floor, onApply, onClose }) {
       <div className="fgp-settings-header">
         <Settings2 size={13} className="text-indigo-400" />
         <span>Floor Settings</span>
-        <button onClick={onClose} className="ml-auto p-0.5 rounded hover:bg-white/10 text-gray-500 hover:text-gray-300 transition-colors">
-          <ChevronRight size={14} />
+        <button onClick={onClose} className="ml-auto flex items-center gap-1 px-2 py-1 rounded text-[10px] text-gray-400 hover:text-gray-100 hover:bg-white/10 transition-colors" title="Back to floor editor">
+          <ArrowLeft size={12} /> Back
         </button>
       </div>
 
@@ -874,10 +875,10 @@ function BlobLinkPanel({ blobs, onLink, onUnlink, onDismiss, activeBlobId, onSel
           <span>Link Rooms &amp; Stairs</span>
           <button
             onClick={onDismiss}
-            className="ml-auto p-0.5 rounded hover:bg-white/10 text-gray-500 hover:text-gray-300 transition-colors"
-            title="Close link panel"
+            className="ml-auto flex items-center gap-1 px-2 py-1 rounded text-[10px] text-gray-400 hover:text-gray-100 hover:bg-white/10 transition-colors"
+            title="Back to floor editor"
           >
-            <X size={13} />
+            <ArrowLeft size={12} /> Back
           </button>
         </div>
         <div className="fgp-blob-panel-body justify-center items-center text-center p-5 space-y-3">
@@ -902,10 +903,10 @@ function BlobLinkPanel({ blobs, onLink, onUnlink, onDismiss, activeBlobId, onSel
         <span>{isStairsBlob ? 'Stairwell Grouping' : 'Link Rooms'}</span>
         <button
           onClick={onDismiss}
-          className="ml-auto p-0.5 rounded hover:bg-white/10 text-gray-500 hover:text-gray-300 transition-colors"
-          title="Close link panel"
+          className="ml-auto flex items-center gap-1 px-2 py-1 rounded text-[10px] text-gray-400 hover:text-gray-100 hover:bg-white/10 transition-colors"
+          title="Back to floor editor"
         >
-          <X size={13} />
+          <ArrowLeft size={12} /> Back
         </button>
       </div>
 
