@@ -10,8 +10,8 @@ import { Zap, User, Lock, Eye, EyeOff, ShieldCheck, GraduationCap, AlertCircle }
 import { useAuth } from '../context/AuthContext'
 
 const ROLES = [
-  { id: 'admin',   label: 'Administrator', icon: ShieldCheck,    hint: 'username: admin  •  password: admin123'      },
-  { id: 'teacher', label: 'Teacher',        icon: GraduationCap, hint: 'email: teacher\'s email  •  password: teacher123' },
+  { id: 'admin',   label: 'Administrator', icon: ShieldCheck,    hint: 'Username: admin  ·  Password: admin123'      },
+  { id: 'teacher', label: 'Teacher',        icon: GraduationCap, hint: "Email: teacher's email  ·  Password: teacher123" },
 ]
 
 export default function Login() {
@@ -34,7 +34,6 @@ export default function Login() {
     const result = await login(username, password)
     setBusy(false)
     if (result.ok) {
-      // Role-aware redirect
       if (selectedRole === 'teacher') {
         navigate('/teacher-dashboard', { replace: true })
       } else {
@@ -48,59 +47,198 @@ export default function Login() {
   const currentRole = ROLES.find(r => r.id === selectedRole)
 
   return (
-    <div className="login-bg min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Ambient glow orbs */}
-      <div className="orb orb-1" />
-      <div className="orb orb-2" />
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px 16px',
+        background: '#F4F3FB',
+        position: 'relative',
+      }}
+    >
+      {/* Subtle background decoration — tinted, no neon */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage: 'radial-gradient(ellipse 70% 50% at 60% 20%, rgba(143,140,214,0.12) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }}
+      />
 
-      <div className="w-full max-w-md relative z-10 animate-fade-in">
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-500 to-purple-600 flex items-center justify-center shadow-2xl shadow-brand-500/40 mb-4">
-            <Zap size={28} className="text-white" />
+      <div
+        className="animate-fade-in"
+        style={{ width: '100%', maxWidth: '420px', position: 'relative', zIndex: 1 }}
+      >
+        {/* Brand mark */}
+        <div style={{ textAlign: 'left', marginBottom: '28px' }}>
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '10px',
+              marginBottom: '12px',
+            }}
+          >
+            <div
+              style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '12px',
+                background: '#2E2A6B',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Zap size={20} color="#FFB020" strokeWidth={2.5} />
+            </div>
+            <div>
+              <p style={{
+                fontFamily: 'Space Grotesk, sans-serif',
+                fontSize: '1rem',
+                fontWeight: 700,
+                color: '#2E2A6B',
+                letterSpacing: '-0.02em',
+                lineHeight: 1.1,
+              }}>
+                TimeTable
+              </p>
+              <p style={{
+                fontFamily: 'Figtree, sans-serif',
+                fontSize: '0.6875rem',
+                color: 'var(--c-muted)',
+                lineHeight: 1,
+              }}>
+                College generator
+              </p>
+            </div>
           </div>
-          <h1 className="text-2xl font-bold gradient-text">College Timetable</h1>
-          <p className="text-gray-500 text-sm mt-1">Sign in to your account</p>
+
+          <h1
+            style={{
+              fontFamily: 'Space Grotesk, sans-serif',
+              fontSize: '1.625rem',
+              fontWeight: 700,
+              color: '#2E2A6B',
+              letterSpacing: '-0.03em',
+              lineHeight: 1.15,
+              margin: 0,
+            }}
+          >
+            Sign in to your account
+          </h1>
+          <p style={{
+            fontFamily: 'Figtree, sans-serif',
+            fontSize: '0.9375rem',
+            color: 'var(--c-muted)',
+            marginTop: '6px',
+          }}>
+            Choose your role and enter your credentials below.
+          </p>
         </div>
 
-        <div className="glass-card p-8 shadow-2xl">
-          {/* Role selector */}
-          <div className="flex rounded-xl overflow-hidden border border-white/10 mb-6 bg-white/5">
-            {ROLES.map(role => {
-              const Icon = role.icon
-              const active = selectedRole === role.id
-              return (
-                <button
-                  key={role.id}
-                  type="button"
-                  onClick={() => { setSelectedRole(role.id); setError(''); setUsername(''); setPassword('') }}
-                  className={[
-                    'flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-all duration-200',
-                    active
-                      ? 'bg-brand-600/30 text-brand-300 border-b-2 border-brand-400'
-                      : 'text-gray-500 hover:text-gray-300 hover:bg-white/5',
-                  ].join(' ')}
-                >
-                  <Icon size={15} />
-                  {role.label}
-                </button>
-              )
-            })}
+        {/* Card */}
+        <div
+          style={{
+            background: '#FFFFFF',
+            border: '1px solid rgba(46,42,107,0.12)',
+            borderRadius: '24px',
+            boxShadow: '0 2px 8px rgba(46,42,107,0.08), 0 8px 24px rgba(46,42,107,0.10)',
+            padding: '28px',
+          }}
+        >
+          {/* Role tabs */}
+          <fieldset style={{ border: 'none', padding: 0, marginBottom: '20px' }}>
+            <legend
+              style={{
+                fontFamily: 'Figtree, sans-serif',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                color: '#2E2A6B',
+                marginBottom: '8px',
+              }}
+            >
+              Sign in as
+            </legend>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '8px',
+              }}
+            >
+              {ROLES.map(role => {
+                const Icon = role.icon
+                const active = selectedRole === role.id
+                return (
+                  <button
+                    key={role.id}
+                    type="button"
+                    onClick={() => { setSelectedRole(role.id); setError(''); setUsername(''); setPassword('') }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '7px',
+                      padding: '10px 14px',
+                      borderRadius: '12px',
+                      border: active ? '2px solid #2E2A6B' : '1.5px solid rgba(46,42,107,0.15)',
+                      background: active ? 'rgba(46,42,107,0.06)' : 'transparent',
+                      color: active ? '#2E2A6B' : 'var(--c-muted)',
+                      fontFamily: 'Figtree, sans-serif',
+                      fontSize: '0.9375rem',
+                      fontWeight: active ? 600 : 500,
+                      cursor: 'pointer',
+                      transition: 'all 0.13s',
+                      minHeight: '44px',
+                    }}
+                  >
+                    <Icon size={15} strokeWidth={1.75} />
+                    {role.label}
+                  </button>
+                )
+              })}
+            </div>
+          </fieldset>
+
+          {/* Demo credentials hint */}
+          <div
+            style={{
+              marginBottom: '20px',
+              padding: '10px 14px',
+              borderRadius: '10px',
+              background: 'rgba(255,176,32,0.07)',
+              border: '1px solid rgba(255,176,32,0.20)',
+              fontSize: '0.8125rem',
+              fontFamily: 'Figtree, sans-serif',
+              color: '#8a6200',
+              lineHeight: 1.5,
+            }}
+            role="note"
+          >
+            <strong style={{ color: '#6e4e00' }}>Demo:</strong>{' '}
+            {currentRole?.hint}
           </div>
 
-          {/* Hint */}
-          <div className="mb-5 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-500">
-            <span className="text-gray-400 font-medium">Demo credentials: </span>{currentRole?.hint}
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {/* Username / Email */}
-            <div>
+            <div className="form-group">
               <label htmlFor="login-username" className="form-label">
-                {selectedRole === 'admin' ? 'Username' : 'Email Address'}
+                {selectedRole === 'admin' ? 'Username' : 'Email address'}
               </label>
-              <div className="relative">
-                <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+              <div style={{ position: 'relative' }}>
+                <User
+                  size={15}
+                  strokeWidth={1.75}
+                  style={{
+                    position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)',
+                    color: 'var(--c-muted)', pointerEvents: 'none',
+                  }}
+                  aria-hidden="true"
+                />
                 <input
                   id="login-username"
                   type={selectedRole === 'admin' ? 'text' : 'email'}
@@ -108,17 +246,26 @@ export default function Login() {
                   value={username}
                   onChange={e => setUsername(e.target.value)}
                   placeholder={selectedRole === 'admin' ? 'admin' : 'jane@college.edu'}
-                  className="form-input pl-9"
+                  className="form-input"
+                  style={{ paddingLeft: '38px' }}
                   required
                 />
               </div>
             </div>
 
             {/* Password */}
-            <div>
+            <div className="form-group">
               <label htmlFor="login-password" className="form-label">Password</label>
-              <div className="relative">
-                <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+              <div style={{ position: 'relative' }}>
+                <Lock
+                  size={15}
+                  strokeWidth={1.75}
+                  style={{
+                    position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)',
+                    color: 'var(--c-muted)', pointerEvents: 'none',
+                  }}
+                  aria-hidden="true"
+                />
                 <input
                   id="login-password"
                   type={showPw ? 'text' : 'password'}
@@ -126,24 +273,46 @@ export default function Login() {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="form-input pl-9 pr-10"
+                  className="form-input"
+                  style={{ paddingLeft: '38px', paddingRight: '42px' }}
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPw(v => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                  style={{
+                    position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: 'var(--c-muted)', padding: '4px',
+                    display: 'flex', alignItems: 'center',
+                  }}
                   tabIndex={-1}
+                  aria-label={showPw ? 'Hide password' : 'Show password'}
                 >
-                  {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
+                  {showPw ? <EyeOff size={14} strokeWidth={1.75} /> : <Eye size={14} strokeWidth={1.75} />}
                 </button>
               </div>
             </div>
 
             {/* Error */}
             {error && (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm animate-fade-in">
-                <AlertCircle size={14} className="shrink-0" />
+              <div
+                role="alert"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  background: 'rgba(220,38,38,0.07)',
+                  border: '1px solid rgba(220,38,38,0.18)',
+                  color: '#dc2626',
+                  fontSize: '0.9375rem',
+                  fontFamily: 'Figtree, sans-serif',
+                }}
+                className="animate-fade-in"
+              >
+                <AlertCircle size={15} strokeWidth={1.75} aria-hidden="true" />
                 {error}
               </div>
             )}
@@ -153,53 +322,34 @@ export default function Login() {
               id="login-submit-btn"
               type="submit"
               disabled={busy}
-              className={[
-                'w-full py-2.5 rounded-xl text-sm font-semibold transition-all duration-200',
-                'bg-gradient-to-r from-brand-600 to-purple-600 text-white',
-                'hover:from-brand-500 hover:to-purple-500 hover:shadow-lg hover:shadow-brand-500/25',
-                busy ? 'opacity-60 cursor-not-allowed' : '',
-              ].join(' ')}
+              className="btn btn-primary"
+              style={{ width: '100%', marginTop: '4px' }}
             >
+              {busy && (
+                <span
+                  className="spinner"
+                  style={{ width: '15px', height: '15px', borderWidth: '2px', borderColor: 'rgba(31,27,77,0.25)', borderTopColor: '#1F1B4D' }}
+                  aria-hidden="true"
+                />
+              )}
               {busy ? 'Signing in…' : `Sign in as ${currentRole?.label}`}
             </button>
           </form>
         </div>
 
-        <p className="text-center text-xs text-gray-700 mt-6">
-          College Timetable Generator v0.1.0 · prototype
+        <p
+          style={{
+            textAlign: 'center',
+            fontSize: '0.8125rem',
+            color: 'var(--c-muted)',
+            marginTop: '20px',
+            fontFamily: 'Figtree, sans-serif',
+            opacity: 0.7,
+          }}
+        >
+          College timetable generator · v0.1.0 · prototype
         </p>
       </div>
-
-      <style>{`
-        .login-bg {
-          background: radial-gradient(ellipse 80% 60% at 50% -10%, hsl(250 70% 12%), transparent),
-                      radial-gradient(ellipse 60% 50% at 80% 80%, hsl(220 60% 10%), transparent),
-                      hsl(222 47% 5%);
-        }
-        .orb {
-          position: absolute;
-          border-radius: 50%;
-          filter: blur(80px);
-          opacity: 0.18;
-          pointer-events: none;
-        }
-        .orb-1 {
-          width: 420px; height: 420px;
-          background: hsl(250 80% 60%);
-          top: -100px; left: -120px;
-          animation: orb-drift 8s ease-in-out infinite alternate;
-        }
-        .orb-2 {
-          width: 320px; height: 320px;
-          background: hsl(210 90% 55%);
-          bottom: -80px; right: -100px;
-          animation: orb-drift 10s ease-in-out infinite alternate-reverse;
-        }
-        @keyframes orb-drift {
-          from { transform: translate(0, 0); }
-          to   { transform: translate(30px, 20px); }
-        }
-      `}</style>
     </div>
   )
 }

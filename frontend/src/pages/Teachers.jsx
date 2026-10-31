@@ -377,14 +377,14 @@ const COLUMNS = (departments) => [
     label: 'Department',
     render: (v) => {
       const d = departments.find((dep) => dep.id === v)
-      return d ? <Badge variant="default">{d.code}</Badge> : <span className="text-gray-600 text-xs">—</span>
+      return d ? <Badge variant="default">{d.code}</Badge> : <span style={{ color: 'var(--c-muted)', fontSize: '0.875rem' }}>—</span>
     },
   },
   {
     key: 'max_periods_per_week',
-    label: 'Max Periods',
+    label: 'Max periods',
     render: (v) => (
-      <span className="text-gray-400 text-xs">{v}/week</span>
+      <span style={{ color: 'var(--c-muted)', fontSize: '0.875rem' }}>{v}/week</span>
     ),
   },
   {
@@ -511,52 +511,55 @@ export default function Teachers() {
   const withConstraints = rows.filter((t) => t.unavailable_slots?.length > 0).length
 
   return (
-    <div className="space-y-6 w-full max-w-[1600px] mx-auto animate-fade-in">
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h2 className="text-xl font-bold text-gray-100">Teachers</h2>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-500/10 text-brand-400 border border-brand-500/20">
-              {rows.length} {rows.length === 1 ? 'teacher' : 'teachers'}
-            </span>
-          </div>
-          <p className="text-xs text-gray-400 mt-1">Manage faculty staff, subject competency preferences, and unavailable period slots</p>
+    <div className="page-wrapper">
+      {/* Page header */}
+      <div className="page-header">
+        <div className="page-header-left">
+          <h1 className="page-heading">Teachers</h1>
+          <p className="page-sub">Manage faculty staff, subject competency preferences, and unavailable period slots</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="page-header-actions">
           <button
             id="teacher-import-csv-btn"
             onClick={() => setCsvOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-gray-300 bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+            className="btn btn-secondary btn-sm"
           >
-            <Upload size={15} />
+            <Upload size={14} />
             Import CSV
           </button>
           <button
             id="teacher-add-btn"
             onClick={openCreate}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-white bg-brand-600 hover:bg-brand-500 transition-colors"
+            className="btn btn-primary btn-sm"
           >
-            <Plus size={16} />
-            Add Teacher
+            <Plus size={14} />
+            Add teacher
           </button>
         </div>
       </div>
 
-      {/* Quick stats distribution */}
+      {/* Stats row */}
       {rows.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+          gap: 12,
+          marginBottom: 24,
+        }}>
           {[
-            { label: 'Total Faculty', val: rows.length, icon: '👨‍🏫', color: 'text-brand-300' },
-            { label: 'Weekly Capacity', val: `${totalCapacity} hrs`, icon: '⏳', color: 'text-sky-300' },
-            { label: 'Average Cap/Teacher', val: `${avgCapacity} p/wk`, icon: '📊', color: 'text-purple-300' },
-            { label: 'With Slot Constraints', val: withConstraints, icon: '🗓️', color: 'text-amber-300' },
+            { label: 'Total faculty', val: rows.length, color: '#2E2A6B' },
+            { label: 'Weekly capacity', val: `${totalCapacity} periods`, color: '#8F8CD6' },
+            { label: 'Avg cap/teacher', val: `${avgCapacity} p/wk`, color: '#2E2A6B' },
+            { label: 'With slot constraints', val: withConstraints, color: '#FFB020' },
           ].map((stat) => (
-            <div key={stat.label} className="glass-card px-4 py-3 flex items-center justify-between border border-white/5">
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{stat.label}</p>
-                <p className={`text-xl font-bold tabular-nums mt-0.5 ${stat.color}`}>{stat.val}</p>
+            <div key={stat.label} className="stat-card">
+              <div className="stat-card-icon" style={{ background: `${stat.color}12` }}>
+                <span style={{ width: 18, height: 18, display: 'block', borderRadius: 4, background: stat.color, opacity: 0.7 }} />
               </div>
-              <span className="text-xl opacity-80">{stat.icon}</span>
+              <div>
+                <p className="stat-card-value">{stat.val}</p>
+                <p className="stat-card-label">{stat.label}</p>
+              </div>
             </div>
           ))}
         </div>
@@ -572,15 +575,15 @@ export default function Teachers() {
         emptyTitle="No teachers yet"
         emptyMessage="Add teachers and assign their subject preferences."
         onAdd={openCreate}
-        addLabel="Add Teacher"
+        addLabel="Add teacher"
       />
 
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editing ? 'Edit Teacher' : 'New Teacher'}
+        title={editing ? 'Edit teacher' : 'New teacher'}
         onSubmit={handleSave}
-        submitLabel={editing ? 'Save Changes' : 'Create'}
+        submitLabel={editing ? 'Save changes' : 'Create'}
         loading={saving}
         size="lg"
       >
@@ -607,7 +610,7 @@ export default function Teachers() {
         onClose={() => setCsvOpen(false)}
         onSuccess={() => { setCsvOpen(false); load() }}
         importFn={teachersApi.importCsv}
-        title="Import Teachers from CSV"
+        title="Import teachers from CSV"
         hint={TEACHER_CSV_HINT}
         templateRows={TEACHER_CSV_TEMPLATE}
         templateFilename="teachers_template.csv"

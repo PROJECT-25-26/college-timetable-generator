@@ -1,13 +1,91 @@
 import { useEffect, useState } from 'react'
-import { Building2, GraduationCap, BookOpen, DoorOpen, Users, Zap } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import {
+  Building2, GraduationCap, BookOpen, DoorOpen, Users, Zap,
+  ArrowRight, CheckCircle2
+} from 'lucide-react'
 import axios from 'axios'
 
 const STAT_CARDS = [
-  { label: 'Departments',    icon: Building2,      key: 'departments',    color: 'from-brand-500 to-brand-700',   route: '/departments'    },
-  { label: 'Teachers',       icon: GraduationCap,  key: 'teachers',       color: 'from-violet-500 to-purple-700', route: '/teachers'       },
-  { label: 'Subjects',       icon: BookOpen,       key: 'subjects',       color: 'from-sky-500 to-blue-700',      route: '/subjects'       },
-  { label: 'Rooms',          icon: DoorOpen,       key: 'rooms',          color: 'from-emerald-500 to-green-700', route: '/rooms'          },
-  { label: 'Class Sections', icon: Users,          key: 'class-sections', color: 'from-amber-500 to-orange-600',  route: '/class-sections' },
+  {
+    label:  'Departments',
+    icon:   Building2,
+    key:    'departments',
+    route:  '/departments',
+    iconBg: '#EDE9FF',
+    iconColor: '#2E2A6B',
+  },
+  {
+    label:  'Teachers',
+    icon:   GraduationCap,
+    key:    'teachers',
+    route:  '/teachers',
+    iconBg: '#E8F5E9',
+    iconColor: '#2e7d32',
+  },
+  {
+    label:  'Subjects',
+    icon:   BookOpen,
+    key:    'subjects',
+    route:  '/subjects',
+    iconBg: '#E3F2FD',
+    iconColor: '#1565C0',
+  },
+  {
+    label:  'Rooms',
+    icon:   DoorOpen,
+    key:    'rooms',
+    route:  '/rooms',
+    iconBg: '#FFF3E0',
+    iconColor: '#E65100',
+  },
+  {
+    label:  'Class sections',
+    icon:   Users,
+    key:    'class-sections',
+    route:  '/class-sections',
+    iconBg: '#FCE4EC',
+    iconColor: '#AD1457',
+  },
+]
+
+const WORKFLOW_STEPS = [
+  {
+    n: 1,
+    title: 'Set up departments',
+    desc:  'Create academic departments and assign staffrooms where faculty will be based.',
+    route: '/departments',
+  },
+  {
+    n: 2,
+    title: 'Add teachers',
+    desc:  'Register faculty with their subject preferences and unavailable period slots.',
+    route: '/teachers',
+  },
+  {
+    n: 3,
+    title: 'Define subjects',
+    desc:  'Specify weekly period counts, lab requirements, and credit hours per subject.',
+    route: '/subjects',
+  },
+  {
+    n: 4,
+    title: 'Configure rooms',
+    desc:  'Add classrooms, labs, and seminar halls with their capacities and types.',
+    route: '/rooms',
+  },
+  {
+    n: 5,
+    title: 'Create class sections',
+    desc:  'Set up student batches, assign homerooms, and link curriculum subjects.',
+    route: '/class-sections',
+  },
+  {
+    n: 6,
+    title: 'Generate timetable',
+    desc:  'Run the constraint solver to produce collision-free, distance-optimized schedules.',
+    route: '/generate',
+  },
 ]
 
 export default function Dashboard() {
@@ -22,66 +100,176 @@ export default function Dashboard() {
   }, [])
 
   return (
-    <div className="space-y-8 w-full max-w-[1600px] mx-auto animate-fade-in">
-      {/* Hero */}
-      <div className="glass-card p-8">
-        <div className="flex items-center gap-4 mb-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-brand-500 to-purple-600 flex items-center justify-center shadow-lg shadow-brand-500/30">
-            <Zap size={24} className="text-white" />
+    <div className="page-wrapper animate-fade-in" style={{ maxWidth: '1400px' }}>
+
+      {/* Page intro — left-aligned, no hero banner with two buttons */}
+      <header style={{ marginBottom: '36px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+          <div style={{
+            width: '40px', height: '40px', borderRadius: '12px',
+            background: '#FFB020', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            <Zap size={20} color="#1F1B4D" strokeWidth={2.5} />
           </div>
-          <div>
-            <h2 className="text-2xl font-bold gradient-text">College Timetable Generator</h2>
-            <p className="text-gray-400 text-sm mt-0.5">Automated, collision-free weekly schedules with spatial constraint intelligence</p>
-          </div>
+          <h1 className="page-heading" style={{ margin: 0 }}>
+            College timetable generator
+          </h1>
         </div>
-        <p className="text-gray-400 text-sm leading-relaxed max-w-3xl">
-          Configure departments, faculty teachers, academic subjects, classrooms, and student batches below.
-          Once your campus data is in place, navigate to the <strong className="text-gray-200">Generate</strong> workspace
-          to produce constraint-satisfying, walking-distance-optimized timetables automatically.
+        <p className="page-sub" style={{ maxWidth: '600px' }}>
+          Configure your campus data, then generate constraint-satisfying, walking-distance-optimised
+          weekly schedules automatically.
         </p>
-      </div>
+      </header>
 
-      {/* Stat cards */}
-      <div>
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-4">System Overview</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-          {STAT_CARDS.map(({ label, icon: Icon, key, color }) => (
-            <div key={key} className="glass-card p-5 flex flex-col gap-3 hover:bg-white/10 transition-all hover:-translate-y-0.5 cursor-pointer group border border-white/5">
-              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center shadow-lg`}>
-                <Icon size={18} className="text-white" />
+      {/* Stats row */}
+      <section aria-label="System overview" style={{ marginBottom: '40px' }}>
+        <h2
+          style={{
+            fontFamily: 'Space Grotesk, sans-serif',
+            fontSize: '0.8125rem',
+            fontWeight: 600,
+            color: 'var(--c-muted)',
+            marginBottom: '14px',
+            letterSpacing: '0.02em',
+          }}
+        >
+          System overview
+        </h2>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+            gap: '12px',
+          }}
+        >
+          {STAT_CARDS.map(({ label, icon: Icon, key, route, iconBg, iconColor }) => (
+            <Link key={key} to={route} style={{ textDecoration: 'none' }}>
+              <div className="stat-card">
+                <div className="stat-card-icon" style={{ background: iconBg }}>
+                  <Icon size={20} color={iconColor} strokeWidth={1.75} aria-hidden="true" />
+                </div>
+                <div>
+                  <p className="stat-card-value">
+                    {counts[key] !== undefined
+                      ? counts[key]
+                      : <span className="skeleton" style={{ display: 'inline-block', width: '32px', height: '28px', borderRadius: '6px' }} />
+                    }
+                  </p>
+                  <p className="stat-card-label">{label}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-2xl font-bold text-white tabular-nums">
-                  {counts[key] ?? <span className="inline-block w-6 h-5 bg-white/10 rounded animate-pulse" />}
-                </p>
-                <p className="text-xs text-gray-400 mt-0.5">{label}</p>
-              </div>
-            </div>
+            </Link>
           ))}
         </div>
-      </div>
+      </section>
 
-      {/* Getting started */}
-      <div className="glass-card p-6">
-        <h3 className="text-sm font-semibold text-gray-300 mb-4">Workflow & Getting Started</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {[
-            'Create Departments & staffrooms (e.g. Computer Science, Mathematics)',
-            'Add Teachers with subject preferences and unavailable period slots',
-            'Define Subjects with weekly period requirements and lab constraints',
-            'Add Rooms — mark classrooms, labs, and seminar halls separately',
-            'Create Class Sections, assign fixed homerooms and curriculum links',
-            'Hit Generate to produce collision-free, walking-distance optimized schedules',
-          ].map((step, i) => (
-            <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-white/3 border border-white/5 text-sm text-gray-400 hover:bg-white/5 transition-colors">
-              <span className="shrink-0 w-6 h-6 rounded-full bg-brand-600/30 text-brand-300 text-xs font-bold flex items-center justify-center mt-0.5 border border-brand-500/20">
-                {i + 1}
-              </span>
-              <span className="leading-snug">{step}</span>
-            </div>
+      {/* Workflow — not a card grid, use a plain ordered list */}
+      <section aria-label="Setup workflow">
+        <h2
+          style={{
+            fontFamily: 'Space Grotesk, sans-serif',
+            fontSize: '0.8125rem',
+            fontWeight: 600,
+            color: 'var(--c-muted)',
+            marginBottom: '14px',
+            letterSpacing: '0.02em',
+          }}
+        >
+          Setup workflow
+        </h2>
+
+        <div
+          style={{
+            background: '#FFFFFF',
+            border: '1px solid var(--c-border)',
+            borderRadius: 'var(--r-card)',
+            boxShadow: 'var(--shadow-card)',
+            overflow: 'hidden',
+          }}
+        >
+          {WORKFLOW_STEPS.map((step, idx) => (
+            <Link
+              key={step.n}
+              to={step.route}
+              style={{ textDecoration: 'none' }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '16px',
+                  padding: '16px 20px',
+                  borderBottom: idx < WORKFLOW_STEPS.length - 1 ? '1px solid var(--c-border)' : 'none',
+                  transition: 'background 0.12s',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(46,42,107,0.02)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                {/* Step number */}
+                <div
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    background: step.n === 6 ? '#FFB020' : 'rgba(46,42,107,0.08)',
+                    border: step.n === 6 ? '2px solid #FFB020' : '2px solid rgba(46,42,107,0.14)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    marginTop: '2px',
+                  }}
+                >
+                  {step.n === 6
+                    ? <Zap size={14} color="#1F1B4D" strokeWidth={2.5} />
+                    : (
+                      <span style={{
+                        fontFamily: 'Space Grotesk, sans-serif',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        color: '#2E2A6B',
+                      }}>
+                        {step.n}
+                      </span>
+                    )
+                  }
+                </div>
+
+                {/* Content */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{
+                    fontFamily: 'Space Grotesk, sans-serif',
+                    fontSize: '0.9375rem',
+                    fontWeight: 600,
+                    color: '#2E2A6B',
+                    marginBottom: '3px',
+                    letterSpacing: '-0.01em',
+                  }}>
+                    {step.title}
+                  </p>
+                  <p style={{
+                    fontSize: '0.875rem',
+                    color: 'var(--c-muted)',
+                    lineHeight: 1.5,
+                  }}>
+                    {step.desc}
+                  </p>
+                </div>
+
+                <ArrowRight
+                  size={16}
+                  strokeWidth={1.75}
+                  style={{ color: 'var(--c-muted)', flexShrink: 0, marginTop: '4px' }}
+                  aria-hidden="true"
+                />
+              </div>
+            </Link>
           ))}
         </div>
-      </div>
+      </section>
     </div>
   )
 }

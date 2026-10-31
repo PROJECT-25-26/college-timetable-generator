@@ -22,9 +22,9 @@ const EMPTY = { name: '', code: '' }
 
 function DeptForm({ form, errors, onChange }) {
   return (
-    <div className="space-y-4">
-      <div>
-        <label className="form-label">Department Name *</label>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div className="form-group">
+        <label htmlFor="dept-name" className="form-label">Department name *</label>
         <input
           id="dept-name"
           className={`form-input ${errors.name ? 'error' : ''}`}
@@ -36,11 +36,12 @@ function DeptForm({ form, errors, onChange }) {
         />
         {errors.name && <p className="form-error">{errors.name}</p>}
       </div>
-      <div>
-        <label className="form-label">Department Code *</label>
+      <div className="form-group">
+        <label htmlFor="dept-code" className="form-label">Department code *</label>
         <input
           id="dept-code"
-          className={`form-input font-mono ${errors.code ? 'error' : ''}`}
+          className={`form-input ${errors.code ? 'error' : ''}`}
+          style={{ fontFamily: 'Space Grotesk, monospace' }}
           placeholder="e.g. CS"
           value={form.code}
           maxLength={20}
@@ -64,7 +65,7 @@ const COLUMNS = [
   {
     key: 'code',
     label: 'Code',
-    render: (v) => <Badge variant="brand">{v}</Badge>,
+    render: (v) => <Badge variant="primary">{v}</Badge>,
   },
   {
     key: 'created_at',
@@ -79,7 +80,7 @@ export default function Departments() {
   const [rows, setRows]       = useState([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
-  const [editing, setEditing]     = useState(null)   // null = create
+  const [editing, setEditing]     = useState(null)
   const [form, setForm]           = useState(EMPTY)
   const [errors, setErrors]       = useState({})
   const [saving, setSaving]       = useState(false)
@@ -87,7 +88,6 @@ export default function Departments() {
   const [deleting, setDeleting]         = useState(false)
   const [csvOpen, setCsvOpen]           = useState(false)
 
-  /* ── Fetch ── */
   async function load() {
     setLoading(true)
     try {
@@ -102,7 +102,6 @@ export default function Departments() {
 
   useEffect(() => { load() }, [])
 
-  /* ── Open create modal ── */
   function openCreate() {
     setEditing(null)
     setForm(EMPTY)
@@ -110,7 +109,6 @@ export default function Departments() {
     setModalOpen(true)
   }
 
-  /* ── Open edit modal ── */
   function openEdit(row) {
     setEditing(row)
     setForm({ name: row.name, code: row.code })
@@ -123,7 +121,6 @@ export default function Departments() {
     if (errors[field]) setErrors((e) => ({ ...e, [field]: undefined }))
   }
 
-  /* ── Save (create or update) ── */
   async function handleSave() {
     const errs = validate(form)
     if (Object.keys(errs).length) { setErrors(errs); return }
@@ -146,7 +143,6 @@ export default function Departments() {
     }
   }
 
-  /* ── Delete ── */
   async function handleDelete() {
     if (!deleteTarget) return
     setDeleting(true)
@@ -163,34 +159,31 @@ export default function Departments() {
   }
 
   return (
-    <div className="space-y-6 w-full max-w-[1600px] mx-auto animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h2 className="text-xl font-bold text-gray-100">Departments</h2>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-500/10 text-brand-400 border border-brand-500/20">
-              {rows.length} {rows.length === 1 ? 'department' : 'departments'}
-            </span>
+    <div className="page-wrapper animate-fade-in">
+      <div className="page-header">
+        <div className="page-header-left">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <h1 className="page-heading">Departments</h1>
+            <span className="badge badge-primary">{rows.length}</span>
           </div>
-          <p className="text-xs text-gray-400 mt-1">Manage academic departments and assigned staffrooms</p>
+          <p className="page-sub">Manage academic departments and their staffrooms</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="page-header-actions">
           <button
             id="dept-import-btn"
             onClick={() => setCsvOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-gray-200 bg-white/8 border border-white/10 hover:bg-white/12 transition-colors"
+            className="btn btn-secondary btn-sm"
           >
-            <Upload size={15} />
+            <Upload size={14} strokeWidth={1.75} aria-hidden="true" />
             Import CSV
           </button>
           <button
             id="dept-add-btn"
             onClick={openCreate}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-white bg-brand-600 hover:bg-brand-500 transition-colors"
+            className="btn btn-primary btn-sm"
           >
-            <Plus size={16} />
-            Add Department
+            <Plus size={15} strokeWidth={2} aria-hidden="true" />
+            Add department
           </button>
         </div>
       </div>
@@ -205,22 +198,20 @@ export default function Departments() {
         emptyTitle="No departments yet"
         emptyMessage="Add your first department to get started."
         onAdd={openCreate}
-        addLabel="Add Department"
+        addLabel="Add department"
       />
 
-      {/* Create / Edit modal */}
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editing ? 'Edit Department' : 'New Department'}
+        title={editing ? 'Edit department' : 'New department'}
         onSubmit={handleSave}
-        submitLabel={editing ? 'Save Changes' : 'Create'}
+        submitLabel={editing ? 'Save changes' : 'Create'}
         loading={saving}
       >
         <DeptForm form={form} errors={errors} onChange={handleChange} />
       </Modal>
 
-      {/* Delete confirmation */}
       <ConfirmDialog
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
@@ -235,7 +226,7 @@ export default function Departments() {
         onClose={() => setCsvOpen(false)}
         onSuccess={() => load()}
         importFn={departmentsApi.importCsv}
-        title="Import Departments"
+        title="Import departments"
         hint={DEPT_CSV_HINT}
         templateRows={DEPT_CSV_TEMPLATE}
         templateFilename="departments_template.csv"

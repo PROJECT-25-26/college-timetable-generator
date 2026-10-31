@@ -133,8 +133,8 @@ export default function CsvImportModal({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
           <div className="flex items-center gap-2.5">
-            <Upload size={16} className="text-brand-400" />
-            <h2 className="text-base font-semibold text-gray-100">{title}</h2>
+            <Upload size={16} style={{ color: '#2E2A6B' }} />
+            <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--c-body)', margin: 0 }}>{title}</h2>
           </div>
           <button
             onClick={handleClose}
@@ -392,9 +392,9 @@ function SuccessStep({ result }) {
         <CheckCircle2 size={32} className="text-emerald-400" />
       </div>
       <div>
-        <p className="text-lg font-semibold text-gray-100">Import successful!</p>
-        <p className="text-sm text-gray-400 mt-1">
-          <span className="text-emerald-300 font-semibold">{result?.imported ?? 0}</span>{' '}
+        <p style={{ fontSize: '1.0625rem', fontWeight: 600, color: 'var(--c-body)' }}>Import successful!</p>
+        <p style={{ fontSize: '0.9375rem', color: 'var(--c-muted)', marginTop: 4 }}>
+          <span style={{ color: '#15803d', fontWeight: 600 }}>{result?.imported ?? 0}</span>{' '}
           record{(result?.imported ?? 0) !== 1 ? 's' : ''} imported and saved to the database.
         </p>
       </div>

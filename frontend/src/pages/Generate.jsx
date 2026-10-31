@@ -630,19 +630,28 @@ export default function Generate() {
       <aside className="w-72 shrink-0 flex flex-col gap-4 overflow-hidden pr-1">
 
         {/* Header */}
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-purple-600 flex items-center justify-center shadow-lg shadow-brand-500/30">
-            <Zap size={18} className="text-white" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+          <div style={{
+            width: 36,
+            height: 36,
+            borderRadius: 10,
+            background: '#FFB020',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            <Zap size={18} style={{ color: '#1F1B4D' }} />
           </div>
           <div>
-            <h2 className="text-base font-bold text-white">Generate</h2>
-            <p className="text-[11px] text-gray-500">CP-SAT constraint solver</p>
+            <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--c-body)', margin: 0 }}>Generate</h2>
+            <p style={{ fontSize: '0.6875rem', color: 'var(--c-muted)', marginTop: 2 }}>CP-SAT constraint solver</p>
           </div>
         </div>
 
         {/* Config card */}
         <div className="glass-card p-4 space-y-5 shrink-0 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 64px - 48px - 260px)' }}>
-          <div className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-widest">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: '0.75rem', fontWeight: 600, color: 'var(--c-muted)' }}>
             <Settings size={12} /> Configuration
           </div>
 
@@ -734,15 +743,29 @@ export default function Generate() {
             id="generate-btn"
             onClick={phase === 'solving' ? handleCancel : handleGenerate}
             disabled={workingDays.length === 0}
-            className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all shadow-lg ${
-              phase === 'solving'
-                ? 'bg-red-600/80 hover:bg-red-600 text-white shadow-red-500/20'
-                : 'bg-gradient-to-r from-brand-600 to-purple-600 hover:from-brand-500 hover:to-purple-500 text-white shadow-brand-500/30 disabled:opacity-50 disabled:cursor-not-allowed'
-            }`}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 7,
+              padding: '11px 18px',
+              borderRadius: 12,
+              fontSize: '0.9375rem',
+              fontWeight: 600,
+              border: 'none',
+              cursor: workingDays.length === 0 ? 'not-allowed' : 'pointer',
+              opacity: workingDays.length === 0 ? 0.5 : 1,
+              transition: 'all 0.15s ease',
+              fontFamily: 'Figtree, sans-serif',
+              background: phase === 'solving' ? 'rgba(220,38,38,0.85)' : '#FFB020',
+              color: phase === 'solving' ? '#FFFFFF' : '#1F1B4D',
+              boxShadow: phase === 'solving' ? '0 2px 8px rgba(220,38,38,0.25)' : '0 2px 8px rgba(255,176,32,0.30)',
+            }}
           >
             {phase === 'solving'
               ? <><X size={15} /> Cancel</>
-              : <><Zap size={15} /> Generate Timetable</>
+              : <><Zap size={15} /> Generate timetable</>
             }
           </button>
         </div>

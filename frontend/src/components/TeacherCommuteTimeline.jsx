@@ -319,13 +319,13 @@ export default function TeacherCommuteTimeline({
               <Route size={18} />
             </div>
             <div>
-              <h3 className="text-base font-bold text-gray-100 flex items-center gap-2">
-                Daily Commute Path
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-500/20 border border-violet-500/30 text-violet-300">
+              <h3 style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--c-body)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                Daily commute path
+                <span style={{ fontSize: '0.625rem', fontWeight: 600, padding: '2px 8px', borderRadius: 9999, background: 'rgba(46,42,107,0.10)', border: '1px solid rgba(46,42,107,0.20)', color: '#2E2A6B' }}>
                   Module 7f Spatial
                 </span>
               </h3>
-              <p className="text-xs text-gray-400 mt-0.5">
+              <p style={{ fontSize: '0.8125rem', color: 'var(--c-muted)', marginTop: 2 }}>
                 Staffroom → each period's room in order → return to Staffroom, mapped with shortest walking distances.
               </p>
             </div>

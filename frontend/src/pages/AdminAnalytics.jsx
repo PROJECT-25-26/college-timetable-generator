@@ -558,68 +558,72 @@ export default function AdminAnalytics() {
   const activeLoad = { workload: loadW, preferences: loadP, rooms: loadR, commute: loadC }[tab];
 
   return (
-    <div className="space-y-6 w-full max-w-[1600px] mx-auto animate-fade-in">
-      {/* ── Header ── */}
-      <div className="glass-card p-6">
-        <div className="flex items-center gap-4 mb-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
-            <BarChart2 size={24} className="text-white" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold gradient-text">Analytics Dashboard</h2>
-            <p className="text-gray-400 text-sm">Workload · Preferences · Room Utilisation · Commute Costs</p>
-          </div>
-          <button
-            id="analytics-refresh-btn"
-            onClick={fetchAll}
-            disabled={!selectedTT}
-            className="ml-auto flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-gray-300 hover:text-white hover:bg-white/10 border border-white/10 transition-all disabled:opacity-40"
+    <div className="page-wrapper">
+      {/* Page header */}
+      <div className="page-header">
+        <div className="page-header-left">
+          <h1 className="page-heading">Analytics</h1>
+          <p className="page-sub">Workload · Preferences · Room utilisation · Commute costs</p>
+        </div>
+        <button
+          id="analytics-refresh-btn"
+          onClick={fetchAll}
+          disabled={!selectedTT}
+          className="btn btn-secondary btn-sm"
+        >
+          <RefreshCw size={14} className={`${loadW || loadP || loadR || loadC ? "animate-spin" : ""}`} />
+          Refresh
+        </button>
+      </div>
+
+      {/* Selectors row */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
+        {/* Timetable picker */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 200 }}>
+          <Calendar size={14} style={{ color: 'var(--c-muted)', flexShrink: 0 }} />
+          <select
+            id="analytics-timetable-select"
+            value={selectedTT}
+            onChange={(e) => setSelectedTT(e.target.value)}
+            className="form-input"
           >
-            <RefreshCw size={14} className={`${loadW || loadP || loadR || loadC ? "animate-spin" : ""}`} />
-            Refresh
-          </button>
+            <option value="">— Select timetable —</option>
+            {timetables.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.label || `Run ${t.id.slice(0, 8)}`} · {new Date(t.created_at).toLocaleDateString()}
+              </option>
+            ))}
+          </select>
         </div>
 
-        {/* Selectors row */}
-        <div className="flex flex-wrap gap-3">
-          {/* Timetable picker */}
-          <div className="flex items-center gap-2 flex-1 min-w-52">
-            <Calendar size={14} className="text-gray-500 shrink-0" />
-            <select
-              id="analytics-timetable-select"
-              value={selectedTT}
-              onChange={(e) => setSelectedTT(e.target.value)}
-              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-brand-500"
-            >
-              <option value="">— Select timetable —</option>
-              {timetables.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.label || `Run ${t.id.slice(0, 8)}`} · {new Date(t.created_at).toLocaleDateString()}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Campus picker (for distance features) */}
-          <div className="flex items-center gap-2 flex-1 min-w-52">
-            <MapPin size={14} className="text-gray-500 shrink-0" />
-            <select
-              id="analytics-campus-select"
-              value={selectedCampus}
-              onChange={(e) => setSelectedCampus(e.target.value)}
-              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-brand-500"
-            >
-              <option value="">— No campus (distance data unavailable) —</option>
-              {campuses.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </div>
+        {/* Campus picker (for distance features) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 200 }}>
+          <MapPin size={14} style={{ color: 'var(--c-muted)', flexShrink: 0 }} />
+          <select
+            id="analytics-campus-select"
+            value={selectedCampus}
+            onChange={(e) => setSelectedCampus(e.target.value)}
+            className="form-input"
+          >
+            <option value="">— No campus (distance data unavailable) —</option>
+            {campuses.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
         </div>
       </div>
 
-      {/* ── Tab strip ── */}
-      <div className="flex items-center gap-1 p-1 rounded-2xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+      {/* Tab strip */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 4,
+        padding: 4,
+        borderRadius: 16,
+        background: 'rgba(46,42,107,0.06)',
+        border: '1px solid var(--c-border)',
+        marginBottom: 0,
+      }}>
         {TABS.map(({ id, label, icon: Icon }) => {
           const isActive = tab === id;
           const isLoading = { workload: loadW, preferences: loadP, rooms: loadR, commute: loadC }[id];
@@ -628,38 +632,49 @@ export default function AdminAnalytics() {
               key={id}
               id={`analytics-tab-${id}`}
               onClick={() => setTab(id)}
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200"
-              style={
-                isActive
-                  ? { background: "rgba(139,92,246,0.25)", color: "#c4b5fd", border: "1px solid rgba(139,92,246,0.35)" }
-                  : { color: "#6b7280", border: "1px solid transparent" }
-              }
+              style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 7,
+                padding: '9px 12px',
+                borderRadius: 12,
+                fontSize: '0.875rem',
+                fontWeight: isActive ? 600 : 500,
+                transition: 'all 0.15s ease',
+                cursor: 'pointer',
+                fontFamily: 'Figtree, sans-serif',
+                background: isActive ? '#FFFFFF' : 'transparent',
+                color: isActive ? '#2E2A6B' : 'var(--c-muted)',
+                border: isActive ? '1px solid var(--c-border-md)' : '1px solid transparent',
+                boxShadow: isActive ? 'var(--shadow-card)' : 'none',
+              }}
             >
-              <Icon size={15} />
+              <Icon size={14} />
               <span>{label}</span>
-              {isLoading && <span className="w-3 h-3 rounded-full border border-current border-t-transparent animate-spin" />}
+              {isLoading && <span style={{ width: 10, height: 10, borderRadius: '50%', border: '1.5px solid currentColor', borderTopColor: 'transparent', display: 'inline-block', animation: 'spin 0.6s linear infinite' }} />}
             </button>
           );
         })}
       </div>
 
-      {/* ── Panel content ── */}
-      <div className="glass-card p-6">
-        {/* Panel title */}
-        <div className="flex items-center gap-2 mb-1">
+      {/* Panel content */}
+      <div className="card-padded">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
           {(() => {
             const cur = TABS.find((t) => t.id === tab);
             if (!cur) return null;
             const Icon = cur.icon;
             return (
               <>
-                <Icon size={18} className="text-violet-400" />
-                <h3 className="text-base font-semibold text-gray-100">{cur.label}</h3>
+                <Icon size={16} style={{ color: '#2E2A6B' }} />
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--c-body)', margin: 0 }}>{cur.label}</h3>
               </>
             );
           })()}
         </div>
-        <p className="text-xs text-gray-500 mb-4">
+        <p style={{ fontSize: '0.875rem', color: 'var(--c-muted)', marginBottom: 20 }}>
           {{
             workload:    "Periods/week per teacher with capacity utilisation.",
             preferences: "Assignment quality breakdown: preferred, willing, and avoid period counts.",

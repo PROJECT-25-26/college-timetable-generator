@@ -3,14 +3,14 @@
  * Lists all teacher schedule-change requests and allows Approve / Reject.
  */
 
-import { CheckCircle2, XCircle, Clock, InboxIcon, FilterIcon } from 'lucide-react'
+import { CheckCircle2, XCircle, Clock, Inbox, SlidersHorizontal } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useState } from 'react'
 
 const STATUS_CONFIG = {
-  pending:  { label: 'Pending',  textColor: 'text-amber-400',   bg: 'bg-amber-500/10  border-amber-500/20'  },
-  approved: { label: 'Approved', textColor: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
-  rejected: { label: 'Rejected', textColor: 'text-red-400',     bg: 'bg-red-500/10    border-red-500/20'    },
+  pending:  { label: 'Pending',  textColor: '#A07010', bg: 'rgba(255,176,32,0.08)',  border: 'rgba(255,176,32,0.25)'   },
+  approved: { label: 'Approved', textColor: '#15803d', bg: 'rgba(22,163,74,0.08)',   border: 'rgba(22,163,74,0.25)'   },
+  rejected: { label: 'Rejected', textColor: '#b91c1c', bg: 'rgba(220,38,38,0.08)',   border: 'rgba(220,38,38,0.25)'   },
 }
 
 export default function Requests() {
@@ -27,102 +27,170 @@ export default function Requests() {
   }
 
   return (
-    <div className="space-y-6 w-full max-w-[1600px] mx-auto animate-fade-in">
-      {/* Header */}
-      <div className="glass-card p-6">
-        <div className="flex items-center gap-3 mb-1">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
-            <InboxIcon size={18} className="text-white" />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold text-white">Schedule Change Requests</h2>
-            <p className="text-gray-400 text-xs mt-0.5">Review and action teacher-submitted schedule adjustments</p>
-          </div>
-          {counts.pending > 0 && (
-            <span className="ml-auto px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">
-              {counts.pending} pending action
-            </span>
-          )}
+    <div className="page-wrapper">
+      {/* Page header */}
+      <div className="page-header">
+        <div className="page-header-left">
+          <h1 className="page-heading">Schedule change requests</h1>
+          <p className="page-sub">Review and action teacher-submitted schedule adjustments</p>
         </div>
+        {counts.pending > 0 && (
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '6px 14px',
+            borderRadius: 9999,
+            background: 'rgba(255,176,32,0.12)',
+            border: '1px solid rgba(255,176,32,0.30)',
+            fontSize: '0.875rem',
+            fontWeight: 600,
+            color: '#A07010',
+          }}>
+            <Clock size={14} />
+            {counts.pending} pending
+          </div>
+        )}
       </div>
 
       {/* Filter tabs */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <FilterIcon size={14} className="text-gray-500 shrink-0" />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
+        <SlidersHorizontal size={14} style={{ color: 'var(--c-muted)', flexShrink: 0 }} />
         {(['all', 'pending', 'approved', 'rejected']).map(f => (
           <button
             key={f}
             id={`req-filter-${f}`}
             onClick={() => setFilter(f)}
-            className={[
-              'px-3.5 py-1.5 rounded-xl text-xs font-medium capitalize transition-all border',
-              filter === f
-                ? 'bg-brand-600/25 text-brand-300 border-brand-500/30 shadow-sm'
-                : 'text-gray-400 border-white/10 hover:bg-white/5 hover:text-gray-200',
-            ].join(' ')}
+            style={{
+              padding: '7px 16px',
+              borderRadius: 9999,
+              fontSize: '0.875rem',
+              fontWeight: 500,
+              border: '1px solid',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              background: filter === f ? 'rgba(46,42,107,0.10)' : 'transparent',
+              borderColor: filter === f ? 'rgba(46,42,107,0.30)' : 'var(--c-border)',
+              color: filter === f ? '#2E2A6B' : 'var(--c-muted)',
+              fontFamily: 'Figtree, sans-serif',
+            }}
           >
             {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
-            <span className="ml-1.5 text-gray-500">({counts[f]})</span>
+            <span style={{ marginLeft: 6, opacity: 0.6 }}>({counts[f]})</span>
           </button>
         ))}
       </div>
 
       {/* Request list */}
       {visible.length === 0 ? (
-        <div className="glass-card p-12 flex flex-col items-center gap-3 text-gray-600">
-          <InboxIcon size={36} strokeWidth={1} />
-          <p className="text-sm">
+        <div className="card-padded" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '64px 24px', textAlign: 'center' }}>
+          <Inbox size={40} strokeWidth={1.2} style={{ color: 'var(--c-muted)', opacity: 0.5 }} />
+          <p style={{ color: 'var(--c-muted)', fontSize: '0.9375rem' }}>
             {filter === 'all' ? 'No requests yet.' : `No ${filter} requests.`}
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {visible.map(req => {
             const cfg = STATUS_CONFIG[req.status]
             return (
               <div
                 key={req.id}
-                className={`glass-card p-5 flex flex-col sm:flex-row sm:items-start gap-4 border ${
-                  req.status === 'pending' ? 'border-amber-500/15' : 'border-white/10'
-                } hover:bg-white/5 transition-colors`}
+                className="card"
+                style={{
+                  padding: '18px 20px',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 16,
+                  borderLeft: req.status === 'pending' ? '3px solid rgba(255,176,32,0.60)' : undefined,
+                }}
               >
                 {/* Status icon */}
-                <div className={`shrink-0 mt-0.5 w-8 h-8 rounded-lg flex items-center justify-center ${cfg.bg} border`}>
-                  {req.status === 'approved' && <CheckCircle2 size={16} className="text-emerald-400" />}
-                  {req.status === 'rejected' && <XCircle     size={16} className="text-red-400"     />}
-                  {req.status === 'pending'  && <Clock       size={16} className="text-amber-400"   />}
+                <div style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: cfg.bg,
+                  border: `1px solid ${cfg.border}`,
+                  flexShrink: 0,
+                  marginTop: 2,
+                }}>
+                  {req.status === 'approved' && <CheckCircle2 size={16} style={{ color: '#15803d' }} />}
+                  {req.status === 'rejected' && <XCircle     size={16} style={{ color: '#b91c1c' }} />}
+                  {req.status === 'pending'  && <Clock       size={16} style={{ color: '#A07010' }} />}
                 </div>
 
                 {/* Details */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <span className="text-sm font-semibold text-gray-100">{req.teacherName}</span>
-                    <span className="text-xs text-gray-500">—</span>
-                    <span className="text-sm text-gray-300">{req.day}, {req.period}</span>
-                    <span className={`text-xs font-semibold ${cfg.textColor}`}>
-                      · {cfg.label}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 4 }}>
+                    <span style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--c-body)' }}>{req.teacherName}</span>
+                    <span style={{ color: 'var(--c-muted)' }}>—</span>
+                    <span style={{ fontSize: '0.9375rem', color: 'var(--c-body)' }}>{req.day}, {req.period}</span>
+                    <span style={{
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      color: cfg.textColor,
+                      padding: '2px 8px',
+                      borderRadius: 9999,
+                      background: cfg.bg,
+                      border: `1px solid ${cfg.border}`,
+                    }}>
+                      {cfg.label}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-400 mt-1">{req.reason}</p>
-                  <p className="text-xs text-gray-600 mt-2">
+                  <p style={{ fontSize: '0.9375rem', color: 'var(--c-muted)', marginBottom: 6 }}>{req.reason}</p>
+                  <p style={{ fontSize: '0.8125rem', color: 'var(--c-muted)', opacity: 0.7 }}>
                     Submitted {new Date(req.submittedAt).toLocaleString()}
                   </p>
                 </div>
 
                 {/* Action buttons */}
                 {req.status === 'pending' && (
-                  <div className="flex gap-2 shrink-0 sm:flex-col">
+                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
                     <button
                       id={`req-approve-${req.id}`}
                       onClick={() => updateRequestStatus(req.id, 'approved')}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600/20 text-emerald-300 border border-emerald-500/25 hover:bg-emerald-600/30 transition-colors"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '7px 14px',
+                        borderRadius: 9,
+                        fontSize: '0.8125rem',
+                        fontWeight: 600,
+                        background: 'rgba(22,163,74,0.08)',
+                        color: '#15803d',
+                        border: '1px solid rgba(22,163,74,0.25)',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                        fontFamily: 'Figtree, sans-serif',
+                        minHeight: 36,
+                      }}
                     >
                       <CheckCircle2 size={13} /> Approve
                     </button>
                     <button
                       id={`req-reject-${req.id}`}
                       onClick={() => updateRequestStatus(req.id, 'rejected')}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-600/20 text-red-300 border border-red-500/25 hover:bg-red-600/30 transition-colors"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '7px 14px',
+                        borderRadius: 9,
+                        fontSize: '0.8125rem',
+                        fontWeight: 600,
+                        background: 'rgba(220,38,38,0.08)',
+                        color: '#b91c1c',
+                        border: '1px solid rgba(220,38,38,0.25)',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                        fontFamily: 'Figtree, sans-serif',
+                        minHeight: 36,
+                      }}
                     >
                       <XCircle size={13} /> Reject
                     </button>
