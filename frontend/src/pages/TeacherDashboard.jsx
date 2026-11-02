@@ -2,11 +2,13 @@
  * TeacherDashboard — the personal view for logged-in teachers.
  *
  * Displays:
- *   1. Welcome card with teacher info
- *   2. Subject Preferences — add, edit preference, delete (inline editor)
- *   3. Unavailable slots list
- *   4. Schedule Change Request form
- *   5. Request history (from shared AuthContext)
+ *   1. Welcome header with faculty profile info
+ *   2. My Timetable grid & Export modal
+ *   3. Daily Commute Path (TeacherCommuteTimeline)
+ *   4. Subject Preferences (view & inline editor)
+ *   5. Unavailable slots list
+ *   6. Schedule Change Request form
+ *   7. Request history
  */
 
 import { useEffect, useState } from 'react'
@@ -21,14 +23,13 @@ import TimetableViewGrid from '../components/TimetableViewGrid'
 import TeacherCommuteTimeline from '../components/TeacherCommuteTimeline'
 import ExportModal from '../components/ExportModal'
 
-
 const DAYS    = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const PERIODS = Array.from({ length: 8 }, (_, i) => `Period ${i + 1}`)
 
 const STATUS_CONFIG = {
-  pending:  { label: 'Pending',  color: 'text-amber-400',  bg: 'bg-amber-500/10  border-amber-500/20'  },
-  approved: { label: 'Approved', color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
-  rejected: { label: 'Rejected', color: 'text-red-400',    bg: 'bg-red-500/10    border-red-500/20'    },
+  pending:  { label: 'Pending',  color: '#b45309', bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.25)' },
+  approved: { label: 'Approved', color: '#15803d', bg: 'rgba(34,197,94,0.08)',   border: 'rgba(34,197,94,0.25)' },
+  rejected: { label: 'Rejected', color: '#b91c1c', bg: 'rgba(239,68,68,0.08)',   border: 'rgba(239,68,68,0.25)' },
 }
 
 /* ──────────────────────────────────────────────
@@ -38,23 +39,23 @@ const PREF_CONFIG = {
   preferred: {
     label: 'Preferred',
     Icon: Star,
-    badgeClass: 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300',
-    btnActive: 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300',
-    btnInactive: 'bg-white/4 border-white/10 text-gray-500 hover:text-emerald-400 hover:border-emerald-500/30',
+    badgeBg: 'rgba(34,197,94,0.10)',
+    badgeBorder: 'rgba(34,197,94,0.30)',
+    color: '#15803d',
   },
   willing: {
     label: 'Willing',
     Icon: Check,
-    badgeClass: 'bg-brand-500/15 border-brand-500/30 text-brand-300',
-    btnActive: 'bg-brand-500/20 border-brand-500/50 text-brand-300',
-    btnInactive: 'bg-white/4 border-white/10 text-gray-500 hover:text-brand-400 hover:border-brand-500/30',
+    badgeBg: 'rgba(46,42,107,0.08)',
+    badgeBorder: 'rgba(46,42,107,0.20)',
+    color: 'var(--c-primary)',
   },
   avoid: {
     label: 'Avoid',
     Icon: X,
-    badgeClass: 'bg-red-500/15 border-red-500/30 text-red-300',
-    btnActive: 'bg-red-500/20 border-red-500/50 text-red-300',
-    btnInactive: 'bg-white/4 border-white/10 text-gray-500 hover:text-red-400 hover:border-red-500/30',
+    badgeBg: 'rgba(239,68,68,0.10)',
+    badgeBorder: 'rgba(239,68,68,0.25)',
+    color: '#b91c1c',
   },
 }
 
@@ -66,14 +67,24 @@ function PrefBadge({ type }) {
   const { Icon } = cfg
   return (
     <span
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${cfg.badgeClass}`}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        padding: '2px 8px',
+        borderRadius: 'var(--r-chip)',
+        fontSize: '0.6875rem',
+        fontWeight: 600,
+        background: cfg.badgeBg,
+        border: `1px solid ${cfg.badgeBorder}`,
+        color: cfg.color,
+      }}
     >
-      <Icon size={10} />
+      <Icon size={10} strokeWidth={2.5} />
       {cfg.label}
     </span>
   )
 }
-
 
 export default function TeacherDashboard() {
   const { user, requests, addRequest } = useAuth()
@@ -303,37 +314,75 @@ export default function TeacherDashboard() {
   }
 
   return (
-    <div className="space-y-6 w-full max-w-[1600px] mx-auto animate-fade-in">
+    <div className="page-wrapper animate-fade-in" style={{ maxWidth: '1440px' }}>
 
-      {/* Welcome banner */}
-      <div className="glass-card p-6 flex items-center gap-5">
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center shadow-lg shadow-purple-500/30 shrink-0">
-          <User size={26} className="text-white" />
+      {/* Welcome header */}
+      <header className="card-padded" style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 'var(--r-card)',
+              background: 'rgba(46,42,107,0.08)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--c-primary)',
+              flexShrink: 0,
+            }}
+          >
+            <User size={24} strokeWidth={2} />
+          </div>
+          <div>
+            <h1 className="page-heading" style={{ fontSize: '1.25rem', margin: 0 }}>
+              Welcome, {user?.name}
+            </h1>
+            <p className="page-sub" style={{ margin: '4px 0 0 0' }}>
+              {teacher?.department?.name
+                ? `Department: ${teacher.department.name} (${teacher.department.code})`
+                : 'No department assigned'} · {teacher?.email ?? user?.email}
+            </p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-xl font-bold text-white">Welcome, {user?.name}</h2>
-          <p className="text-gray-400 text-sm mt-0.5">
-            {teacher?.department?.name
-              ? `Department: ${teacher.department.name} (${teacher.department.code})`
-              : 'No department assigned'} · {teacher?.email ?? user?.email}
-          </p>
-        </div>
-      </div>
+      </header>
 
       {/* ─── My Timetable section ─── */}
-      <section className="glass-card p-6">
-        <div className="flex items-center gap-2 mb-5">
-          <Calendar size={17} className="text-brand-400" />
-          <h3 className="text-sm font-semibold text-gray-200">My Timetable</h3>
+      <section className="card-padded" style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Calendar size={18} color="var(--c-primary)" strokeWidth={2} />
+            <h2
+              style={{
+                fontFamily: 'Space Grotesk, sans-serif',
+                fontSize: '1rem',
+                fontWeight: 700,
+                color: 'var(--c-body)',
+                margin: 0,
+              }}
+            >
+              My timetable
+            </h2>
+          </div>
           {timetable && (
-            <div className="ml-auto flex items-center gap-2">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <button
                 onClick={() => setExportModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg bg-brand-600/20 border border-brand-500/30 text-brand-300 hover:bg-brand-600/30 transition-all shadow-sm"
+                className="btn btn-secondary btn-sm"
               >
-                <Download size={12} /> Export Schedule
+                <Download size={13} strokeWidth={2} /> Export schedule
               </button>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+              <span
+                style={{
+                  fontSize: '0.6875rem',
+                  fontWeight: 600,
+                  padding: '3px 8px',
+                  borderRadius: 'var(--r-chip)',
+                  background: 'rgba(34,197,94,0.10)',
+                  border: '1px solid rgba(34,197,94,0.25)',
+                  color: '#15803d',
+                }}
+              >
                 {timetable.slots?.filter(s => s.teacher_id === (teacher?.id || user?.id)).length ?? 0} periods/week
               </span>
             </div>
@@ -341,27 +390,53 @@ export default function TeacherDashboard() {
         </div>
 
         {ttLoading && (
-          <div className="flex items-center justify-center gap-3 py-10 text-gray-500">
-            <Loader2 size={18} className="animate-spin" />
-            <span className="text-sm">Loading your schedule…</span>
+          <div className="flex items-center justify-center gap-3 py-10" style={{ color: 'var(--c-muted)' }}>
+            <Loader2 size={18} className="animate-spin text-primary" />
+            <span style={{ fontSize: '0.875rem' }}>Loading your schedule…</span>
           </div>
         )}
 
         {!ttLoading && ttErr === 'no_timetable' && (
           <div className="flex flex-col items-center gap-3 py-10 text-center">
-            <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
-              <Calendar size={22} className="text-gray-600" />
+            <div
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 'var(--r-btn)',
+                background: 'rgba(46,42,107,0.06)',
+                border: '1px solid var(--c-border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--c-muted)',
+              }}
+            >
+              <Calendar size={20} strokeWidth={1.75} />
             </div>
-            <p className="text-gray-400 text-sm font-medium">No timetable generated yet</p>
-            <p className="text-gray-600 text-xs max-w-xs">
+            <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--c-body)', margin: 0 }}>
+              No timetable generated yet
+            </p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--c-muted)', maxWidth: 300, margin: 0 }}>
               Ask your administrator to generate a timetable. Your personal schedule will appear here.
             </p>
           </div>
         )}
 
         {!ttLoading && ttErr === 'fetch_failed' && (
-          <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
-            <AlertCircle size={14} className="shrink-0" />
+          <div
+            style={{
+              padding: '12px 14px',
+              borderRadius: 'var(--r-btn)',
+              background: 'rgba(239,68,68,0.08)',
+              border: '1px solid rgba(239,68,68,0.20)',
+              color: '#b91c1c',
+              fontSize: '0.75rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            <AlertCircle size={15} className="shrink-0" />
             Could not load timetable. Please check your connection.
           </div>
         )}
@@ -373,8 +448,10 @@ export default function TeacherDashboard() {
             if (!hasSlots) {
               return (
                 <div className="flex flex-col items-center gap-3 py-10 text-center">
-                  <Calendar size={24} className="text-gray-600" />
-                  <p className="text-gray-400 text-sm">You have no classes assigned in the current timetable.</p>
+                  <Calendar size={22} color="var(--c-muted)" strokeWidth={1.75} />
+                  <p style={{ fontSize: '0.875rem', color: 'var(--c-muted)', margin: 0 }}>
+                    You have no classes assigned in the current timetable.
+                  </p>
                 </div>
               )
             }
@@ -397,42 +474,64 @@ export default function TeacherDashboard() {
 
       {/* ─── Daily Commute Path section ─── */}
       {teacher && (
-        <TeacherCommuteTimeline
-          teacher={teacher}
-          teachersList={allTeachers}
-          onSelectTeacher={setTeacher}
-          timetableId={timetable?.id}
-        />
+        <div style={{ marginBottom: 24 }}>
+          <TeacherCommuteTimeline
+            teacher={teacher}
+            teachersList={allTeachers}
+            onSelectTeacher={setTeacher}
+            timetableId={timetable?.id}
+          />
+        </div>
       )}
 
       {busy && (
-        <div className="glass-card p-10 flex items-center justify-center gap-3 text-gray-400">
-          <Loader2 size={20} className="animate-spin" />
-          Loading your profile…
+        <div className="card-padded flex items-center justify-center gap-3" style={{ color: 'var(--c-muted)', padding: '40px 0' }}>
+          <Loader2 size={18} className="animate-spin text-primary" />
+          <span style={{ fontSize: '0.875rem' }}>Loading your profile…</span>
         </div>
       )}
 
       {loadErr && (
-        <div className="glass-card p-6 flex items-center gap-3 text-red-400 border-red-500/20">
+        <div
+          className="card-padded flex items-center gap-3"
+          style={{
+            background: 'rgba(239,68,68,0.06)',
+            borderColor: 'rgba(239,68,68,0.20)',
+            color: '#b91c1c',
+            marginBottom: 24,
+          }}
+        >
           <AlertCircle size={18} />
-          {loadErr}
+          <span style={{ fontSize: '0.8125rem' }}>{loadErr}</span>
         </div>
       )}
 
       {teacher && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start" style={{ marginBottom: 24 }}>
           {/* ─── Subject Preferences section ─── */}
-          <section className="glass-card p-6 h-full flex flex-col">
-            <div className="flex items-center gap-2 mb-4">
-              <BookOpen size={17} className="text-brand-400" />
-              <h3 className="text-sm font-semibold text-gray-200">Subject Preferences</h3>
-              <div className="ml-auto flex items-center gap-2">
+          <section className="card-padded h-full flex flex-col">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <BookOpen size={18} color="var(--c-primary)" strokeWidth={2} />
+                <h2
+                  style={{
+                    fontFamily: 'Space Grotesk, sans-serif',
+                    fontSize: '1rem',
+                    fontWeight: 700,
+                    color: 'var(--c-body)',
+                    margin: 0,
+                  }}
+                >
+                  Subject preferences
+                </h2>
+              </div>
+              <div>
                 {editingPrefs ? (
-                  <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <button
                       onClick={cancelEdit}
                       disabled={savingPrefs}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-xs text-gray-400 hover:text-gray-200 transition-colors disabled:opacity-50"
+                      className="btn btn-secondary btn-sm"
                     >
                       <RotateCcw size={12} />
                       Cancel
@@ -440,19 +539,19 @@ export default function TeacherDashboard() {
                     <button
                       onClick={savePreferences}
                       disabled={savingPrefs}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-xs text-white font-medium transition-colors disabled:opacity-50"
+                      className="btn btn-primary btn-sm"
                     >
                       {savingPrefs ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
                       {savingPrefs ? 'Saving…' : 'Save changes'}
                     </button>
-                  </>
+                  </div>
                 ) : (
                   <button
                     onClick={() => { setPrefSaveErr(null); setEditingPrefs(true) }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+                    className="btn btn-secondary btn-sm"
                   >
                     <Pencil size={12} />
-                    Edit Preferences
+                    Edit preferences
                   </button>
                 )}
               </div>
@@ -460,7 +559,20 @@ export default function TeacherDashboard() {
 
             {/* Save error banner */}
             {prefSaveErr && (
-              <div className="flex items-center gap-2 mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
+              <div
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 'var(--r-btn)',
+                  background: 'rgba(239,68,68,0.08)',
+                  border: '1px solid rgba(239,68,68,0.20)',
+                  color: '#b91c1c',
+                  fontSize: '0.75rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  marginBottom: 14,
+                }}
+              >
                 <AlertCircle size={14} className="shrink-0" />
                 {prefSaveErr}
               </div>
@@ -470,26 +582,42 @@ export default function TeacherDashboard() {
               /* ── Edit mode: add / change preference / remove ── */
               <div className="space-y-3">
                 {allSubjects.length === 0 && (
-                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs">
+                  <div
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: 'var(--r-btn)',
+                      background: 'rgba(245,158,11,0.08)',
+                      border: '1px solid rgba(245,158,11,0.20)',
+                      color: '#b45309',
+                      fontSize: '0.75rem',
+                    }}
+                  >
                     No subjects exist yet. Ask an administrator to add subjects first.
                   </div>
                 )}
 
                 {prefLinks.length === 0 && allSubjects.length > 0 && (
-                  <p className="text-xs text-gray-400 italic">No subjects assigned yet. Click "+ Add subject" below.</p>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--c-muted)', fontStyle: 'italic', margin: 0 }}>
+                    No subjects assigned yet. Click "+ Add subject" below.
+                  </p>
                 )}
 
                 {prefLinks.map((link) => {
-                  const subject =
-                    allSubjects.find((s) => s.id === link.subject_id) ??
-                    teacher.subject_links.find((l) => l.subject_id === link.subject_id)?.subject
                   const otherUsed = new Set(prefLinks.filter((l) => l.subject_id !== link.subject_id).map((l) => l.subject_id))
                   const selectOptions = allSubjects.filter((s) => !otherUsed.has(s.id))
 
                   return (
                     <div
                       key={link.subject_id}
-                      className="flex flex-col gap-2.5 p-3 rounded-xl bg-white/5 border border-white/10"
+                      style={{
+                        padding: '12px',
+                        borderRadius: 'var(--r-card)',
+                        background: 'var(--c-ground)',
+                        border: '1px solid var(--c-border)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 10,
+                      }}
                     >
                       {/* Row 1: subject selector + rank + delete */}
                       <div className="flex items-center gap-2">
@@ -503,7 +631,7 @@ export default function TeacherDashboard() {
                           ))}
                         </select>
                         <div className="flex items-center gap-1 shrink-0">
-                          <span className="text-xs text-gray-400">Rank</span>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--c-muted)' }}>Rank</span>
                           <input
                             type="number"
                             min={1}
@@ -515,7 +643,13 @@ export default function TeacherDashboard() {
                         <button
                           type="button"
                           onClick={() => removeSubjectLink(link.subject_id)}
-                          className="p-1.5 text-gray-400 hover:text-red-400 transition-colors shrink-0"
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--c-muted)',
+                            cursor: 'pointer',
+                            padding: 6,
+                          }}
                           title="Remove this subject"
                         >
                           <Trash2 size={15} />
@@ -523,8 +657,18 @@ export default function TeacherDashboard() {
                       </div>
 
                       {/* Row 2: preference type toggle */}
-                      <div className="flex items-center gap-2 pt-1 border-t border-white/5">
-                        <span className="text-xs text-gray-400 font-medium">Preference:</span>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          paddingTop: 6,
+                          borderTop: '1px solid var(--c-border)',
+                        }}
+                      >
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--c-muted)' }}>
+                          Preference:
+                        </span>
                         <div className="flex items-center gap-1">
                           {Object.entries(PREF_CONFIG).map(([key, cfg]) => {
                             const { Icon } = cfg
@@ -534,12 +678,22 @@ export default function TeacherDashboard() {
                                 key={key}
                                 type="button"
                                 onClick={() => updatePrefLink(link.subject_id, 'preference_type', key)}
-                                className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-medium transition-all ${
-                                  active ? cfg.btnActive : cfg.btnInactive
-                                }`}
-                                title={cfg.label}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 4,
+                                  padding: '4px 8px',
+                                  borderRadius: 'var(--r-btn)',
+                                  fontSize: '0.6875rem',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease',
+                                  background: active ? cfg.badgeBg : 'var(--c-surface)',
+                                  border: active ? `1.5px solid ${cfg.badgeBorder}` : '1px solid var(--c-border)',
+                                  color: active ? cfg.color : 'var(--c-muted)',
+                                }}
                               >
-                                <Icon size={10} />
+                                <Icon size={10} strokeWidth={2.5} />
                                 {cfg.label}
                               </button>
                             )
@@ -555,25 +709,30 @@ export default function TeacherDashboard() {
                   <button
                     type="button"
                     onClick={addSubjectLink}
-                    className="flex items-center gap-1.5 text-xs font-medium text-brand-400 hover:text-brand-300 transition-colors pt-1"
+                    className="btn btn-ghost btn-sm"
+                    style={{ color: 'var(--c-primary)' }}
                   >
-                    <Plus size={13} />
+                    <Plus size={13} strokeWidth={2} />
                     Add subject
                   </button>
                 )}
                 {availableSubjects.length === 0 && prefLinks.length > 0 && allSubjects.length > 0 && (
-                  <p className="text-xs text-gray-500 italic">All available subjects are already assigned.</p>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--c-muted)', fontStyle: 'italic', margin: 0 }}>
+                    All available subjects are already assigned.
+                  </p>
                 )}
               </div>
             ) : (
               /* ── Read-only mode: subjects with preference badges ── */
               teacher.subject_links.length === 0 ? (
                 <div className="flex flex-col items-center gap-3 py-6 text-center">
-                  <BookOpen size={32} className="text-gray-700" />
-                  <p className="text-gray-500 text-sm">No subjects assigned yet.</p>
+                  <BookOpen size={28} color="var(--c-muted)" strokeWidth={1.5} />
+                  <p style={{ fontSize: '0.875rem', color: 'var(--c-muted)', margin: 0 }}>
+                    No subjects assigned yet.
+                  </p>
                   <button
                     onClick={() => { setPrefSaveErr(null); setEditingPrefs(true) }}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand-600/20 border border-brand-500/30 text-brand-300 text-xs font-medium hover:bg-brand-600/30 transition-colors"
+                    className="btn btn-secondary btn-sm"
                   >
                     <Plus size={13} />
                     Add your first subject
@@ -584,16 +743,22 @@ export default function TeacherDashboard() {
                   {teacher.subject_links.map(link => (
                     <div
                       key={link.subject_id}
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/8 transition-colors"
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: 'var(--r-card)',
+                        background: 'var(--c-surface)',
+                        border: '1px solid var(--c-border)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 12,
+                      }}
                     >
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500/30 to-purple-500/30 flex items-center justify-center shrink-0">
-                        <BookOpen size={14} className="text-brand-300" />
-                      </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-200 truncate">
+                        <p style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--c-body)', margin: 0 }} className="truncate">
                           {link.subject?.name ?? link.subject_id}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p style={{ fontSize: '0.6875rem', color: 'var(--c-muted)', margin: '2px 0 0 0' }}>
                           {link.subject?.code} · {link.subject?.weekly_periods} periods/wk
                           {link.preference_rank > 0 && ` · Rank ${link.preference_rank}`}
                         </p>
@@ -607,19 +772,39 @@ export default function TeacherDashboard() {
           </section>
 
           {/* Unavailable slots */}
-          <section className="glass-card p-6 h-full flex flex-col">
-            <div className="flex items-center gap-2 mb-4">
-              <Clock size={17} className="text-amber-400" />
-              <h3 className="text-sm font-semibold text-gray-200">My Unavailable Slots</h3>
+          <section className="card-padded h-full flex flex-col">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <Clock size={18} color="var(--c-primary)" strokeWidth={2} />
+              <h2
+                style={{
+                  fontFamily: 'Space Grotesk, sans-serif',
+                  fontSize: '1rem',
+                  fontWeight: 700,
+                  color: 'var(--c-body)',
+                  margin: 0,
+                }}
+              >
+                My unavailable slots
+              </h2>
             </div>
             {teacher.unavailable_slots.length === 0 ? (
-              <p className="text-gray-500 text-sm">No unavailable slots recorded. Contact your admin to update these.</p>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--c-muted)', margin: 0 }}>
+                No unavailable slots recorded. Contact your admin to update these.
+              </p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {teacher.unavailable_slots.map(slot => (
                   <span
                     key={slot.id}
-                    className="px-3 py-1.5 rounded-full text-xs font-medium bg-amber-500/10 border border-amber-500/20 text-amber-300"
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: 'var(--r-chip)',
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      background: 'rgba(46,42,107,0.06)',
+                      border: '1px solid var(--c-border)',
+                      color: 'var(--c-body)',
+                    }}
                   >
                     {DAYS[slot.day_of_week]} — Period {slot.period_index + 1}
                   </span>
@@ -633,124 +818,164 @@ export default function TeacherDashboard() {
       {/* ─── Requests & Change Workflow Row ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* Schedule change request form */}
-        <section className="glass-card p-6 h-full flex flex-col">
-          <div className="flex items-center gap-2 mb-5">
-          <CalendarDays size={17} className="text-sky-400" />
-          <h3 className="text-sm font-semibold text-gray-200">Request a Schedule Change</h3>
-        </div>
-
-        <form onSubmit={handleRequestSubmit} className="space-y-4">
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="req-day" className="form-label">Day</label>
-              <select
-                id="req-day"
-                value={form.day}
-                onChange={e => setForm(f => ({ ...f, day: e.target.value }))}
-                className="form-input"
-              >
-                {DAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="req-period" className="form-label">Period</label>
-              <select
-                id="req-period"
-                value={form.period}
-                onChange={e => setForm(f => ({ ...f, period: e.target.value }))}
-                className="form-input"
-              >
-                {PERIODS.map((p, i) => <option key={i} value={i}>{p}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="req-reason" className="form-label">Reason / Details</label>
-            <textarea
-              id="req-reason"
-              rows={3}
-              value={form.reason}
-              onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
-              placeholder="Describe why you need this change…"
-              className="form-input resize-none"
-              required
-            />
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              id="req-submit-btn"
-              type="submit"
-              disabled={sending || !form.reason.trim()}
-              className={[
-                'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all',
-                'bg-gradient-to-r from-sky-600 to-brand-600 text-white',
-                'hover:from-sky-500 hover:to-brand-500 hover:shadow-lg hover:shadow-sky-500/25',
-                (sending || !form.reason.trim()) ? 'opacity-50 cursor-not-allowed' : '',
-              ].join(' ')}
+        <section className="card-padded h-full flex flex-col">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <CalendarDays size={18} color="var(--c-primary)" strokeWidth={2} />
+            <h2
+              style={{
+                fontFamily: 'Space Grotesk, sans-serif',
+                fontSize: '1rem',
+                fontWeight: 700,
+                color: 'var(--c-body)',
+                margin: 0,
+              }}
             >
-              {sending ? <Loader2 size={14} className="animate-spin" /> : <SendHorizonal size={14} />}
-              {sending ? 'Sending…' : 'Submit Request'}
-            </button>
+              Request a schedule change
+            </h2>
+          </div>
 
-            {sent && (
-              <span className="flex items-center gap-1.5 text-sm text-emerald-400 animate-fade-in">
-                <CheckCircle2 size={14} /> Request submitted!
+          <form onSubmit={handleRequestSubmit} className="space-y-4">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="req-day" className="form-label" style={{ marginBottom: 6, display: 'block' }}>Day</label>
+                <select
+                  id="req-day"
+                  value={form.day}
+                  onChange={e => setForm(f => ({ ...f, day: e.target.value }))}
+                  className="form-input"
+                >
+                  {DAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="req-period" className="form-label" style={{ marginBottom: 6, display: 'block' }}>Period</label>
+                <select
+                  id="req-period"
+                  value={form.period}
+                  onChange={e => setForm(f => ({ ...f, period: e.target.value }))}
+                  className="form-input"
+                >
+                  {PERIODS.map((p, i) => <option key={i} value={i}>{p}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="req-reason" className="form-label" style={{ marginBottom: 6, display: 'block' }}>Reason / details</label>
+              <textarea
+                id="req-reason"
+                rows={3}
+                value={form.reason}
+                onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
+                placeholder="Describe why you need this change…"
+                className="form-input resize-none"
+                required
+              />
+            </div>
+
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                id="req-submit-btn"
+                type="submit"
+                disabled={sending || !form.reason.trim()}
+                className="btn btn-primary"
+                style={{ minHeight: 44 }}
+              >
+                {sending ? <Loader2 size={14} className="animate-spin" /> : <SendHorizonal size={14} />}
+                {sending ? 'Sending…' : 'Submit request'}
+              </button>
+
+              {sent && (
+                <span className="flex items-center gap-1.5 text-sm" style={{ color: '#15803d', fontWeight: 600 }}>
+                  <CheckCircle2 size={16} /> Request submitted!
+                </span>
+              )}
+            </div>
+          </form>
+        </section>
+
+        {/* My request history */}
+        <section className="card-padded h-full flex flex-col">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <ClipboardList size={18} color="var(--c-primary)" strokeWidth={2} />
+              <h2
+                style={{
+                  fontFamily: 'Space Grotesk, sans-serif',
+                  fontSize: '1rem',
+                  fontWeight: 700,
+                  color: 'var(--c-body)',
+                  margin: 0,
+                }}
+              >
+                My requests
+              </h2>
+            </div>
+            {myRequests.length > 0 && (
+              <span
+                style={{
+                  fontSize: '0.6875rem',
+                  fontWeight: 600,
+                  padding: '2px 8px',
+                  borderRadius: 'var(--r-chip)',
+                  background: 'rgba(46,42,107,0.08)',
+                  color: 'var(--c-primary)',
+                }}
+              >
+                {myRequests.length}
               </span>
             )}
           </div>
-        </form>
-      </section>
 
-      {/* My request history */}
-      <section className="glass-card p-6 h-full flex flex-col">
-        <div className="flex items-center gap-2 mb-4">
-          <ClipboardList size={17} className="text-purple-400" />
-          <h3 className="text-sm font-semibold text-gray-200">My Requests</h3>
-          {myRequests.length > 0 && (
-            <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-white/10 text-gray-400">
-              {myRequests.length}
-            </span>
-          )}
-        </div>
-
-        {myRequests.length === 0 ? (
-          <p className="text-gray-500 text-sm">No requests submitted yet.</p>
-        ) : (
-          <div className="space-y-3">
-            {myRequests.map(req => {
-              const cfg = STATUS_CONFIG[req.status]
-              return (
-                <div
-                  key={req.id}
-                  className={`flex items-start gap-3 p-4 rounded-xl border ${cfg.bg} transition-all`}
-                >
-                  <div className="shrink-0 mt-0.5">
-                    {req.status === 'approved' && <CheckCircle2 size={16} className="text-emerald-400" />}
-                    {req.status === 'rejected' && <XCircle     size={16} className="text-red-400"     />}
-                    {req.status === 'pending'  && <Clock       size={16} className="text-amber-400"   />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-medium text-gray-200">
-                        {req.day} — {req.period}
-                      </p>
-                      <span className={`text-xs font-semibold ${cfg.color}`}>
-                        {cfg.label}
-                      </span>
+          {myRequests.length === 0 ? (
+            <p style={{ fontSize: '0.8125rem', color: 'var(--c-muted)', margin: 0 }}>
+              No requests submitted yet.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {myRequests.map(req => {
+                const cfg = STATUS_CONFIG[req.status] || STATUS_CONFIG.pending
+                return (
+                  <div
+                    key={req.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 12,
+                      padding: '12px 14px',
+                      borderRadius: 'var(--r-card)',
+                      background: cfg.bg,
+                      border: `1px solid ${cfg.border}`,
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <div className="shrink-0 mt-0.5">
+                      {req.status === 'approved' && <CheckCircle2 size={16} color={cfg.color} strokeWidth={2} />}
+                      {req.status === 'rejected' && <XCircle     size={16} color={cfg.color} strokeWidth={2} />}
+                      {req.status === 'pending'  && <Clock       size={16} color={cfg.color} strokeWidth={2} />}
                     </div>
-                    <p className="text-xs text-gray-400 mt-1 line-clamp-2">{req.reason}</p>
-                    <p className="text-xs text-gray-600 mt-1">
-                      {new Date(req.submittedAt).toLocaleString()}
-                    </p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--c-body)', margin: 0 }}>
+                          {req.day} — {req.period}
+                        </p>
+                        <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: cfg.color }}>
+                          {cfg.label}
+                        </span>
+                      </div>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--c-muted)', margin: '4px 0 0 0' }} className="line-clamp-2">
+                        {req.reason}
+                      </p>
+                      <p style={{ fontSize: '0.6875rem', color: 'var(--c-muted)', opacity: 0.8, margin: '4px 0 0 0' }}>
+                        {new Date(req.submittedAt).toLocaleString()}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </section>
+                )
+              })}
+            </div>
+          )}
+        </section>
       </div>
 
       {/* Export Modal */}

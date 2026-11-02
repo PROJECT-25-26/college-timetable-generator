@@ -414,7 +414,7 @@ export default function Generate() {
     if (newHistory.length === 0) {
       setPendingEdits(false)
     }
-    toast.info('Swap undone ✓')
+    toast.info('Swap undone')
   }, [slotHistory, toast])
 
   // Ctrl+Z / Cmd+Z keyboard shortcut for Undo

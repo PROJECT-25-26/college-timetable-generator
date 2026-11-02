@@ -233,7 +233,7 @@ function UnavailableGrid({ slots, onChange }) {
                       }`}
                       title={`${DAYS[d]} Period ${p + 1} — ${blocked ? 'blocked' : 'available'}`}
                     >
-                      {blocked ? '✕' : ''}
+                      {blocked ? '×' : ''}
                     </button>
                   </td>
                 )
@@ -310,7 +310,7 @@ function TeacherForm({ form, errors, onChange, departments, subjects }) {
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
             Subject Preferences
           </p>
-          <span className="text-xs text-gray-600">— set preferred ★, willing ✓, or avoid ✗ per subject</span>
+          <span className="text-xs text-gray-600">— configure preferred, willing, or avoid preferences below per subject</span>
         </div>
         <SubjectLinks
           links={form.subject_links}

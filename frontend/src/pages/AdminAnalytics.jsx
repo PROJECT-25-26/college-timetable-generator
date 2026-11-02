@@ -3,6 +3,7 @@ import {
   BarChart2, Users, Star, Footprints, Building2,
   ChevronDown, ChevronUp, AlertTriangle, TrendingUp,
   Award, Zap, MapPin, RefreshCw, Calendar,
+  Clock, DoorOpen, FlaskConical, GraduationCap, Check,
 } from "lucide-react";
 import { timetablesApi, campusApi, analyticsApi } from "../api/index";
 
@@ -90,22 +91,25 @@ function WorkloadPanel({ data, loading }) {
     <div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
         {[
-          { label: "Active Faculty", val: totalTeachers, icon: "👥", color: "#a78bfa" },
-          { label: "Total Assigned Periods", val: `${totalAssigned} hrs`, icon: "⏱️", color: "#60a5fa" },
-          { label: "Average Workload", val: `${avgLoad} p/wk`, icon: "📊", color: "#34d399" },
+          { label: "Active faculty", val: totalTeachers, Icon: Users, color: "var(--c-primary)", bg: "rgba(46,42,107,0.08)" },
+          { label: "Total assigned periods", val: `${totalAssigned} hrs`, Icon: Clock, color: "var(--c-primary)", bg: "rgba(46,42,107,0.08)" },
+          { label: "Average workload", val: `${avgLoad} p/wk`, Icon: BarChart2, color: "#2e7d32", bg: "rgba(46,125,50,0.08)" },
           {
-            label: overloaded > 0 ? "Overloaded Faculty" : "Optimal Load",
-            val: overloaded > 0 ? `${overloaded} Alert` : `${highLoad} High Load`,
-            icon: overloaded > 0 ? "⚠️" : "🎯",
-            color: overloaded > 0 ? "#f87171" : "#fbbf24",
+            label: overloaded > 0 ? "Overloaded faculty" : "Optimal load",
+            val: overloaded > 0 ? `${overloaded} alert` : `${highLoad} high load`,
+            Icon: overloaded > 0 ? AlertTriangle : Award,
+            color: overloaded > 0 ? "#c62828" : "#2E2A6B",
+            bg: overloaded > 0 ? "rgba(198,40,40,0.08)" : "rgba(46,42,107,0.08)",
           },
         ].map((s) => (
-          <div key={s.label} className="glass-card px-4 py-3 flex flex-col gap-1 border border-white/5">
+          <div key={s.label} className="card p-4 flex flex-col gap-1">
             <div className="flex items-center justify-between">
-              <span className="text-base">{s.icon}</span>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">{s.label}</span>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: s.color }}>
+                <s.Icon size={16} strokeWidth={2} />
+              </div>
+              <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--c-muted)' }}>{s.label}</span>
             </div>
-            <p className="text-xl font-bold tabular-nums text-white mt-1" style={{ color: s.color }}>{s.val}</p>
+            <p style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--c-body)', marginTop: 4 }} className="tabular-nums">{s.val}</p>
           </div>
         ))}
       </div>
@@ -239,12 +243,12 @@ function PreferencesPanel({ data, loading }) {
             <div className="flex items-center gap-1.5">
               {t.avoid_pct > 0 && (
                 <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: "#f8717120", color: "#f87171" }}>
-                  ⚠ {t.avoid_pct}% avoid
+                  {t.avoid_pct}% avoid
                 </span>
               )}
               {t.preferred_pct >= 60 && (
                 <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: "#22c55e20", color: "#22c55e" }}>
-                  ✓ {t.preferred_pct}%
+                  {t.preferred_pct}%
                 </span>
               )}
             </div>
@@ -261,15 +265,17 @@ function PreferencesPanel({ data, loading }) {
 function RoomRow({ room }) {
   const [open, setOpen] = useState(false);
   const color = UTIL_COLOR(room.utilisation_pct);
-  const typeIcon = { lab: "⚗", seminar: "🎓", classroom: "🏫" }[room.room_type] ?? "🏠";
+  const RoomIcon = { lab: FlaskConical, seminar: GraduationCap, classroom: Building2 }[room.room_type] ?? DoorOpen;
 
   return (
-    <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
+    <div className="card overflow-hidden">
       <button
         onClick={() => setOpen((p) => !p)}
-        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors text-left"
+        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-black/5 dark:hover:bg-white/5 transition-colors text-left"
       >
-        <span className="text-base">{typeIcon}</span>
+        <div style={{ width: 28, height: 28, borderRadius: 6, background: "rgba(46,42,107,0.08)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--c-primary)" }}>
+          <RoomIcon size={15} strokeWidth={2} />
+        </div>
         <div style={{ width: 140, minWidth: 140 }}>
           <p className="text-sm font-medium text-gray-200 truncate">{room.room_name}</p>
           <p className="text-xs text-gray-500">{room.room_code} · {room.room_type}</p>
@@ -333,14 +339,18 @@ function RoomsPanel({ data, loading }) {
     <div>
       <div className="grid grid-cols-3 gap-3 mb-5">
         {[
-          { label: "Rooms in Use", val: data.rooms.length, icon: "🏠" },
-          { label: "Avg. Utilisation", val: `${avgUtil}%`, icon: "📊" },
-          { label: "Total Capacity", val: `${data.total_slot_capacity} slots`, icon: "📅" },
+          { label: "Rooms in use", val: data.rooms.length, Icon: DoorOpen, color: "var(--c-primary)", bg: "rgba(46,42,107,0.08)" },
+          { label: "Average utilisation", val: `${avgUtil}%`, Icon: BarChart2, color: "#2e7d32", bg: "rgba(46,125,50,0.08)" },
+          { label: "Total capacity", val: `${data.total_slot_capacity} slots`, Icon: Calendar, color: "var(--c-primary)", bg: "rgba(46,42,107,0.08)" },
         ].map((s) => (
-          <div key={s.label} className="glass-card px-4 py-3 flex flex-col gap-1">
-            <span className="text-lg">{s.icon}</span>
-            <p className="text-lg font-bold text-white tabular-nums">{s.val}</p>
-            <p className="text-xs text-gray-500">{s.label}</p>
+          <div key={s.label} className="card p-4 flex flex-col gap-1">
+            <div className="flex items-center justify-between">
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: s.color }}>
+                <s.Icon size={16} strokeWidth={2} />
+              </div>
+              <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--c-muted)' }}>{s.label}</span>
+            </div>
+            <p style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--c-body)', marginTop: 4 }} className="tabular-nums">{s.val}</p>
           </div>
         ))}
       </div>
@@ -466,14 +476,18 @@ function CommutePanel({ data, loading }) {
     <div>
       <div className="grid grid-cols-3 gap-3 mb-5">
         {[
-          { label: "Total Weekly Walk", val: `${totalKm} km`, icon: "🚶" },
-          { label: "Teachers w/ Gaps",  val: gapTeachers, icon: "⚠️" },
-          { label: "Teachers Ranked",   val: data.teachers.length, icon: "🏅" },
+          { label: "Total weekly walk", val: `${totalKm} km`, Icon: Footprints, color: "var(--c-primary)", bg: "rgba(46,42,107,0.08)" },
+          { label: "Teachers with gaps", val: gapTeachers, Icon: AlertTriangle, color: gapTeachers > 0 ? "#c62828" : "#2e7d32", bg: gapTeachers > 0 ? "rgba(198,40,40,0.08)" : "rgba(46,125,50,0.08)" },
+          { label: "Teachers ranked", val: data.teachers.length, Icon: Award, color: "var(--c-primary)", bg: "rgba(46,42,107,0.08)" },
         ].map((s) => (
-          <div key={s.label} className="glass-card px-4 py-3 flex flex-col gap-1">
-            <span className="text-lg">{s.icon}</span>
-            <p className="text-lg font-bold text-white tabular-nums">{s.val}</p>
-            <p className="text-xs text-gray-500">{s.label}</p>
+          <div key={s.label} className="card p-4 flex flex-col gap-1">
+            <div className="flex items-center justify-between">
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: s.color }}>
+                <s.Icon size={16} strokeWidth={2} />
+              </div>
+              <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--c-muted)' }}>{s.label}</span>
+            </div>
+            <p style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--c-body)', marginTop: 4 }} className="tabular-nums">{s.val}</p>
           </div>
         ))}
       </div>

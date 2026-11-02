@@ -578,7 +578,7 @@ function BgImagePanel({ bgImage, bgOpacity, setBgOpacity, bgMode, calibPins, cal
               {/* Step 1 */}
               <div className="fgp-calib-step">
                 <div className={`fgp-calib-step-num ${stepState(1)}`}>
-                  {calibPins.length >= 1 ? '✓' : '1'}
+                  {calibPins.length >= 1 ? <Check size={11} strokeWidth={2.5} /> : '1'}
                 </div>
                 <span>
                   {calibPins.length >= 1
@@ -592,7 +592,7 @@ function BgImagePanel({ bgImage, bgOpacity, setBgOpacity, bgMode, calibPins, cal
               {/* Step 2 */}
               <div className="fgp-calib-step">
                 <div className={`fgp-calib-step-num ${stepState(2)}`}>
-                  {calibPins.length >= 2 ? '✓' : '2'}
+                  {calibPins.length >= 2 ? <Check size={11} strokeWidth={2.5} /> : '2'}
                 </div>
                 <span>
                   {calibPins.length >= 2
@@ -606,7 +606,7 @@ function BgImagePanel({ bgImage, bgOpacity, setBgOpacity, bgMode, calibPins, cal
               {/* Step 3 — distance input */}
               <div className="fgp-calib-step">
                 <div className={`fgp-calib-step-num ${stepState(3)}`}>
-                  {calibResult ? '✓' : '3'}
+                  {calibResult ? <Check size={11} strokeWidth={2.5} /> : '3'}
                 </div>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                   <span>Enter real-world distance A → B</span>
@@ -839,7 +839,7 @@ function BlobLinkPanel({ blobs, onLink, onUnlink, onDismiss, activeBlobId, onSel
     const isCurrentLink   = found && found.blobId === activeBlob?.blobId
 
     let label = isRoomBlob ? `${name} (${code})` : `${name}${deptInfo}`
-    if (isCurrentLink) label += ' ✓ [Linked to this blob]'
+    if (isCurrentLink) label += ' [Linked to this blob]'
     else if (isLinkedToOther) label += ' — [Linked to another blob]'
 
     return { id, name, code, label, isLinkedToOther, isCurrentLink }
@@ -1954,8 +1954,8 @@ export default function FloorGridPainter({ floor, onSaved }) {
               <Loader2 size={11} className="animate-spin" /> Auto-saving…
             </span>
           )}
-          {saveStatus === 'saved' && <span className="ml-auto text-green-400">✓ Saved</span>}
-          {saveStatus === 'error' && <span className="ml-auto text-red-400">✗ Save failed</span>}
+          {saveStatus === 'saved' && <span className="ml-auto text-green-400">Saved</span>}
+          {saveStatus === 'error' && <span className="ml-auto text-red-400">Save failed</span>}
         </div>
       </div>
 

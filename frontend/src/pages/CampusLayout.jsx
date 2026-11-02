@@ -167,7 +167,7 @@ function FloorDistancesTab({ floor }) {
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Toolbar */}
-      <div className="flex items-center gap-3 px-5 py-2.5 border-b border-white/5 bg-gray-900/40 flex-shrink-0 flex-wrap">
+      <div className="flex items-center gap-3 px-5 py-2.5 border-b flex-shrink-0 flex-wrap" style={{ background: "var(--c-surface)", borderColor: "var(--c-border)" }}>
         {/* Stats chips */}
         <span className="text-[11px] text-gray-500">
           <span className="text-gray-300 font-semibold">{roomIds.length}</span> rooms
@@ -185,7 +185,7 @@ function FloorDistancesTab({ floor }) {
           <input
             type="number" min="0" value={filterMin}
             onChange={e => setFilterMin(e.target.value)}
-            className="w-14 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-gray-300 text-xs focus:outline-none focus:border-indigo-500/50"
+            className="w-14 px-2 py-0.5 rounded-md text-xs form-input"
             placeholder="0"
           />
         </label>
@@ -194,7 +194,7 @@ function FloorDistancesTab({ floor }) {
           <input
             type="number" min="0" value={filterMax}
             onChange={e => setFilterMax(e.target.value)}
-            className="w-14 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-gray-300 text-xs focus:outline-none focus:border-indigo-500/50"
+            className="w-14 px-2 py-0.5 rounded-md text-xs form-input"
             placeholder="∞"
           />
         </label>
@@ -202,17 +202,17 @@ function FloorDistancesTab({ floor }) {
         {/* Sort */}
         <button
           onClick={() => setSortKey(k => k === 'asc' ? 'desc' : 'asc')}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] text-gray-400 hover:text-gray-200 border border-white/10 hover:bg-white/5 transition-colors"
+          className="btn btn-secondary btn-sm" style={{ fontSize: "0.6875rem", padding: "4px 8px" }}
         >
           {sortKey === 'asc' ? '↑ Nearest first' : '↓ Farthest first'}
         </button>
 
         {/* View toggle */}
-        <div className="flex rounded-lg border border-white/10 overflow-hidden">
+        <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid var(--c-border)" }}>
           <button
             onClick={() => setView('list')}
             className={`px-2.5 py-1 text-[11px] transition-colors ${
-              view === 'list' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+              view === 'list' ? 'btn-primary' : 'btn-secondary'
             }`}
           >
             List
@@ -220,7 +220,7 @@ function FloorDistancesTab({ floor }) {
           <button
             onClick={() => setView('matrix')}
             className={`px-2.5 py-1 text-[11px] transition-colors ${
-              view === 'matrix' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+              view === 'matrix' ? 'btn-primary' : 'btn-secondary'
             }`}
           >
             Matrix
@@ -298,7 +298,7 @@ function FloorDistancesTab({ floor }) {
             <table className="text-[10px] border-collapse">
               <thead>
                 <tr>
-                  <th className="sticky left-0 z-10 bg-gray-900 w-24 min-w-[6rem]" />
+                  <th className="sticky left-0 z-10 w-24 min-w-[6rem]" style={{ background: "var(--c-surface)" }} />
                   {roomIds.map(id => (
                     <th
                       key={id}
@@ -315,7 +315,7 @@ function FloorDistancesTab({ floor }) {
                 {roomIds.map(fromId => (
                   <tr key={fromId}>
                     <td
-                      className="sticky left-0 z-10 bg-gray-900 font-semibold text-gray-300 pr-3 py-1 whitespace-nowrap"
+                      className="sticky left-0 z-10 font-semibold pr-3 py-1 whitespace-nowrap" style={{ background: "var(--c-surface)", color: "var(--c-body)" }}
                       title={fromId}
                     >
                       {nameMap[fromId] || short(fromId)}
@@ -338,7 +338,7 @@ function FloorDistancesTab({ floor }) {
                               className="w-10 h-7 rounded flex items-center justify-center text-gray-700"
                               title="Unreachable"
                             >
-                              ✕
+                              —
                             </div>
                           </td>
                         )
@@ -382,7 +382,7 @@ function FloorDistancesTab({ floor }) {
                   {label}
                 </span>
               ))}
-              <span className="ml-2">✕ = no walkable path</span>
+              <span className="ml-2">— = no walkable path</span>
               <span>— = same room</span>
             </div>
           </div>
@@ -415,13 +415,10 @@ function InlineModal({ title, label, initial = '', onConfirm, onClose }) {
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="glass-card p-5 w-80 shadow-2xl animate-fade-in">
+    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal-panel max-w-sm w-full p-5 shadow-2xl animate-fade-in">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-gray-200">{title}</h3>
+          <h3 className="modal-title" style={{ fontSize: "0.9375rem" }}>{title}</h3>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-200 p-1 rounded-lg hover:bg-white/10">
             <X size={14} />
           </button>
@@ -452,14 +449,14 @@ function InlineModal({ title, label, initial = '', onConfirm, onClose }) {
           <div className="flex gap-2 pt-1">
             <button
               type="submit"
-              className="flex-1 py-2 rounded-xl text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
+              className="btn btn-primary flex-1 py-2"
             >
               Confirm
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2 rounded-xl text-sm text-gray-400 hover:text-gray-200 border border-white/10 hover:bg-white/5 transition-colors"
+              className="btn btn-secondary flex-1 py-2"
             >
               Cancel
             </button>
@@ -487,13 +484,10 @@ function FloorModal({ title, initial, onConfirm, onClose }) {
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="glass-card p-5 w-96 shadow-2xl animate-fade-in">
+    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal-panel max-w-md w-full p-5 shadow-2xl animate-fade-in">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-gray-200">{title}</h3>
+          <h3 className="modal-title" style={{ fontSize: "0.9375rem" }}>{title}</h3>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-200 p-1 rounded-lg hover:bg-white/10">
             <X size={14} />
           </button>
@@ -522,10 +516,10 @@ function FloorModal({ title, initial, onConfirm, onClose }) {
             <input type="number" min="0.1" max="100" step="0.1" className="form-input" value={scale} onChange={e => setScale(e.target.value)} />
           </div>
           <div className="flex gap-2 pt-1">
-            <button type="submit" className="flex-1 py-2 rounded-xl text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors">
+            <button type="submit" className="btn btn-primary flex-1 py-2">
               Confirm
             </button>
-            <button type="button" onClick={onClose} className="flex-1 py-2 rounded-xl text-sm text-gray-400 hover:text-gray-200 border border-white/10 hover:bg-white/5 transition-colors">
+            <button type="button" onClick={onClose} className="btn btn-secondary flex-1 py-2">
               Cancel
             </button>
           </div>
@@ -738,9 +732,9 @@ function EntrancePairsPanel({ campusId, buildings, onClose }) {
                   <div key={idx} className="p-2.5 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between gap-2 text-xs">
                     <div className="space-y-0.5 min-w-0 flex-1">
                       <div className="flex items-center gap-1 text-amber-300 font-semibold truncate">
-                        <span>🚪 {p.gate_a_label || 'Gate A'}</span>
+                        <span>{p.gate_a_label || 'Gate A'}</span>
                         <span className="text-gray-500 text-[10px]">↔</span>
-                        <span>🚪 {p.gate_b_label || 'Gate B'}</span>
+                        <span>{p.gate_b_label || 'Gate B'}</span>
                       </div>
                       <div className="text-[10px] text-gray-400 truncate">
                         {p.floor_a_id.slice(0, 8)}… ↔ {p.floor_b_id.slice(0, 8)}…
@@ -911,7 +905,7 @@ function RoomDistanceCalculatorPanel({ campusId, onClose }) {
                 {Object.entries(roomGroups).map(([bname, bRooms]) => (
                   <optgroup key={bname} label={bname} className="bg-[#1e2030] text-gray-300 font-semibold">
                     {bRooms.map(r => (
-                      <option key={r.id} value={r.id} className="bg-[#1e2030] text-gray-200">
+                      <option key={r.id} value={r.id} style={{ background: "var(--c-surface)", color: "var(--c-body)" }}>
                         [{r.floor_name || 'Floor'}] {r.name} {r.code ? `(${r.code})` : ''} — {r.type}
                       </option>
                     ))}
@@ -922,10 +916,10 @@ function RoomDistanceCalculatorPanel({ campusId, onClose }) {
               {fromRoom && (
                 <div className="flex items-center gap-2 pt-0.5 text-[10px] text-gray-500">
                   <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 font-medium text-gray-300">
-                    🏢 {fromRoom.building_name}
+                    {fromRoom.building_name}
                   </span>
                   <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 font-medium text-gray-300">
-                    🥞 {fromRoom.floor_name}
+                    {fromRoom.floor_name}
                   </span>
                 </div>
               )}
@@ -956,7 +950,7 @@ function RoomDistanceCalculatorPanel({ campusId, onClose }) {
                 {Object.entries(roomGroups).map(([bname, bRooms]) => (
                   <optgroup key={bname} label={bname} className="bg-[#1e2030] text-gray-300 font-semibold">
                     {bRooms.map(r => (
-                      <option key={r.id} value={r.id} className="bg-[#1e2030] text-gray-200">
+                      <option key={r.id} value={r.id} style={{ background: "var(--c-surface)", color: "var(--c-body)" }}>
                         [{r.floor_name || 'Floor'}] {r.name} {r.code ? `(${r.code})` : ''} — {r.type}
                       </option>
                     ))}
@@ -967,10 +961,10 @@ function RoomDistanceCalculatorPanel({ campusId, onClose }) {
               {toRoom && (
                 <div className="flex items-center gap-2 pt-0.5 text-[10px] text-gray-500">
                   <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 font-medium text-gray-300">
-                    🏢 {toRoom.building_name}
+                    {toRoom.building_name}
                   </span>
                   <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 font-medium text-gray-300">
-                    🥞 {toRoom.floor_name}
+                    {toRoom.floor_name}
                   </span>
                 </div>
               )}
@@ -1005,10 +999,10 @@ function RoomDistanceCalculatorPanel({ campusId, onClose }) {
                       {!result.reachable
                         ? 'Unreachable'
                         : result.route_type === 'same_floor'
-                          ? '🟢 Same Floor'
+                          ? 'Same floor'
                           : result.route_type === 'cross_floor'
-                            ? '🔵 Cross-Floor'
-                            : '🟣 Cross-Building'}
+                            ? 'Cross-floor'
+                            : 'Cross-building'}
                     </span>
 
                     {result.reachable && (
@@ -1046,14 +1040,14 @@ function RoomDistanceCalculatorPanel({ campusId, onClose }) {
                         {result.route_type === 'cross_building' && (
                           <div className="space-y-1">
                             <div>
-                              🚪 <span className="font-semibold text-amber-300">{result.gate_a_label || 'Exit Gate'}</span>
+                              <span className="font-semibold text-amber-300">{result.gate_a_label || 'Exit Gate'}</span>
                               <span className="text-[9px] text-gray-500 font-mono ml-1">({fromRoom.building_name})</span>
                             </div>
                             <div className="text-[10px] text-indigo-300 font-mono pl-3">
                               ↕ Outdoor walking route
                             </div>
                             <div>
-                              🚪 <span className="font-semibold text-amber-300">{result.gate_b_label || 'Entry Gate'}</span>
+                              <span className="font-semibold text-amber-300">{result.gate_b_label || 'Entry Gate'}</span>
                               <span className="text-[9px] text-gray-500 font-mono ml-1">({toRoom.building_name})</span>
                             </div>
                           </div>
@@ -1322,7 +1316,7 @@ function TeacherCommutePanel({
                                       } ${isHopHovered || isHopSelected ? 'scale-110 shadow-violet-500/50' : ''}`}
                                       title={hop.reachable ? `Hop #${hopIdx + 1}: ${hop.distance_m}m (${hop.distance_cells} cells · ${hop.route_type || 'walking'})` : 'No path found'}
                                     >
-                                      {hop.reachable ? `${hop.distance_m}m` : '✕'}
+                                      {hop.reachable ? `${hop.distance_m}m` : '—'}
                                     </div>
                                     <div className="w-0.5 h-2 bg-white/10" />
                                   </div>
@@ -1357,15 +1351,15 @@ function TeacherCommutePanel({
                                     <div className="flex items-center gap-1.5 flex-wrap">
                                       {isFirst ? (
                                         <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-violet-600/30 text-violet-200 border border-violet-500/40">
-                                          🏠 Start · Staffroom
+                                          Start · Staffroom
                                         </span>
                                       ) : isLast ? (
                                         <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-violet-600/30 text-violet-200 border border-violet-500/40">
-                                          🏠 Return · Staffroom
+                                          Return · Staffroom
                                         </span>
                                       ) : (wp.is_staffroom && wp.is_break) ? (
                                         <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-200 border border-amber-500/40 shadow-sm flex items-center gap-1">
-                                          ☕ Staffroom Break ({wp.gap_periods} free period{wp.gap_periods > 1 ? 's' : ''})
+                                          Staffroom Break ({wp.gap_periods} free period{wp.gap_periods > 1 ? 's' : ''})
                                         </span>
                                       ) : wp.period_index != null && (
                                         <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-white/10 text-gray-300 border border-white/10 font-mono">
@@ -1667,9 +1661,9 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
                   value={commuteTeacherId}
                   onChange={e => setCommuteTeacherId(e.target.value)}
                 >
-                  <option value="" className="bg-gray-900 text-gray-300">— Select Teacher —</option>
+                  <option value="" style={{ background: "var(--c-surface)", color: "var(--c-body)" }}>— Select Teacher —</option>
                   {teachers.map(t => (
-                    <option key={t.id} value={t.id} className="bg-gray-900 text-gray-200">{t.name}</option>
+                    <option key={t.id} value={t.id} style={{ background: "var(--c-surface)", color: "var(--c-body)" }}>{t.name}</option>
                   ))}
                 </select>
               </div>
@@ -1919,7 +1913,7 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
                         title={`Hop #${i + 1}: ${hop.from_room_name} → ${hop.to_room_name} (${hop.is_break_return ? 'Break Return · ' : hop.is_break_departure ? 'Break Departure · ' : ''}${hop.reachable ? `${hop.distance_m}m · ${hop.distance_cells} cells` : 'Unreachable'})`}
                       >
                         <span className="text-[9px] opacity-80 font-sans font-bold">#{i + 1}</span>
-                        <span>{hop.reachable ? `${hop.distance_m}m` : '✕'}</span>
+                        <span>{hop.reachable ? `${hop.distance_m}m` : '—'}</span>
                       </div>
                     </foreignObject>
                   </g>
@@ -1967,7 +1961,7 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
                   <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex items-center gap-1 pointer-events-none z-30 whitespace-nowrap">
                     {bMeta.hasStaffroom && (
                       <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-violet-600 text-white shadow-md flex items-center gap-1 border border-violet-400/50">
-                        🏠 Staffroom
+                        Staffroom
                       </span>
                     )}
                     {bMeta.periods.length > 0 && (
@@ -2091,7 +2085,7 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
                   <div className="flex items-center justify-between text-amber-300 pt-1 border-t border-white/5">
                     <span className="text-gray-500 text-[10px]">Activity:</span>
                     <span className="font-semibold text-[11px] text-amber-300">
-                      ☕ Return to Staffroom for Break ({activeHop.gap_periods} free period{activeHop.gap_periods > 1 ? 's' : ''})
+                      Return to Staffroom for Break ({activeHop.gap_periods} free period{activeHop.gap_periods > 1 ? 's' : ''})
                     </span>
                   </div>
                 )}
@@ -2616,7 +2610,7 @@ export default function CampusLayout() {
           {/* Floor header with tab bar */}
           <div className="flex flex-col flex-shrink-0">
             {/* Top bar — navigation + floor info + actions */}
-            <div className="flex items-center gap-3 px-5 py-3 border-b border-white/10 bg-gray-900/60">
+            <div className="flex items-center gap-3 px-5 py-3 border-b" style={{ background: "var(--c-surface)", borderColor: "var(--c-border)" }}>
               <button
                 onClick={handleCloseFloor}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-gray-400 hover:text-gray-100 hover:bg-white/10 transition-all border border-white/5"
@@ -2627,7 +2621,7 @@ export default function CampusLayout() {
               <div className="h-4 w-px bg-white/10" />
               <Layers size={15} className="text-indigo-400" />
               <div className="flex-1 min-w-0">
-                <h2 className="text-sm font-semibold text-gray-200 truncate">{activeFloor.name}</h2>
+                <h2 className="text-sm font-bold truncate" style={{ color: "var(--c-body)" }}>{activeFloor.name}</h2>
                 <p className="text-[11px] text-gray-500">
                   {activeFloor.grid_cols} × {activeFloor.grid_rows} cells &nbsp;·&nbsp;
                   1 cell = {activeFloor.cell_size_m}m &nbsp;·&nbsp;
@@ -2719,9 +2713,9 @@ export default function CampusLayout() {
       {/* ══════════════════════════════════════════════════════════════
           LEFT PANEL — Navigation tree
          ══════════════════════════════════════════════════════════════ */}
-      <div className="campus-tree bg-gray-900/50">
+      <div className="campus-tree">
         {/* Tree header */}
-        <div className="flex items-center justify-between px-3 py-2.5 border-b border-white/10 flex-shrink-0">
+        <div className="flex items-center justify-between px-3 py-2.5 border-b flex-shrink-0" style={{ borderColor: "var(--c-border)" }}>
           <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-600 flex items-center gap-1.5">
             <School size={10} /> Campus Layout
           </span>
@@ -2775,7 +2769,7 @@ export default function CampusLayout() {
                     {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                   </span>
                   <School size={13} className="shrink-0 text-indigo-400 opacity-80" />
-                  <span className="flex-1 truncate font-medium text-gray-200">{campus.name}</span>
+                  <span className="flex-1 truncate font-semibold" style={{ color: "var(--c-body)" }}>{campus.name}</span>
                   {/* Campus actions */}
                   <span className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
@@ -2924,7 +2918,7 @@ export default function CampusLayout() {
       {/* ══════════════════════════════════════════════════════════════
           RIGHT PANEL — Map or grid painter
          ══════════════════════════════════════════════════════════════ */}
-      <div className="campus-content bg-gray-950">
+      <div className="campus-content">
         {renderRightPanel()}
       </div>
 

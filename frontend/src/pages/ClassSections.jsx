@@ -261,7 +261,7 @@ function SectionForm({ form, errors, onChange, onHomeroomChange, subjects, rooms
               Section code *
               {codeAutoFilled && (
                 <span style={{ fontSize: '0.75rem', fontWeight: 400, color: '#5F5A89' }}>
-                  ✓ auto-filled from room
+                  Auto-filled from room
                 </span>
               )}
             </label>

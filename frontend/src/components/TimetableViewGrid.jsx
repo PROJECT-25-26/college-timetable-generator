@@ -153,7 +153,7 @@ function SwapToast({ message, kind, onDismiss }) {
         className="text-current opacity-60 hover:opacity-100 transition-opacity shrink-0 mt-0.5"
         aria-label="Dismiss"
       >
-        ✕
+        ×
       </button>
     </div>
   )
@@ -282,7 +282,7 @@ export default function TimetableViewGrid({
 
     // Block drag of locked slots
     if (lockedSlotIds.has(srcSlot.id)) {
-      const msg = '🔒 This slot is locked. Unlock it first before swapping.'
+      const msg = 'This slot is locked. Unlock it first before swapping.'
       setNotification({ message: msg, kind: 'error' })
       toast.error(msg, 5000)
       dragSlotRef.current = null
@@ -296,7 +296,7 @@ export default function TimetableViewGrid({
 
     // Block drop onto locked slots
     if (targetSlot && lockedSlotIds.has(targetSlot.id)) {
-      const msg = '🔒 Target slot is locked. Unlock it first before swapping.'
+      const msg = 'Target slot is locked. Unlock it first before swapping.'
       setNotification({ message: msg, kind: 'error' })
       toast.error(msg, 5000)
       dragSlotRef.current = null
