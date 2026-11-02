@@ -1634,11 +1634,17 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
   return (
     <div className="flex flex-col h-full select-none">
       {/* Top Header & Commute Controls */}
-      <div className={`flex items-center justify-between px-5 py-3 border-b flex-shrink-0 transition-colors ${
-        commuteMode
-          ? 'bg-gradient-to-r from-violet-950/40 via-gray-900 to-gray-900 border-violet-500/30'
-          : 'border-white/10'
-      }`}>
+      <div
+        className="flex items-center justify-between px-5 border-b flex-shrink-0 transition-colors"
+        style={{
+          height: 52,
+          minHeight: 52,
+          maxHeight: 52,
+          background: commuteMode ? 'rgba(46,42,107,0.06)' : 'var(--c-surface)',
+          borderColor: 'var(--c-border)',
+          boxSizing: 'border-box',
+        }}
+      >
         {/* Left Title / Commute Quick Controls */}
         <div className="flex items-center gap-3 flex-wrap">
           <div>
@@ -2610,7 +2616,10 @@ export default function CampusLayout() {
           {/* Floor header with tab bar */}
           <div className="flex flex-col flex-shrink-0">
             {/* Top bar — navigation + floor info + actions */}
-            <div className="flex items-center gap-3 px-5 py-3 border-b" style={{ background: "var(--c-surface)", borderColor: "var(--c-border)" }}>
+            <div
+              className="flex items-center gap-3 px-5 border-b"
+              style={{ height: 52, minHeight: 52, maxHeight: 52, background: "var(--c-surface)", borderColor: "var(--c-border)", boxSizing: "border-box" }}
+            >
               <button
                 onClick={handleCloseFloor}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-gray-400 hover:text-gray-100 hover:bg-white/10 transition-all border border-white/5"
@@ -2695,11 +2704,32 @@ export default function CampusLayout() {
 
     // Default welcome screen
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center space-y-3 opacity-50">
-          <GalleryHorizontalEnd size={48} className="mx-auto text-indigo-400" />
-          <p className="text-sm text-gray-300 font-medium">Select a campus or floor from the tree</p>
-          <p className="text-xs text-gray-500">or create a new campus to get started</p>
+      <div className="flex flex-col h-full">
+        <div
+          className="flex items-center px-5 border-b flex-shrink-0"
+          style={{
+            height: 52,
+            minHeight: 52,
+            maxHeight: 52,
+            background: 'var(--c-surface)',
+            borderColor: 'var(--c-border)',
+            boxSizing: 'border-box',
+          }}
+        >
+          <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--c-muted)' }}>
+            Campus Overview
+          </span>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-3 opacity-60">
+            <GalleryHorizontalEnd size={44} style={{ color: 'var(--c-muted)', margin: '0 auto' }} strokeWidth={1.5} />
+            <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--c-body)', margin: 0 }}>
+              Select a campus or floor from the tree
+            </p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--c-muted)', margin: '4px 0 0 0' }}>
+              or click "+ Campus" on the left panel to get started
+            </p>
+          </div>
         </div>
       </div>
     )
@@ -2709,23 +2739,31 @@ export default function CampusLayout() {
   // Main render
   // ===========================================================================
   return (
-    <div className="campus-layout -m-6 overflow-hidden">
+    <div className="campus-layout overflow-hidden">
       {/* ══════════════════════════════════════════════════════════════
           LEFT PANEL — Navigation tree
          ══════════════════════════════════════════════════════════════ */}
       <div className="campus-tree">
         {/* Tree header */}
-        <div className="flex items-center justify-between px-3 py-2.5 border-b flex-shrink-0" style={{ borderColor: "var(--c-border)" }}>
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-600 flex items-center gap-1.5">
-            <School size={10} /> Campus Layout
-          </span>
+        <div
+          className="flex items-center justify-between px-4 border-b flex-shrink-0"
+          style={{ height: 52, minHeight: 52, maxHeight: 52, borderColor: 'var(--c-border)', background: 'var(--c-surface)', boxSizing: 'border-box' }}
+        >
+          <div className="flex items-center gap-2">
+            <School size={16} color="var(--c-primary)" strokeWidth={2} />
+            <span style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--c-body)', letterSpacing: '-0.01em' }}>
+              Campus Tree
+            </span>
+          </div>
           <button
             id="add-campus-btn"
             onClick={() => setModal({ type: 'campus' })}
-            className="w-5 h-5 rounded-md flex items-center justify-center text-gray-500 hover:text-indigo-300 hover:bg-indigo-500/20 transition-all"
+            className="btn btn-secondary btn-sm"
+            style={{ padding: '3px 8px', fontSize: '0.6875rem' }}
             title="New campus"
           >
-            <Plus size={12} />
+            <Plus size={12} strokeWidth={2.5} />
+            Campus
           </button>
         </div>
 

@@ -624,33 +624,61 @@ export default function Generate() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="flex gap-6 h-full animate-fade-in" style={{ maxHeight: 'calc(100vh - 64px - 48px)' }}>
-
-      {/* ── LEFT: Config + History ─────────────────────────────────────── */}
-      <aside className="w-72 shrink-0 flex flex-col gap-4 overflow-hidden pr-1">
-
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
-          <div style={{
-            width: 36,
-            height: 36,
-            borderRadius: 10,
-            background: '#FFB020',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}>
-            <Zap size={18} style={{ color: '#1F1B4D' }} />
-          </div>
-          <div>
-            <h2 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--c-body)', margin: 0 }}>Generate</h2>
-            <p style={{ fontSize: '0.6875rem', color: 'var(--c-muted)', marginTop: 2 }}>CP-SAT constraint solver</p>
+    <div
+      className="page-wrapper animate-fade-in"
+      style={{
+        height: 'calc(100vh - var(--topbar-height))',
+        display: 'flex',
+        flexDirection: 'column',
+        boxSizing: 'border-box',
+        overflow: 'hidden',
+        paddingBottom: 24,
+      }}
+    >
+      {/* ── Page Header ────────────────────────────────────────────── */}
+      <div className="page-header" style={{ marginBottom: 16, flexShrink: 0 }}>
+        <div className="page-header-left">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 'var(--r-btn)',
+                background: '#FFB020',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <Zap size={18} style={{ color: '#1F1B4D' }} strokeWidth={2.5} />
+            </div>
+            <div>
+              <h1 className="page-heading" style={{ margin: 0, fontSize: '1.25rem' }}>
+                Generate timetable
+              </h1>
+              <p className="page-sub" style={{ margin: '2px 0 0 0' }}>
+                CP-SAT constraint solver · Produce collision-free, walking-distance-optimised schedules
+              </p>
+            </div>
           </div>
         </div>
+        {result && (
+          <button
+            onClick={() => setExportModalOpen(true)}
+            className="btn btn-secondary btn-sm"
+          >
+            <Download size={13} strokeWidth={2} /> Export timetable
+          </button>
+        )}
+      </div>
 
-        {/* Config card */}
-        <div className="glass-card p-4 space-y-5 shrink-0 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 64px - 48px - 260px)' }}>
+      {/* ── Main Two-Column Layout (Config Left, Result Right) ───────── */}
+      <div className="flex gap-6 flex-1 min-h-0 items-stretch">
+        {/* ── LEFT: Config + History ─────────────────────────────────────── */}
+        <aside className="w-80 shrink-0 flex flex-col gap-4 overflow-hidden">
+          {/* Config card */}
+          <div className="card p-4 space-y-4 shrink-0 overflow-y-auto" style={{ maxHeight: 'calc(100% - 210px)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: '0.75rem', fontWeight: 600, color: 'var(--c-muted)' }}>
             <Settings size={12} /> Configuration
           </div>
@@ -771,7 +799,7 @@ export default function Generate() {
         </div>
 
         {/* Past runs */}
-        <div className="glass-card p-4 flex-1 min-h-0 flex flex-col overflow-hidden">
+        <div className="card p-4 flex-1 min-h-0 flex flex-col overflow-hidden">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-widest">
               <History size={12} /> Past Runs
@@ -831,7 +859,7 @@ export default function Generate() {
       </aside>
 
       {/* ── RIGHT: Result area ──────────────────────────────────────────── */}
-      <div className="flex-1 glass-card p-5 overflow-y-auto min-w-0">
+      <div className="flex-1 card p-5 overflow-y-auto min-w-0 flex flex-col">
 
         {phase === 'idle' && <IdleState />}
 
@@ -969,6 +997,8 @@ export default function Generate() {
           to   { width: 90% }
         }
       `}</style>
+
+      </div>
 
       {/* Export Modal */}
       <ExportModal
