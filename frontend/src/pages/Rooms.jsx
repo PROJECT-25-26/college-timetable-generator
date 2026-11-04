@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { MapPin, Plus, Upload } from 'lucide-react'
+import { DoorOpen, FlaskConical, LayoutGrid, MapPin, Plus, Presentation, Upload } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { roomsApi } from '../api'
 import { useToast } from '../hooks/useToast'
@@ -180,7 +180,7 @@ const COLUMNS = [
     render: (v, r) => (
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
         <Badge variant={ROOM_TYPE_VARIANT[v] ?? 'default'}>
-          {v.charAt(0).toUpperCase() + v.slice(1)}
+          {typeof v === 'string' && v ? v.charAt(0).toUpperCase() + v.slice(1) : 'Unknown'}
         </Badge>
         {v === 'lab' && r.lab_type && (
           <Badge variant="warning">{r.lab_type}</Badge>
@@ -326,43 +326,38 @@ export default function Rooms() {
         </div>
       </div>
 
-      {/* Quick stats — plain row, not cards */}
+      {/* Quick stats — cards */}
       {rows.length > 0 && (
         <div
           style={{
-            display: 'flex',
-            gap: '24px',
-            flexWrap: 'wrap',
-            padding: '14px 20px',
-            background: '#FFFFFF',
-            border: '1px solid var(--c-border)',
-            borderRadius: '14px',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+            gap: '14px',
             marginBottom: '20px',
-            boxShadow: 'var(--shadow-card)',
           }}
         >
           {[
-            { label: 'Total rooms', val: rows.length },
-            { label: 'Classrooms', val: totalClassrooms },
-            { label: 'Laboratories', val: totalLabs },
-            { label: 'Seminar halls', val: totalSeminarHalls },
-          ].map((s, i) => (
-            <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {i > 0 && <div style={{ width: '1px', height: '24px', background: 'var(--c-border)' }} />}
-              <span style={{
-                fontFamily: 'Space Grotesk, sans-serif',
-                fontSize: '1.25rem',
-                fontWeight: 700,
-                color: '#2E2A6B',
-                letterSpacing: '-0.02em',
-              }}>
-                {s.val}
-              </span>
-              <span style={{ fontSize: '0.875rem', color: 'var(--c-muted)' }}>
-                {s.label}
-              </span>
-            </div>
-          ))}
+            { label: 'Total rooms',   val: rows.length,         icon: LayoutGrid,   color: '#2E2A6B' },
+            { label: 'Classrooms',    val: totalClassrooms,     icon: DoorOpen,     color: '#2E2A6B' },
+            { label: 'Laboratories',  val: totalLabs,           icon: FlaskConical, color: '#FFB020' },
+            { label: 'Seminar halls', val: totalSeminarHalls,   icon: Presentation, color: '#8F8CD6' },
+          ].map((s) => {
+            const Icon = s.icon
+            return (
+              <div key={s.label} className="stat-card">
+                <div
+                  className="stat-card-icon"
+                  style={{ background: `${s.color}14` }}
+                >
+                  <Icon size={18} strokeWidth={1.75} style={{ color: s.color }} aria-hidden="true" />
+                </div>
+                <div>
+                  <p className="stat-card-value" style={{ fontSize: '1.5rem' }}>{s.val}</p>
+                  <p className="stat-card-label">{s.label}</p>
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
 
@@ -402,7 +397,10 @@ export default function Rooms() {
       <CsvImportModal
         open={csvOpen}
         onClose={() => setCsvOpen(false)}
-        onSuccess={() => load()}
+        onSuccess={() => {
+          setCsvOpen(false)
+          load()
+        }}
         importFn={roomsApi.importCsv}
         title="Import rooms"
         hint={ROOM_CSV_HINT}

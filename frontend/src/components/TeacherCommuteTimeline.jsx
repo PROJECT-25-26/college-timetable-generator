@@ -14,12 +14,10 @@
  */
 
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
   Route,
   Footprints,
   Navigation,
-  MapPin,
   Building2,
   Layers,
   ArrowUpDown,
@@ -32,9 +30,6 @@ import {
   Activity,
   CheckCircle2,
   AlertTriangle,
-  Users,
-  Printer,
-  ExternalLink,
   Coffee,
   RefreshCw,
   Info,
@@ -50,21 +45,17 @@ const DAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 export default function TeacherCommuteTimeline({
   teacher,
-  teachersList = [],
-  onSelectTeacher,
   timetableId: initialTimetableId,
-  timetablesList = [],
 }) {
-  const navigate = useNavigate()
-
   // Campus state
   const [campuses, setCampuses] = useState([])
   const [selectedCampusId, setSelectedCampusId] = useState('')
   const [loadingCampuses, setLoadingCampuses] = useState(true)
 
   // Teacher & Timetable selection
-  const [activeTeacherId, setActiveTeacherId] = useState(teacher?.id || '')
   const [activeTimetableId, setActiveTimetableId] = useState(initialTimetableId || '')
+  const activeTeacherId = teacher?.id || ''
+  const effectiveTimetableId = initialTimetableId || activeTimetableId
 
   // Day selection (0 = Monday, ..., 5 = Saturday)
   const defaultDay = useMemo(() => {
@@ -81,18 +72,11 @@ export default function TeacherCommuteTimeline({
   // Interactive hop focus
   const [focusedHopIndex, setFocusedHopIndex] = useState(null)
 
-  // Sync prop changes
   useEffect(() => {
-    if (teacher?.id && teacher.id !== activeTeacherId) {
-      setActiveTeacherId(teacher.id)
-    }
-  }, [teacher?.id])
-
-  useEffect(() => {
-    if (initialTimetableId && !activeTimetableId) {
+    if (initialTimetableId && initialTimetableId !== activeTimetableId) {
       setActiveTimetableId(initialTimetableId)
     }
-  }, [initialTimetableId])
+  }, [initialTimetableId, activeTimetableId])
 
   // Load campuses on mount
   useEffect(() => {
@@ -116,30 +100,35 @@ export default function TeacherCommuteTimeline({
     return () => { isMounted = false }
   }, [])
 
-  // If no timetableId provided, find the latest successful run
+  // If the dashboard has no timetable, find the latest successful run.
   useEffect(() => {
-    if (!activeTimetableId) {
+    if (!initialTimetableId && !activeTimetableId) {
       timetablesApi.list()
         .then(res => {
           const list = Array.isArray(res?.data) ? res.data : []
-          const okRun = list.find(r => r.status === 'ok') || list[0]
+          const okRun = list.find(r => r.status === 'ok')
           if (okRun) {
             setActiveTimetableId(okRun.id)
           }
         })
         .catch(() => {})
     }
-  }, [activeTimetableId])
+  }, [initialTimetableId, activeTimetableId])
 
   // Fetch commute path whenever campus, teacher, timetable, or day changes
   useEffect(() => {
-    if (!selectedCampusId || !activeTeacherId || !activeTimetableId) return
+    if (!selectedCampusId || !activeTeacherId || !effectiveTimetableId) {
+      setCommute(null)
+      setLoading(false)
+      return
+    }
 
     let isMounted = true
     setLoading(true)
     setError(null)
+    setCommute(null)
 
-    campusApi.teacherCommute(selectedCampusId, activeTeacherId, activeTimetableId, selectedDay)
+    campusApi.teacherCommute(selectedCampusId, activeTeacherId, effectiveTimetableId, selectedDay)
       .then(res => {
         if (!isMounted) return
         setCommute(res.data)
@@ -154,7 +143,20 @@ export default function TeacherCommuteTimeline({
       })
 
     return () => { isMounted = false }
-  }, [selectedCampusId, activeTeacherId, activeTimetableId, selectedDay])
+  }, [selectedCampusId, activeTeacherId, effectiveTimetableId, selectedDay])
+
+  // When today is a free day, open on the first teaching day with a commute.
+  useEffect(() => {
+    const summaries = commute?.weekly_summary
+    if (!summaries?.length) return
+    const selectedSummary = summaries.find(day => day.day_of_week === selectedDay)
+    if (selectedSummary?.periods_count > 0) return
+
+    const firstTeachingDay = summaries.find(day => day.periods_count > 0)
+    if (firstTeachingDay && firstTeachingDay.day_of_week !== selectedDay) {
+      setSelectedDay(firstTeachingDay.day_of_week)
+    }
+  }, [commute?.weekly_summary, selectedDay])
 
   // Format walking time estimate (avg 1.2 meters/second indoor walking speed)
   const formatWalkTime = (distM) => {
@@ -217,9 +219,9 @@ export default function TeacherCommuteTimeline({
     }
     if (hop.distance_m === 0) {
       return {
-        badgeBg: 'bg-gray-500/15',
-        badgeBorder: 'border-gray-500/30',
-        badgeText: 'text-gray-400',
+        badgeBg: 'bg-ground0/15',
+        badgeBorder: 'border-primary/15',
+        badgeText: 'text-muted',
         lineColor: '#6b7280',
       }
     }
@@ -258,7 +260,7 @@ export default function TeacherCommuteTimeline({
       case 'cross_building':
         return { label: 'Inter-Building Walk', icon: Building2, color: 'text-violet-400 bg-violet-500/10 border-violet-500/20' }
       default:
-        return { label: 'Direct Walk', icon: Navigation, color: 'text-gray-400 bg-white/5 border-white/10' }
+        return { label: 'Direct Walk', icon: Navigation, color: 'text-muted bg-ground border-primary/12' }
     }
   }
 
@@ -308,14 +310,14 @@ export default function TeacherCommuteTimeline({
   return (
     <section className="glass-card p-6 relative overflow-hidden transition-all print:border-none print:shadow-none print:p-0">
       {/* Background ambient gradient */}
-      <div className="absolute -top-24 -right-24 w-80 h-80 bg-violet-600/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-brand-600/10 rounded-full blur-3xl pointer-events-none" />
+      <div style={{ display: "none" }} />
+      <div style={{ display: "none" }} />
 
       {/* ─── Header & Controls ─── */}
-      <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-5 border-b border-white/10">
+      <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-5 border-b border-primary/12">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-400 shadow-md">
+            <div className="w-8 h-8 rounded-xl bg-secondary/12 border border-secondary/25 flex items-center justify-center text-secondary">
               <Route size={18} />
             </div>
             <div>
@@ -334,41 +336,17 @@ export default function TeacherCommuteTimeline({
 
         {/* Action Controls */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Teacher Selector (if list available) */}
-          {teachersList.length > 1 && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs">
-              <Users size={12} className="text-violet-400 shrink-0" />
-              <select
-                className="bg-transparent text-gray-200 outline-none cursor-pointer text-xs font-medium"
-                value={activeTeacherId}
-                onChange={e => {
-                  setActiveTeacherId(e.target.value)
-                  if (onSelectTeacher) {
-                    const found = teachersList.find(t => t.id === e.target.value)
-                    if (found) onSelectTeacher(found)
-                  }
-                }}
-              >
-                {teachersList.map(t => (
-                  <option key={t.id} value={t.id} className="bg-gray-900 text-gray-200">
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
           {/* Campus Selector */}
           {campuses.length > 1 && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs">
-              <School size={12} className="text-brand-400 shrink-0" />
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-ground border border-primary/12 text-xs">
+              <School size={12} className="text-secondary shrink-0" />
               <select
-                className="bg-transparent text-gray-200 outline-none cursor-pointer text-xs font-medium"
+                className="bg-transparent text-body outline-none cursor-pointer text-xs font-medium min-w-0"
                 value={selectedCampusId}
                 onChange={e => setSelectedCampusId(e.target.value)}
               >
                 {campuses.map(c => (
-                  <option key={c.id} value={c.id} className="bg-gray-900 text-gray-200">
+                  <option key={c.id} value={c.id} className="bg-surface text-body">
                     {c.name}
                   </option>
                 ))}
@@ -376,45 +354,25 @@ export default function TeacherCommuteTimeline({
             </div>
           )}
 
-          {/* View on Campus Map Button */}
-          <button
-            onClick={() => navigate('/campus')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-violet-600/20 text-violet-300 border border-violet-500/30 hover:bg-violet-600/30 hover:text-violet-200 transition-all shadow-sm"
-            title="Open campus layout view to see 2D building overlay"
-          >
-            <MapPin size={12} />
-            <span>Campus Map</span>
-            <ExternalLink size={10} className="opacity-70" />
-          </button>
-
-          {/* Print button */}
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-white/5 text-gray-400 hover:text-gray-200 border border-white/10 hover:border-white/20 transition-all"
-            title="Print daily walking itinerary"
-          >
-            <Printer size={12} />
-            <span className="hidden sm:inline">Print</span>
-          </button>
         </div>
       </div>
 
       {/* ─── Day Section Option (Day Navigation Tabs) ─── */}
       <div className="relative z-10 mb-6">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
-            <Calendar size={12} className="text-violet-400" />
+          <span className="text-[11px] font-bold text-muted uppercase tracking-wider flex items-center gap-1.5">
+            <Calendar size={12} className="text-secondary" />
             Select Teaching Day
           </span>
           {activeDaySummary && (
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-muted">
               {activeDaySummary.periods_count > 0 ? (
                 <>
-                  <strong className="text-violet-300">{activeDaySummary.periods_count}</strong> classes scheduled ·{' '}
-                  <strong className="text-gray-200 font-mono">{activeDaySummary.total_distance_m}m</strong> walk
+                  <strong className="text-primary font-semibold">{activeDaySummary.periods_count}</strong> classes scheduled ·{' '}
+                  <strong className="text-body font-mono">{activeDaySummary.total_distance_m}m</strong> walk
                 </>
               ) : (
-                <span className="text-emerald-400 font-medium">Free day · No scheduled classes</span>
+                <span className="text-emerald-700 font-medium">Free day · No scheduled classes</span>
               )}
             </span>
           )}
@@ -434,18 +392,18 @@ export default function TeacherCommuteTimeline({
                 className={`flex flex-col items-center justify-center py-2.5 px-2 rounded-2xl border transition-all text-center relative overflow-hidden ${
                   isSelected
                     ? 'bg-gradient-to-b from-violet-600 to-violet-800 border-violet-400/60 text-white shadow-lg shadow-violet-600/30 scale-[1.02]'
-                    : 'bg-white/[0.03] border-white/10 hover:border-violet-500/30 hover:bg-white/[0.06] text-gray-400'
+                    : 'bg-white/[0.03] border-primary/12 hover:border-violet-500/30 hover:bg-white/[0.06] text-muted'
                 }`}
               >
-                <span className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-gray-300'}`}>
+                <span className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-body'}`}>
                   {DAY_NAMES[idx]}
                 </span>
                 <span className={`text-[10px] mt-0.5 font-mono ${
                   isSelected
                     ? 'text-violet-200 font-semibold'
                     : hasClasses
-                    ? 'text-gray-400'
-                    : 'text-gray-600'
+                    ? 'text-muted'
+                    : 'text-muted'
                 }`}>
                   {hasClasses ? `${daySummary.total_distance_m}m` : 'Free Day'}
                 </span>
@@ -476,33 +434,33 @@ export default function TeacherCommuteTimeline({
       {commute && !loading && (
         <div className="relative z-10 grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
           {/* Card 1: Today's Walk */}
-          <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 flex items-start gap-3">
+          <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-primary/12 flex items-start gap-3">
             <div className="w-9 h-9 rounded-xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-400 shrink-0">
               <Footprints size={18} />
             </div>
             <div>
-              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block">
+              <span className="text-[10px] font-semibold text-muted uppercase tracking-wider block">
                 {commute.day_name} Walk
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
                 <span className="text-xl font-extrabold text-white font-mono">
                   {commute.total_distance_m}
                 </span>
-                <span className="text-xs text-gray-400 font-medium">meters</span>
+                <span className="text-xs text-muted font-medium">meters</span>
               </div>
-              <span className="text-[10px] text-gray-500 block mt-0.5">
+              <span className="text-[10px] text-muted block mt-0.5">
                 {commute.hops.length} walking hops connecting rooms
               </span>
             </div>
           </div>
 
           {/* Card 2: Estimated Time */}
-          <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 flex items-start gap-3">
+          <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-primary/12 flex items-start gap-3">
             <div className="w-9 h-9 rounded-xl bg-cyan-600/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
               <Timer size={18} />
             </div>
             <div>
-              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block">
+              <span className="text-[10px] font-semibold text-muted uppercase tracking-wider block">
                 Est. Walking Time
               </span>
               <div className="flex items-baseline gap-1 mt-0.5">
@@ -510,19 +468,19 @@ export default function TeacherCommuteTimeline({
                   {formatWalkTime(commute.total_distance_m)}
                 </span>
               </div>
-              <span className="text-[10px] text-gray-500 block mt-0.5">
+              <span className="text-[10px] text-muted block mt-0.5">
                 At standard 1.2 m/s indoor pace
               </span>
             </div>
           </div>
 
           {/* Card 3: Longest Transition */}
-          <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 flex items-start gap-3">
+          <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-primary/12 flex items-start gap-3">
             <div className="w-9 h-9 rounded-xl bg-amber-600/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
               <Activity size={18} />
             </div>
             <div>
-              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block">
+              <span className="text-[10px] font-semibold text-muted uppercase tracking-wider block">
                 Longest Walk Leg
               </span>
               <div className="flex items-baseline gap-1 mt-0.5">
@@ -530,19 +488,19 @@ export default function TeacherCommuteTimeline({
                   {longestHopToday?.distance_m ?? 0}m
                 </span>
               </div>
-              <span className="text-[10px] text-gray-500 block mt-0.5 truncate max-w-[140px]" title={longestHopToday ? `${longestHopToday.from_room_name} → ${longestHopToday.to_room_name}` : 'None'}>
+              <span className="text-[10px] text-muted block mt-0.5 truncate max-w-[140px]" title={longestHopToday ? `${longestHopToday.from_room_name} → ${longestHopToday.to_room_name}` : 'None'}>
                 {longestHopToday ? `${longestHopToday.from_room_name} → ${longestHopToday.to_room_name}` : 'No transitions'}
               </span>
             </div>
           </div>
 
           {/* Card 4: Weekly Total Walk */}
-          <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 flex items-start gap-3">
+          <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-primary/12 flex items-start gap-3">
             <div className="w-9 h-9 rounded-xl bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
               <Compass size={18} />
             </div>
             <div>
-              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block">
+              <span className="text-[10px] font-semibold text-muted uppercase tracking-wider block">
                 Weekly Total
               </span>
               <div className="flex items-baseline gap-1 mt-0.5">
@@ -550,7 +508,7 @@ export default function TeacherCommuteTimeline({
                   {weeklyStats.totalM}m
                 </span>
               </div>
-              <span className="text-[10px] text-gray-500 block mt-0.5">
+              <span className="text-[10px] text-muted block mt-0.5">
                 Across {weeklyStats.totalClasses} periods this week
               </span>
             </div>
@@ -560,10 +518,10 @@ export default function TeacherCommuteTimeline({
 
       {/* ─── Loading / Error States ─── */}
       {loading && (
-        <div className="flex flex-col items-center justify-center py-12 gap-3 text-gray-400">
+        <div className="flex flex-col items-center justify-center py-12 gap-3 text-muted">
           <Loader2 size={24} className="animate-spin text-violet-400" />
           <span className="text-sm font-medium">Computing shortest daily walking commute…</span>
-          <span className="text-xs text-gray-500">Querying Module 7f Dijkstra & inter-building spatial matrices</span>
+          <span className="text-xs text-muted">Querying Module 7f Dijkstra & inter-building spatial matrices</span>
         </div>
       )}
 
@@ -572,14 +530,20 @@ export default function TeacherCommuteTimeline({
           <AlertCircle size={18} className="shrink-0 mt-0.5 text-red-400" />
           <div className="text-xs space-y-1">
             <span className="font-semibold block text-red-200">Could not calculate commute path</span>
-            <p className="text-gray-400">{error}</p>
+            <p className="text-muted">{error}</p>
           </div>
         </div>
       )}
 
       {!loading && !error && !commute && (
-        <div className="text-center py-10 text-gray-500 text-sm">
-          Select a campus and timetable run to inspect the commute path.
+        <div className="text-center py-10 text-muted text-sm">
+          {loadingCampuses
+            ? 'Loading campus information…'
+            : campuses.length === 0
+              ? 'No campus is configured yet, so the commute path cannot be calculated.'
+              : !effectiveTimetableId
+                ? 'No successful timetable is available yet, so the commute path cannot be calculated.'
+                : 'Preparing the commute path…'}
         </div>
       )}
 
@@ -590,20 +554,20 @@ export default function TeacherCommuteTimeline({
           <div className="px-4 py-3 rounded-2xl bg-violet-950/30 border border-violet-500/25 flex flex-wrap items-center justify-between gap-3 shadow-inner">
             <div className="flex items-center gap-2.5">
               <span className="w-2.5 h-2.5 rounded-full bg-violet-400 shadow-[0_0_8px_#a855f7]" />
-              <span className="text-xs font-semibold text-gray-300">
+              <span className="text-xs font-semibold text-body">
                 Department Base:
               </span>
               <span className="text-xs font-bold text-violet-200">
                 {commute.staffroom_name || 'Staffroom'}
               </span>
               {commute.staffroom_building_name && (
-                <span className="text-[11px] text-gray-400 flex items-center gap-1 font-mono">
-                  <Building2 size={11} className="text-violet-400" />
+                <span className="text-[11px] text-muted flex items-center gap-1 font-mono">
+                  <Building2 size={11} className="text-secondary" />
                   {commute.staffroom_building_name}
                 </span>
               )}
             </div>
-            <div className="text-[11px] text-gray-400">
+            <div className="text-[11px] text-muted">
               Path status:{' '}
               <span className={`font-semibold ${commute.reachable_hops === commute.total_hops ? 'text-emerald-400' : 'text-amber-400'}`}>
                 {commute.reachable_hops}/{commute.total_hops} legs connected ({commute.total_hops > 0 ? Math.round((commute.reachable_hops / commute.total_hops) * 100) : 100}%)
@@ -613,14 +577,14 @@ export default function TeacherCommuteTimeline({
 
           {/* Empty State: No Classes Today */}
           {commute.hops.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-14 px-4 text-center rounded-2xl bg-white/[0.02] border border-white/5 space-y-3">
+            <div className="flex flex-col items-center justify-center py-14 px-4 text-center rounded-2xl bg-white/[0.02] border border-primary/8 space-y-3">
               <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shadow-md">
                 <Coffee size={26} />
               </div>
-              <h4 className="text-sm font-bold text-gray-200">
+              <h4 className="text-sm font-bold text-body">
                 No Classes Scheduled on {commute.day_name}
               </h4>
-              <p className="text-xs text-gray-500 max-w-sm leading-relaxed">
+              <p className="text-xs text-muted max-w-sm leading-relaxed">
                 You have no scheduled teaching periods on this day. No room-to-room walking commute required!
               </p>
             </div>
@@ -666,7 +630,7 @@ export default function TeacherCommuteTimeline({
                         <div className="flex items-center my-2 ml-4">
                           {/* Vertical connector line */}
                           <div className="flex flex-col items-center w-6">
-                            <div className="w-0.5 h-3 bg-white/10" />
+                            <div className="w-0.5 h-3 bg-secondary/8" />
                             <div
                               className="w-2.5 h-2.5 rounded-full border-2 transition-transform cursor-pointer"
                               style={{
@@ -676,7 +640,7 @@ export default function TeacherCommuteTimeline({
                               }}
                               onClick={() => setFocusedHopIndex(isHopFocused ? null : hopIdx)}
                             />
-                            <div className="w-0.5 h-3 bg-white/10" />
+                            <div className="w-0.5 h-3 bg-secondary/8" />
                           </div>
 
                           {/* Hop distance badge & walk detail */}
@@ -685,30 +649,30 @@ export default function TeacherCommuteTimeline({
                             className={`ml-3.5 flex-1 p-2.5 rounded-xl border transition-all cursor-pointer select-none flex flex-wrap items-center justify-between gap-2 ${
                               hopStyle.badgeBg
                             } ${hopStyle.badgeBorder} ${
-                              isHopFocused ? 'ring-2 ring-violet-500/50 scale-[1.01] shadow-lg' : 'hover:scale-[1.005]'
+                              isHopFocused ? 'ring-2 ring-secondary/40 scale-[1.01] shadow-card' : 'hover:scale-[1.005]'
                             }`}
                           >
                             <div className="flex items-center gap-2 flex-wrap">
                               {/* Leg number pill */}
-                              <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-black/40 text-gray-300 border border-white/10">
+                              <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-ground text-body border border-primary/12">
                                 Leg #{hopIdx + 1}
                               </span>
 
                               {/* Special purpose activity tag */}
                               {hop.is_break_return && (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1 shadow-sm">
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
                                   <Coffee size={10} />
                                   <span>Return to Staffroom for Break</span>
                                 </span>
                               )}
                               {hop.is_break_departure && (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/40 flex items-center gap-1 shadow-sm">
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-secondary/10 text-primary border border-secondary/25 flex items-center gap-1">
                                   <School size={10} />
                                   <span>Walk from Staffroom to Class</span>
                                 </span>
                               )}
                               {hop.is_return_to_staffroom && !hop.is_break_return && (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/40 flex items-center gap-1 shadow-sm">
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-secondary/10 text-primary border border-secondary/25 flex items-center gap-1">
                                   <DoorOpen size={10} />
                                   <span>End of Day Return to Staffroom</span>
                                 </span>
@@ -720,7 +684,7 @@ export default function TeacherCommuteTimeline({
                                   {hop.reachable ? `${hop.distance_m}m` : 'Unreachable'}
                                 </span>
                                 {hop.reachable && (
-                                  <span className="text-[10px] text-gray-400">
+                                  <span className="text-[10px] text-muted">
                                     ({hop.distance_cells} cells)
                                   </span>
                                 )}
@@ -728,8 +692,8 @@ export default function TeacherCommuteTimeline({
 
                               {/* Walk time */}
                               {hop.reachable && (
-                                <span className="text-[10px] text-gray-400 flex items-center gap-1">
-                                  <Clock size={10} className="text-gray-400" />
+                                <span className="text-[10px] text-muted flex items-center gap-1">
+                                  <Clock size={10} className="text-muted" />
                                   {formatWalkTime(hop.distance_m)}
                                 </span>
                               )}
@@ -753,14 +717,14 @@ export default function TeacherCommuteTimeline({
                           <div
                             className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center shadow-lg transition-transform ${
                               isBreakReturn
-                                ? 'bg-amber-500/20 border-amber-400 text-amber-300 ring-2 ring-amber-500/30'
+                                ? 'bg-amber-50 border-amber-300 text-amber-700 ring-2 ring-amber-200'
                                 : (isFirst || isLast)
-                                ? 'bg-violet-600/30 border-violet-400 text-violet-200 ring-2 ring-violet-500/30'
+                                ? 'bg-secondary/15 border-secondary/40 text-primary ring-2 ring-secondary/20'
                                 : `${rBadge.bg} ${rBadge.border} ${rBadge.text}`
                             }`}
                           >
                             {isBreakReturn ? (
-                              <Coffee size={15} className="text-amber-300" />
+                              <Coffee size={15} className="text-amber-700" />
                             ) : (isFirst || isLast) ? (
                               <DoorOpen size={15} />
                             ) : wp.room_type === 'lab' ? (
@@ -778,7 +742,7 @@ export default function TeacherCommuteTimeline({
                               ? 'bg-gradient-to-r from-amber-950/20 via-amber-900/10 to-transparent border-amber-500/30'
                               : (isFirst || isLast)
                               ? 'bg-gradient-to-r from-violet-900/20 via-violet-950/10 to-transparent border-violet-500/30'
-                              : 'bg-white/[0.03] border-white/10 hover:border-white/20'
+                              : 'bg-white/[0.03] border-primary/12 hover:border-primary/18'
                           }`}
                         >
                           <div className="flex items-start justify-between gap-2 flex-wrap">
@@ -786,20 +750,20 @@ export default function TeacherCommuteTimeline({
                               {/* Header Tags */}
                               <div className="flex items-center gap-1.5 flex-wrap mb-1">
                                 {isFirst ? (
-                                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-violet-600 text-white shadow-sm">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-primary text-white shadow-sm">
                                     Start of Day · Staffroom Departure
                                   </span>
                                 ) : isLast ? (
-                                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-violet-600 text-white shadow-sm">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-primary text-white shadow-sm">
                                     End of Day · Staffroom Return
                                   </span>
                                 ) : isBreakReturn ? (
-                                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-500/30 text-amber-200 border border-amber-500/50 shadow-sm flex items-center gap-1">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-300 flex items-center gap-1">
                                     <Coffee size={10} />
                                     Free Period Break · Staffroom ({wp.gap_periods} free period{wp.gap_periods > 1 ? 's' : ''})
                                   </span>
                                 ) : wp.period_index != null && (
-                                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-brand-600/40 text-brand-200 border border-brand-500/40 font-mono">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-secondary/12 text-primary border border-secondary/25 font-mono">
                                     Period {wp.period_index + 1}
                                   </span>
                                 )}
@@ -807,7 +771,7 @@ export default function TeacherCommuteTimeline({
                                 {/* Room type badge */}
                                 <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border uppercase ${
                                   isBreakReturn
-                                    ? 'bg-amber-500/15 border-amber-500/30 text-amber-300'
+                                    ? 'bg-amber-50 border-amber-200 text-amber-800'
                                     : `${rBadge.bg} ${rBadge.border} ${rBadge.text}`
                                 }`}>
                                   {isBreakReturn ? 'Staffroom Break' : rBadge.label}
@@ -815,21 +779,21 @@ export default function TeacherCommuteTimeline({
                               </div>
 
                               {/* Room Name */}
-                              <h5 className="text-sm font-bold text-gray-100 flex items-center gap-2">
+                              <h5 className="text-sm font-bold text-body flex items-center gap-2">
                                 {wp.room_name}
                               </h5>
 
                               {/* Subject & Section (for periods) */}
                               {wp.subject_name && (
-                                <div className="text-xs text-gray-300 mt-1 flex items-center gap-1.5 flex-wrap">
+                                <div className="text-xs text-body mt-1 flex items-center gap-1.5 flex-wrap">
                                   {wp.subject_code && (
-                                    <span className="font-mono text-violet-300 font-bold bg-violet-500/10 px-1.5 py-0.2 rounded border border-violet-500/20">
+                                    <span className="font-mono text-primary font-bold bg-secondary/10 px-1.5 py-0.5 rounded border border-secondary/20">
                                       {wp.subject_code}
                                     </span>
                                   )}
                                   <span className="font-medium">{wp.subject_name}</span>
                                   {wp.section_name && (
-                                    <span className="text-gray-400">· Section: <strong className="text-gray-200">{wp.section_name}</strong></span>
+                                    <span className="text-muted">· Section: <strong className="text-body">{wp.section_name}</strong></span>
                                   )}
                                 </div>
                               )}
@@ -837,12 +801,12 @@ export default function TeacherCommuteTimeline({
 
                             {/* Spatial Location Breadcrumb */}
                             {(wp.building_name || wp.floor_name) && (
-                              <div className="flex items-center gap-1.5 text-xs text-gray-400 font-mono bg-black/40 px-2.5 py-1 rounded-xl border border-white/10 shrink-0">
-                                <Building2 size={12} className="text-violet-400" />
-                                <span className="text-gray-200 font-semibold">{wp.building_name || 'Campus Building'}</span>
+                              <div className="flex items-center gap-1.5 text-xs text-muted font-mono bg-ground px-2.5 py-1 rounded-xl border border-primary/12 shrink-0">
+                                <Building2 size={12} className="text-secondary" />
+                                <span className="text-body font-semibold">{wp.building_name || 'Campus Building'}</span>
                                 {wp.floor_name && (
                                   <>
-                                    <span className="text-gray-600">›</span>
+                                    <span className="text-muted">›</span>
                                     <span>{wp.floor_name}</span>
                                   </>
                                 )}

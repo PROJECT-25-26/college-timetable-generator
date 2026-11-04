@@ -43,16 +43,16 @@ const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 // 10-colour subject palette
 const PALETTES = [
-  { bg: 'rgba(99,102,241,.18)',  bd: 'rgba(99,102,241,.4)',  tx: '#a5b4fc' },
-  { bg: 'rgba(139,92,246,.18)', bd: 'rgba(139,92,246,.4)',  tx: '#c4b5fd' },
-  { bg: 'rgba(14,165,233,.18)', bd: 'rgba(14,165,233,.4)',  tx: '#7dd3fc' },
-  { bg: 'rgba(16,185,129,.18)', bd: 'rgba(16,185,129,.4)',  tx: '#6ee7b7' },
-  { bg: 'rgba(245,158,11,.18)', bd: 'rgba(245,158,11,.4)',  tx: '#fcd34d' },
-  { bg: 'rgba(239,68,68,.18)',  bd: 'rgba(239,68,68,.4)',   tx: '#fca5a5' },
-  { bg: 'rgba(236,72,153,.18)', bd: 'rgba(236,72,153,.4)',  tx: '#f9a8d4' },
-  { bg: 'rgba(20,184,166,.18)', bd: 'rgba(20,184,166,.4)',  tx: '#5eead4' },
-  { bg: 'rgba(168,85,247,.18)', bd: 'rgba(168,85,247,.4)',  tx: '#d8b4fe' },
-  { bg: 'rgba(251,146,60,.18)', bd: 'rgba(251,146,60,.4)',  tx: '#fdba74' },
+  { bg: '#E8E5FF', bd: '#C9C2FF', tx: '#28245F' },
+  { bg: '#E2ECFF', bd: '#B9CEFF', tx: '#23345F' },
+  { bg: '#F1E7FF', bd: '#D9C3FF', tx: '#39255F' },
+  { bg: '#FCE5E1', bd: '#F5C4BB', tx: '#612B26' },
+  { bg: '#FFF0D2', bd: '#F6D79B', tx: '#5A421B' },
+  { bg: '#E1F3EC', bd: '#B7E2D1', tx: '#214B3C' },
+  { bg: '#FCE5EF', bd: '#F2C0D5', tx: '#5A2940' },
+  { bg: '#E1F3F4', bd: '#B9E0E2', tx: '#21494B' },
+  { bg: '#EDE9FF', bd: '#D0C8F5', tx: '#332B65' },
+  { bg: '#FCEBD9', bd: '#F3D1A7', tx: '#60421F' },
 ]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -138,9 +138,9 @@ function buildGridMaps(activeSlots, subjectMap) {
 
 function SwapToast({ message, kind, onDismiss }) {
   const colours = {
-    error:   'bg-red-500/15 border-red-500/40 text-red-300',
-    warning: 'bg-amber-500/15 border-amber-500/40 text-amber-300',
-    success: 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300',
+    error:   'bg-red-50 border-red-200 text-red-800',
+    warning: 'bg-amber-50 border-amber-200 text-amber-900',
+    success: 'bg-emerald-50 border-emerald-200 text-emerald-800',
   }
   return (
     <div
@@ -176,6 +176,7 @@ export default function TimetableViewGrid({
   teacherPrefsMap   = {},
   onUndo,
   canUndo           = false,
+  activeTabClassName = '',
   // Lock
   lockedSlotIds     = new Set(),
   onToggleLock,
@@ -340,7 +341,7 @@ export default function TimetableViewGrid({
   // ── Render ────────────────────────────────────────────────────────────────
 
   if (tabIds.length === 0) {
-    return <p className="text-sm text-gray-500 text-center py-8">No slots in this timetable.</p>
+    return <p className="text-sm text-muted text-center py-8">No slots in this timetable.</p>
   }
 
   return (
@@ -357,9 +358,9 @@ export default function TimetableViewGrid({
       {/* ── DnD legend & Undo ────────────────────────────────────────────── */}
       {isDnDEnabled && (
         <div className="flex items-center justify-between mb-2 gap-2">
-          <p className="text-[10px] text-gray-600 flex items-center gap-1.5">
+          <p className="text-[10px] text-muted flex items-center gap-1.5">
             <span className="inline-block w-2 h-2 rounded-full bg-brand-500/60" />
-            Drag a period cell to swap it with another. Lab blocks move together. (Press <kbd className="px-1 py-0.5 rounded bg-white/10 text-gray-400 font-mono text-[9px]">Ctrl+Z</kbd> to undo)
+            Drag a period cell to swap it with another. Lab blocks move together. (Press <kbd className="px-1 py-0.5 rounded bg-secondary/8 text-muted font-mono text-[9px]">Ctrl+Z</kbd> to undo)
             {isLockEnabled && (
               <span className="ml-2 flex items-center gap-1">
                 · Click <Lock size={9} className="inline text-amber-400 mx-0.5" /> to lock a slot before regenerating
@@ -370,7 +371,7 @@ export default function TimetableViewGrid({
             <button
               onClick={onUndo}
               disabled={!canUndo}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-white/10 bg-white/5 text-[11px] font-medium text-gray-300 hover:bg-white/10 hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-primary/12 bg-ground text-[11px] font-medium text-body hover:bg-secondary/8 hover:text-primary transition-all disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
               title="Undo last swap (Ctrl+Z)"
             >
               <Undo2 size={11} />
@@ -390,8 +391,8 @@ export default function TimetableViewGrid({
               onClick={() => setActiveId(id)}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
                 active
-                  ? 'bg-brand-600 border-brand-500 text-white shadow-sm shadow-brand-500/30'
-                  : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200'
+                  ? (activeTabClassName || 'bg-primary border-primary text-white shadow-sm')
+                  : 'bg-ground border-primary/12 text-muted hover:bg-secondary/8 hover:text-body'
               }`}
             >
               {tabLabel(id, viewMode, sectionMap, teacherMap, roomMap)}
@@ -401,17 +402,17 @@ export default function TimetableViewGrid({
       </div>
 
       {/* ── Weekly grid ──────────────────────────────────────────────────── */}
-      <div className="overflow-x-auto rounded-xl border border-white/10">
+      <div className="overflow-x-auto rounded-xl border border-primary/12">
         <table className="w-full border-collapse text-xs">
           <thead>
             <tr>
-              <th className="w-14 py-2 px-2 text-left text-gray-500 font-medium bg-white/5 border-b border-r border-white/10">
+              <th className="w-14 py-2 px-2 text-left text-muted font-medium bg-ground border-b border-r border-primary/12">
                 #
               </th>
               {sanitizedWorkingDays.map(d => (
                 <th
                   key={d}
-                  className="py-2 px-2 text-center font-semibold text-gray-300 bg-white/5 border-b border-r border-white/10 last:border-r-0"
+                  className="py-2 px-2 text-center font-semibold text-body bg-ground border-b border-r border-primary/12 last:border-r-0"
                 >
                   {DAY_LABELS[d]}
                 </th>
@@ -420,9 +421,9 @@ export default function TimetableViewGrid({
           </thead>
           <tbody>
             {periods.map(p => (
-              <tr key={p} className={`h-14 ${p % 2 === 0 ? '' : 'bg-white/[0.02]'}`}>
+              <tr key={p} className={`h-14 ${p % 2 === 0 ? '' : 'bg-ground/40'}`}>
                 {/* Period label */}
-                <td className="py-1.5 px-2 text-center text-gray-600 font-mono border-r border-b border-white/10 bg-white/[0.03] h-full">
+                <td className="py-1.5 px-2 text-center text-body font-semibold font-mono border-r border-b border-primary/12 bg-ground h-full">
                   P{p + 1}
                 </td>
 
@@ -448,7 +449,7 @@ export default function TimetableViewGrid({
                     return (
                       <td
                         key={d}
-                        className={`py-1.5 px-1 border-r border-b border-white/10 last:border-r-0 align-top min-w-[90px] h-full transition-all ${emptyCellBorder}`}
+                        className={`py-1.5 px-1 border-r border-b border-primary/12 last:border-r-0 align-top min-w-[90px] h-full transition-all ${emptyCellBorder}`}
                         onDragOver={isDnDEnabled ? e => handleDragOver(e, d, p) : undefined}
                         onDragLeave={isDnDEnabled ? handleDragLeave : undefined}
                         onDrop={isDnDEnabled ? e => handleDrop(e, d, p) : undefined}
@@ -496,7 +497,7 @@ export default function TimetableViewGrid({
                     <td
                       key={d}
                       rowSpan={rowSpan}
-                      className={`py-1 px-1 border-r border-b border-white/10 last:border-r-0 align-top min-w-[90px] h-full transition-all ${cellRing}`}
+                      className={`py-1 px-1 border-r border-b border-primary/12 last:border-r-0 align-top min-w-[90px] h-full transition-all ${cellRing}`}
                       style={{ height: rowSpan > 1 ? `${rowSpan * 56}px` : '100%' }}
                       onDragOver={isDnDEnabled ? e => handleDragOver(e, d, p) : undefined}
                       onDragLeave={isDnDEnabled ? handleDragLeave : undefined}
@@ -539,7 +540,7 @@ export default function TimetableViewGrid({
 
                           {/* Secondary info */}
                           {secondaryLine && (
-                            <p className="text-[10px] text-gray-300 truncate mt-0.5 font-medium">
+                            <p className="text-[10px] text-body truncate mt-0.5 font-medium">
                               {secondaryLine}
                             </p>
                           )}
@@ -547,7 +548,7 @@ export default function TimetableViewGrid({
 
                         {/* Room code at bottom */}
                         {roomLine && (
-                          <p className="text-[9px] text-gray-400 truncate mt-1 border-t border-white/10 pt-0.5">
+                          <p className="text-[9px] text-muted truncate mt-1 border-t border-primary/12 pt-0.5">
                             {roomLine}
                           </p>
                         )}
@@ -564,7 +565,7 @@ export default function TimetableViewGrid({
                             className={`absolute top-1 right-1 p-0.5 rounded transition-all z-10 ${
                               isSlotLocked
                                 ? 'text-amber-400 opacity-100 hover:text-amber-300 bg-amber-400/10'
-                                : 'text-gray-600 opacity-0 group-hover:opacity-100 hover:text-amber-400 hover:bg-amber-400/10'
+                                : 'text-muted opacity-0 group-hover:opacity-100 hover:text-amber-400 hover:bg-amber-400/10'
                             }`}
                           >
                             {isSlotLocked

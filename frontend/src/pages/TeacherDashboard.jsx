@@ -466,6 +466,7 @@ export default function TeacherDashboard() {
                 periodsPerDay={periodsPerDay}
                 viewMode="teacher"
                 filterById={tId}
+                activeTabClassName="bg-ground border-primary/20 text-primary shadow-sm"
               />
             )
           })()
@@ -477,8 +478,6 @@ export default function TeacherDashboard() {
         <div style={{ marginBottom: 24 }}>
           <TeacherCommuteTimeline
             teacher={teacher}
-            teachersList={allTeachers}
-            onSelectTeacher={setTeacher}
             timetableId={timetable?.id}
           />
         </div>

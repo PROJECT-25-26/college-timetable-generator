@@ -60,9 +60,6 @@ export default function Topbar() {
             <span className="hidden sm:inline" style={{ color: 'var(--c-muted)', fontSize: '0.875rem' }}>
               Search…
             </span>
-            <kbd className="topbar-search-kbd hidden sm:inline" aria-hidden="true">
-              Ctrl K
-            </kbd>
           </button>
 
           <div className="topbar-divider hidden sm:block" aria-hidden="true" />

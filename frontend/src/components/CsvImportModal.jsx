@@ -120,25 +120,25 @@ export default function CsvImportModal({
   /* ── Render ───────────────────────────────────────────────────────────── */
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-fade-in"
       onMouseDown={(e) => { if (e.target === e.currentTarget) handleClose() }}
     >
       <div
         className="relative w-full max-w-2xl max-h-[90vh] flex flex-col
-                   bg-gray-900 border border-white/10 rounded-2xl shadow-2xl animate-fade-in overflow-hidden"
+                   bg-surface text-body border border-primary/10 rounded-2xl shadow-modal animate-fade-in overflow-hidden"
         role="dialog"
         aria-modal="true"
         aria-label={title}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-primary/10 shrink-0">
           <div className="flex items-center gap-2.5">
-            <Upload size={16} style={{ color: '#2E2A6B' }} />
+            <Upload size={16} className="text-primary" />
             <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--c-body)', margin: 0 }}>{title}</h2>
           </div>
           <button
             onClick={handleClose}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-white/10 transition-colors"
+            className="p-1.5 rounded-lg text-muted hover:text-body hover:bg-ground transition-colors"
             aria-label="Close"
           >
             <X size={16} />
@@ -167,13 +167,13 @@ export default function CsvImportModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-white/10 shrink-0">
+        <div className="px-6 py-4 border-t border-primary/10 shrink-0">
           {step === STEP_UPLOAD && (
             <div className="flex justify-end gap-3">
               <button
                 type="button"
                 onClick={handleClose}
-                className="px-4 py-2 text-sm font-medium rounded-xl text-gray-300 bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+                className="px-4 py-2 text-sm font-medium rounded-xl text-body bg-surface border border-primary/20 hover:bg-ground transition-colors"
               >
                 Cancel
               </button>
@@ -181,10 +181,10 @@ export default function CsvImportModal({
                 type="button"
                 onClick={handleUpload}
                 disabled={!file || loading}
-                className="px-4 py-2 text-sm font-medium rounded-xl text-white bg-brand-600 hover:bg-brand-500 transition-colors disabled:opacity-40 flex items-center gap-2"
+                className="px-4 py-2 text-sm font-medium rounded-xl text-body bg-accent hover:bg-accent-400 transition-colors disabled:opacity-40 flex items-center gap-2"
               >
                 {loading && (
-                  <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span className="w-3.5 h-3.5 border-2 border-body/30 border-t-body rounded-full animate-spin" />
                 )}
                 {loading ? 'Validating…' : 'Upload & Validate'}
               </button>
@@ -193,14 +193,14 @@ export default function CsvImportModal({
 
           {step === STEP_ERRORS && (
             <div className="flex justify-between items-center">
-              <span className="text-xs text-red-400 font-medium">
+              <span className="text-xs text-red-700 font-medium">
                 {errors.length} error{errors.length !== 1 ? 's' : ''} — no data was saved
               </span>
               <div className="flex gap-3">
                 <button
                   type="button"
                   onClick={retryUpload}
-                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-xl text-gray-300 bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-xl text-body bg-accent hover:bg-accent-400 transition-colors"
                 >
                   <RefreshCw size={13} />
                   Fix &amp; Re-upload
@@ -208,7 +208,7 @@ export default function CsvImportModal({
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="px-4 py-2 text-sm font-medium rounded-xl text-gray-300 bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+                  className="px-4 py-2 text-sm font-medium rounded-xl text-body bg-surface border border-primary/20 hover:bg-ground transition-colors"
                 >
                   Close
                 </button>
@@ -221,7 +221,7 @@ export default function CsvImportModal({
               <button
                 type="button"
                 onClick={handleClose}
-                className="px-5 py-2 text-sm font-medium rounded-xl text-white bg-emerald-600 hover:bg-emerald-500 transition-colors"
+                className="px-5 py-2 text-sm font-medium rounded-xl text-body bg-accent hover:bg-accent-400 transition-colors"
               >
                 Done
               </button>
@@ -243,7 +243,7 @@ function UploadStep({
     <div className="space-y-5">
       {/* Hint / format description */}
       {hint && (
-        <p className="text-sm text-gray-400 leading-relaxed">{hint}</p>
+        <p className="text-sm text-muted leading-relaxed">{hint}</p>
       )}
 
       {/* Drop zone */}
@@ -257,10 +257,10 @@ function UploadStep({
           min-h-[160px] rounded-2xl border-2 border-dashed cursor-pointer
           transition-all duration-200
           ${dragging
-            ? 'border-brand-400 bg-brand-500/10 scale-[1.01]'
+            ? 'border-secondary bg-secondary/10 scale-[1.01]'
             : file
-              ? 'border-emerald-500/50 bg-emerald-500/5'
-              : 'border-white/15 bg-white/3 hover:border-white/30 hover:bg-white/5'
+              ? 'border-emerald-600/50 bg-emerald-50'
+              : 'border-primary/20 bg-ground hover:border-primary/40 hover:bg-secondary/5'
           }
         `}
       >
@@ -274,17 +274,17 @@ function UploadStep({
 
         {file ? (
           <>
-            <FileText size={32} className="text-emerald-400" />
+            <FileText size={32} className="text-emerald-700" />
             <div className="text-center">
-              <p className="text-sm font-medium text-emerald-300">{file.name}</p>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-sm font-medium text-emerald-800">{file.name}</p>
+              <p className="text-xs text-muted mt-0.5">
                 {(file.size / 1024).toFixed(1)} KB · Click to replace
               </p>
             </div>
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onClear() }}
-              className="absolute top-3 right-3 p-1 rounded-lg text-gray-500 hover:text-red-400 hover:bg-white/10 transition-colors"
+              className="absolute top-3 right-3 p-1 rounded-lg text-muted hover:text-red-700 hover:bg-red-50 transition-colors"
               title="Remove file"
             >
               <X size={14} />
@@ -292,12 +292,12 @@ function UploadStep({
           </>
         ) : (
           <>
-            <Upload size={28} className={dragging ? 'text-brand-400' : 'text-gray-600'} />
+            <Upload size={28} className={dragging ? 'text-primary' : 'text-muted'} />
             <div className="text-center">
-              <p className="text-sm font-medium text-gray-300">
+              <p className="text-sm font-medium text-body">
                 {dragging ? 'Drop to upload' : 'Drag & drop a .csv file'}
               </p>
-              <p className="text-xs text-gray-600 mt-0.5">or click to browse</p>
+              <p className="text-xs text-muted mt-0.5">or click to browse</p>
             </div>
           </>
         )}
@@ -305,14 +305,14 @@ function UploadStep({
 
       {/* Template download */}
       {templateRows && (
-        <div className="flex items-center gap-2 p-3 rounded-xl bg-brand-500/5 border border-brand-500/15">
-          <Download size={14} className="text-brand-400 shrink-0" />
-          <p className="text-xs text-gray-400 flex-1">
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-ground border border-primary/10">
+          <Download size={14} className="text-primary shrink-0" />
+          <p className="text-xs text-muted flex-1">
             Not sure of the format?{' '}
             <button
               type="button"
               onClick={onDownloadTemplate}
-              className="text-brand-400 hover:text-brand-300 underline underline-offset-2 font-medium transition-colors"
+              className="text-primary hover:text-primary-700 underline underline-offset-2 font-medium transition-colors"
             >
               Download template CSV
             </button>
@@ -322,9 +322,9 @@ function UploadStep({
       )}
 
       {/* Warning */}
-      <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-500/8 border border-amber-500/15">
-        <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
-        <p className="text-xs text-amber-300/80">
+      <div className="flex items-start gap-2 p-3 rounded-xl bg-accent-50 border border-accent/30">
+        <AlertTriangle size={14} className="text-primary shrink-0 mt-0.5" />
+        <p className="text-xs text-body">
           All rows are validated before any data is saved. If any row has an error,
           you will see a full error report and <strong>nothing will be imported</strong> — no partial saves.
         </p>
@@ -338,11 +338,11 @@ function ErrorStep({ errors }) {
   return (
     <div className="space-y-4">
       {/* Header banner */}
-      <div className="flex items-center gap-3 p-3 rounded-xl bg-red-500/10 border border-red-500/25">
-        <AlertTriangle size={18} className="text-red-400 shrink-0" />
+      <div className="flex items-center gap-3 p-3 rounded-xl bg-red-50 border border-red-200">
+        <AlertTriangle size={18} className="text-red-700 shrink-0" />
         <div>
-          <p className="text-sm font-semibold text-red-300">Validation failed</p>
-          <p className="text-xs text-red-400/80 mt-0.5">
+          <p className="text-sm font-semibold text-red-800">Validation failed</p>
+          <p className="text-xs text-red-700 mt-0.5">
             {errors.length} error{errors.length !== 1 ? 's' : ''} found. Fix your CSV and re-upload.
             No data has been saved.
           </p>
@@ -350,31 +350,31 @@ function ErrorStep({ errors }) {
       </div>
 
       {/* Error table */}
-      <div className="overflow-auto rounded-xl border border-white/10 max-h-[340px]">
+      <div className="overflow-auto rounded-xl border border-primary/10 max-h-[340px]">
         <table className="w-full text-xs border-collapse">
           <thead className="sticky top-0">
-            <tr className="bg-gray-800/90 backdrop-blur-sm border-b border-white/10">
-              <th className="px-3 py-2.5 text-left font-semibold text-gray-400 w-14">Row</th>
-              <th className="px-3 py-2.5 text-left font-semibold text-gray-400 w-36">Field</th>
-              <th className="px-3 py-2.5 text-left font-semibold text-gray-400">Error</th>
+            <tr className="bg-ground border-b border-primary/10">
+              <th className="px-3 py-2.5 text-left font-semibold text-muted w-14">Row</th>
+              <th className="px-3 py-2.5 text-left font-semibold text-muted w-36">Field</th>
+              <th className="px-3 py-2.5 text-left font-semibold text-muted">Error</th>
             </tr>
           </thead>
           <tbody>
             {errors.map((e, i) => (
               <tr
                 key={i}
-                className={`border-b border-white/5 ${i % 2 === 0 ? 'bg-white/2' : 'bg-transparent'}`}
+                className={`border-b border-primary/5 ${i % 2 === 0 ? 'bg-ground/60' : 'bg-surface'}`}
               >
                 <td className="px-3 py-2">
                   <span className="inline-flex items-center justify-center min-w-[1.5rem] px-1.5 py-0.5
-                                   rounded bg-red-500/15 border border-red-500/25 text-red-300 font-mono font-semibold">
+                                   rounded bg-red-50 border border-red-200 text-red-800 font-mono font-semibold">
                     {e.row}
                   </span>
                 </td>
                 <td className="px-3 py-2">
-                  <span className="font-mono text-amber-300/90">{e.field}</span>
+                  <span className="font-mono text-primary">{e.field}</span>
                 </td>
-                <td className="px-3 py-2 text-gray-300">{e.message}</td>
+                <td className="px-3 py-2 text-body">{e.message}</td>
               </tr>
             ))}
           </tbody>
@@ -388,8 +388,8 @@ function ErrorStep({ errors }) {
 function SuccessStep({ result }) {
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-8 text-center">
-      <div className="w-16 h-16 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
-        <CheckCircle2 size={32} className="text-emerald-400" />
+      <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center">
+        <CheckCircle2 size={32} className="text-emerald-700" />
       </div>
       <div>
         <p style={{ fontSize: '1.0625rem', fontWeight: 600, color: 'var(--c-body)' }}>Import successful!</p>

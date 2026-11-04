@@ -51,13 +51,13 @@ import FloorGridPainter from '../components/FloorGridPainter'
 // Floor Distances Tab — full in-page panel
 // ---------------------------------------------------------------------------
 function FloorDistancesTab({ floor }) {
-  const [loading,   setLoading]   = useState(false)
-  const [data,      setData]      = useState(null)
-  const [error,     setError]     = useState(null)
-  const [sortKey,   setSortKey]   = useState('asc')   // 'asc' | 'desc'
+  const [loading, setLoading] = useState(false)
+  const [data, setData] = useState(null)
+  const [error, setError] = useState(null)
+  const [sortKey, setSortKey] = useState('asc')   // 'asc' | 'desc'
   const [filterMin, setFilterMin] = useState('')
   const [filterMax, setFilterMax] = useState('')
-  const [view,      setView]      = useState('list')  // 'list' | 'matrix'
+  const [view, setView] = useState('list')  // 'list' | 'matrix'
 
   const fetchDistances = useCallback(() => {
     setLoading(true)
@@ -71,7 +71,7 @@ function FloorDistancesTab({ floor }) {
 
   // ── Derived data ─────────────────────────────────────────────────────────
   const allDistances = data?.distances ?? []
-  const cellSize     = data?.cell_size_m ?? floor.cell_size_m
+  const cellSize = data?.cell_size_m ?? floor.cell_size_m
 
   // Unique room IDs (for matrix axes)
   const roomIds = useMemo(() => {
@@ -110,9 +110,9 @@ function FloorDistancesTab({ floor }) {
   // Heat-map colour: green → amber → red scaled to maxCells
   const heatColor = (cells) => {
     const pct = cells / maxCells
-    if (pct <= 0.33) return { bg: 'rgba(34,197,94,0.18)', text: '#4ade80', bar: '#22c55e' }
-    if (pct <= 0.66) return { bg: 'rgba(245,158,11,0.18)', text: '#fbbf24', bar: '#f59e0b' }
-    return { bg: 'rgba(239,68,68,0.18)', text: '#f87171', bar: '#ef4444' }
+    if (pct <= 0.33) return { bg: 'rgba(34,197,94,0.12)', text: '#15803d', bar: '#22c55e' }
+    if (pct <= 0.66) return { bg: 'rgba(245,158,11,0.12)', text: '#b45309', bar: '#f59e0b' }
+    return { bg: 'rgba(239,68,68,0.12)', text: '#b91c1c', bar: '#ef4444' }
   }
 
   // Short display name for a UUID
@@ -126,14 +126,14 @@ function FloorDistancesTab({ floor }) {
     const m = {}
     allDistances.forEach(d => {
       if (d.from_room_name) m[d.from_room_id] = d.from_room_name
-      if (d.to_room_name)   m[d.to_room_id]   = d.to_room_name
+      if (d.to_room_name) m[d.to_room_id] = d.to_room_name
     })
     return m
   }, [allDistances])
 
   // ── Empty / error states ────────────────────────────────────────────────
   if (loading) return (
-    <div className="flex items-center justify-center h-full gap-3 text-gray-500">
+    <div className="flex items-center justify-center h-full gap-3 text-muted">
       <Loader2 size={20} className="animate-spin" />
       <span className="text-sm">Computing BFS distances…</span>
     </div>
@@ -149,14 +149,14 @@ function FloorDistancesTab({ floor }) {
 
   if (!allDistances.length) return (
     <div className="flex flex-col items-center justify-center h-full gap-3 opacity-60">
-      <Ruler size={36} className="text-indigo-400" />
-      <p className="text-sm text-gray-400 font-medium">No distances available yet</p>
-      <p className="text-xs text-gray-600 text-center max-w-xs">
+      <Ruler size={36} className="text-secondary opacity-60" />
+      <p className="text-sm text-muted font-medium">No distances available yet</p>
+      <p className="text-xs text-muted text-center max-w-xs">
         Paint a floor grid, then link at least two room blobs to rooms using the Grid Painter tab.
       </p>
       <button
         onClick={fetchDistances}
-        className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/10 transition-colors"
+        className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs btn btn-secondary transition-colors"
       >
         <RefreshCw size={11} /> Refresh
       </button>
@@ -169,18 +169,18 @@ function FloorDistancesTab({ floor }) {
       {/* Toolbar */}
       <div className="flex items-center gap-3 px-5 py-2.5 border-b flex-shrink-0 flex-wrap" style={{ background: "var(--c-surface)", borderColor: "var(--c-border)" }}>
         {/* Stats chips */}
-        <span className="text-[11px] text-gray-500">
-          <span className="text-gray-300 font-semibold">{roomIds.length}</span> rooms
+        <span className="text-[11px] text-muted">
+          <span className="text-body font-semibold">{roomIds.length}</span> rooms
           &nbsp;·&nbsp;
-          <span className="text-gray-300 font-semibold">{filtered.length}</span> pairs shown
+          <span className="text-body font-semibold">{filtered.length}</span> pairs shown
           &nbsp;·&nbsp;
-          1 cell = <span className="text-gray-300 font-semibold">{cellSize}m</span>
+          1 cell = <span className="text-body font-semibold">{cellSize}m</span>
         </span>
 
         <div className="flex-1" />
 
         {/* Min / Max cell filter */}
-        <label className="text-[11px] text-gray-500 flex items-center gap-1">
+        <label className="text-[11px] text-muted flex items-center gap-1">
           Min cells
           <input
             type="number" min="0" value={filterMin}
@@ -189,7 +189,7 @@ function FloorDistancesTab({ floor }) {
             placeholder="0"
           />
         </label>
-        <label className="text-[11px] text-gray-500 flex items-center gap-1">
+        <label className="text-[11px] text-muted flex items-center gap-1">
           Max cells
           <input
             type="number" min="0" value={filterMax}
@@ -211,17 +211,15 @@ function FloorDistancesTab({ floor }) {
         <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid var(--c-border)" }}>
           <button
             onClick={() => setView('list')}
-            className={`px-2.5 py-1 text-[11px] transition-colors ${
-              view === 'list' ? 'btn-primary' : 'btn-secondary'
-            }`}
+            className={`px-2.5 py-1 text-[11px] transition-colors ${view === 'list' ? 'btn-primary' : 'btn-secondary'
+              }`}
           >
             List
           </button>
           <button
             onClick={() => setView('matrix')}
-            className={`px-2.5 py-1 text-[11px] transition-colors ${
-              view === 'matrix' ? 'btn-primary' : 'btn-secondary'
-            }`}
+            className={`px-2.5 py-1 text-[11px] transition-colors ${view === 'matrix' ? 'btn-primary' : 'btn-secondary'
+              }`}
           >
             Matrix
           </button>
@@ -229,7 +227,7 @@ function FloorDistancesTab({ floor }) {
 
         <button
           onClick={fetchDistances}
-          className="p-1.5 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/5 transition-colors"
+          className="p-1.5 rounded-lg text-muted hover:text-body hover:bg-ground transition-colors"
           title="Refresh distances"
         >
           <RefreshCw size={12} />
@@ -243,7 +241,7 @@ function FloorDistancesTab({ floor }) {
         {view === 'list' && (
           <table className="w-full text-xs border-separate" style={{ borderSpacing: '0 3px' }}>
             <thead>
-              <tr className="text-left text-gray-600">
+              <tr className="text-left text-muted">
                 <th className="pb-1 pl-3 font-semibold">#</th>
                 <th className="pb-1 font-semibold">From room</th>
                 <th className="pb-1 font-semibold">To room</th>
@@ -262,23 +260,23 @@ function FloorDistancesTab({ floor }) {
                     style={{ background: c.bg }}
                     className="rounded-lg"
                   >
-                    <td className="py-2 pl-3 rounded-l-lg text-gray-600">{i + 1}</td>
+                    <td className="py-2 pl-3 rounded-l-lg text-muted">{i + 1}</td>
                     <td className="py-2 pr-4">
-                      <span className="font-semibold text-gray-200">{label(d.from_room_id, d.from_room_name)}</span>
-                      <span className="block text-[10px] text-gray-600 font-mono">{d.from_room_id}</span>
+                      <span className="font-semibold text-body">{label(d.from_room_id, d.from_room_name)}</span>
+                      <span className="block text-[10px] text-muted font-mono">{d.from_room_id}</span>
                     </td>
                     <td className="py-2 pr-4">
-                      <span className="font-semibold text-gray-200">{label(d.to_room_id, d.to_room_name)}</span>
-                      <span className="block text-[10px] text-gray-600 font-mono">{d.to_room_id}</span>
+                      <span className="font-semibold text-body">{label(d.to_room_id, d.to_room_name)}</span>
+                      <span className="block text-[10px] text-muted font-mono">{d.to_room_id}</span>
                     </td>
                     <td className="py-2 text-right tabular-nums" style={{ color: c.text }}>
                       {d.distance_cells}
                     </td>
-                    <td className="py-2 pl-3 text-right tabular-nums text-gray-300">
+                    <td className="py-2 pl-3 text-right tabular-nums text-body">
                       {d.distance_m.toFixed(1)}m
                     </td>
                     <td className="py-2 pl-4 pr-3 rounded-r-lg w-32">
-                      <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                      <div className="h-1.5 rounded-full bg-secondary/8 overflow-hidden">
                         <div
                           className="h-full rounded-full"
                           style={{ width: pct + '%', background: c.bar }}
@@ -302,7 +300,7 @@ function FloorDistancesTab({ floor }) {
                   {roomIds.map(id => (
                     <th
                       key={id}
-                      className="px-1 pb-2 font-semibold text-gray-300 text-center whitespace-nowrap"
+                      className="px-1 pb-2 font-semibold text-body text-center whitespace-nowrap"
                       style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', height: '80px' }}
                       title={id}
                     >
@@ -324,7 +322,7 @@ function FloorDistancesTab({ floor }) {
                       if (fromId === toId) {
                         return (
                           <td key={toId} className="text-center py-1 px-1">
-                            <div className="w-10 h-7 rounded flex items-center justify-center bg-white/5 text-gray-700 text-[10px]">
+                            <div className="w-10 h-7 rounded flex items-center justify-center bg-ground text-muted text-[10px]">
                               —
                             </div>
                           </td>
@@ -335,7 +333,7 @@ function FloorDistancesTab({ floor }) {
                         return (
                           <td key={toId} className="text-center py-1 px-1">
                             <div
-                              className="w-10 h-7 rounded flex items-center justify-center text-gray-700"
+                              className="w-10 h-7 rounded flex items-center justify-center text-muted"
                               title="Unreachable"
                             >
                               —
@@ -354,7 +352,7 @@ function FloorDistancesTab({ floor }) {
                             <span style={{ color: c.text }} className="font-semibold leading-none">
                               {entry.distance_cells}
                             </span>
-                            <span className="text-gray-600 leading-none" style={{ fontSize: '8px' }}>
+                            <span className="text-muted leading-none" style={{ fontSize: '8px' }}>
                               {entry.distance_m.toFixed(0)}m
                             </span>
                           </div>
@@ -367,7 +365,7 @@ function FloorDistancesTab({ floor }) {
             </table>
 
             {/* Legend */}
-            <div className="flex items-center gap-4 mt-4 pt-3 border-t border-white/5 text-[10px] text-gray-500">
+            <div className="flex items-center gap-4 mt-4 pt-3 border-t border-primary/8 text-[10px] text-muted">
               <span>Distance scale:</span>
               {[
                 { label: 'Short', color: '#22c55e', bg: 'rgba(34,197,94,0.18)' },
@@ -419,7 +417,7 @@ function InlineModal({ title, label, initial = '', onConfirm, onClose }) {
       <div className="modal-panel max-w-sm w-full p-5 shadow-2xl animate-fade-in">
         <div className="flex items-center justify-between mb-4">
           <h3 className="modal-title" style={{ fontSize: "0.9375rem" }}>{title}</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-200 p-1 rounded-lg hover:bg-white/10">
+          <button onClick={onClose} className="text-muted hover:text-body p-1 rounded-lg hover:bg-secondary/8">
             <X size={14} />
           </button>
         </div>
@@ -436,7 +434,7 @@ function InlineModal({ title, label, initial = '', onConfirm, onClose }) {
           </div>
           {needsCode && (
             <div>
-              <label className="form-label">Code <span className="text-gray-600">(short, e.g. B1)</span></label>
+              <label className="form-label">Code <span className="text-muted">(short, e.g. B1)</span></label>
               <input
                 className="form-input"
                 value={value2}
@@ -471,11 +469,11 @@ function InlineModal({ title, label, initial = '', onConfirm, onClose }) {
 // Floor settings modal (grid size + scale)
 // ---------------------------------------------------------------------------
 function FloorModal({ title, initial, onConfirm, onClose }) {
-  const [name,    setName]    = useState(initial?.name    ?? '')
-  const [level,   setLevel]   = useState(initial?.level   ?? 0)
-  const [rows,    setRows]    = useState(initial?.grid_rows   ?? 20)
-  const [cols,    setCols]    = useState(initial?.grid_cols   ?? 30)
-  const [scale,   setScale]   = useState(initial?.cell_size_m ?? 1.0)
+  const [name, setName] = useState(initial?.name ?? '')
+  const [level, setLevel] = useState(initial?.level ?? 0)
+  const [rows, setRows] = useState(initial?.grid_rows ?? 20)
+  const [cols, setCols] = useState(initial?.grid_cols ?? 30)
+  const [scale, setScale] = useState(initial?.cell_size_m ?? 1.0)
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -488,7 +486,7 @@ function FloorModal({ title, initial, onConfirm, onClose }) {
       <div className="modal-panel max-w-md w-full p-5 shadow-2xl animate-fade-in">
         <div className="flex items-center justify-between mb-4">
           <h3 className="modal-title" style={{ fontSize: "0.9375rem" }}>{title}</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-200 p-1 rounded-lg hover:bg-white/10">
+          <button onClick={onClose} className="text-muted hover:text-body p-1 rounded-lg hover:bg-secondary/8">
             <X size={14} />
           </button>
         </div>
@@ -498,16 +496,16 @@ function FloorModal({ title, initial, onConfirm, onClose }) {
             <input autoFocus className="form-input" value={name} onChange={e => setName(e.target.value)} placeholder="Ground Floor" />
           </div>
           <div>
-            <label className="form-label">Level number <span className="text-gray-600">(0 = ground, -1 = basement)</span></label>
+            <label className="form-label">Level number <span className="text-muted">(0 = ground, -1 = basement)</span></label>
             <input type="number" className="form-input" value={level} onChange={e => setLevel(e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="form-label">Rows <span className="text-gray-600">(5–200)</span></label>
+              <label className="form-label">Rows <span className="text-muted">(5–200)</span></label>
               <input type="number" min="5" max="200" className="form-input" value={rows} onChange={e => setRows(e.target.value)} />
             </div>
             <div>
-              <label className="form-label">Columns <span className="text-gray-600">(5–200)</span></label>
+              <label className="form-label">Columns <span className="text-muted">(5–200)</span></label>
               <input type="number" min="5" max="200" className="form-input" value={cols} onChange={e => setCols(e.target.value)} />
             </div>
           </div>
@@ -535,16 +533,16 @@ function FloorModal({ title, initial, onConfirm, onClose }) {
 // Entrance Pair Distance Panel (Per-gate inter-building distances)
 // ---------------------------------------------------------------------------
 function EntrancePairsPanel({ campusId, buildings, onClose }) {
-  const [gates,        setGates]        = useState([])
-  const [pairs,        setPairs]        = useState([])
-  const [loading,      setLoading]      = useState(true)
-  const [saving,       setSaving]       = useState(false)
-  const [saved,        setSaved]        = useState(false)
-  const [error,        setError]        = useState(null)
+  const [gates, setGates] = useState([])
+  const [pairs, setPairs] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState(null)
 
   const [srcGateKey, setSrcGateKey] = useState('')
   const [tgtGateKey, setTgtGateKey] = useState('')
-  const [distM,      setDistM]      = useState('')
+  const [distM, setDistM] = useState('')
 
   const loadData = useCallback(() => {
     if (!campusId) return
@@ -581,15 +579,15 @@ function EntrancePairsPanel({ campusId, buildings, onClose }) {
     }
 
     const newEntry = {
-      floor_a_id:   srcGate.floor_id,
-      gate_a_row:   srcGate.row,
-      gate_a_col:   srcGate.col,
+      floor_a_id: srcGate.floor_id,
+      gate_a_row: srcGate.row,
+      gate_a_col: srcGate.col,
       gate_a_label: srcGate.label || `Gate (${srcGate.row + 1},${srcGate.col + 1})`,
-      floor_b_id:   tgtGate.floor_id,
-      gate_b_row:   tgtGate.row,
-      gate_b_col:   tgtGate.col,
+      floor_b_id: tgtGate.floor_id,
+      gate_b_row: tgtGate.row,
+      gate_b_col: tgtGate.col,
       gate_b_label: tgtGate.label || `Gate (${tgtGate.row + 1},${tgtGate.col + 1})`,
-      distance_m:   Number(distM),
+      distance_m: Number(distM),
     }
 
     setPairs(prev => [...prev, newEntry])
@@ -626,7 +624,7 @@ function EntrancePairsPanel({ campusId, buildings, onClose }) {
       <div className="inter-bldg-header">
         <DoorOpen size={14} className="text-amber-400" />
         <span>Entrance Pair Distances</span>
-        <button onClick={onClose} className="ml-auto flex items-center gap-1 px-2 py-1 rounded text-[10px] text-gray-400 hover:text-gray-100 hover:bg-white/10 transition-colors" title="Back to campus tree">
+        <button onClick={onClose} className="ml-auto flex items-center gap-1 px-2 py-1 rounded text-[10px] text-muted hover:text-body hover:bg-secondary/8 transition-colors" title="Back to campus tree">
           <ArrowLeft size={12} /> Back
         </button>
       </div>
@@ -634,7 +632,7 @@ function EntrancePairsPanel({ campusId, buildings, onClose }) {
       {/* Description */}
       <div className="inter-bldg-desc">
         <AlertCircle size={11} className="text-amber-400 flex-shrink-0 mt-0.5" />
-        <p className="text-[11px] text-gray-400 leading-relaxed">
+        <p className="text-[11px] text-muted leading-relaxed">
           Configure exact outdoor walking distances between specific building gates. The shortest-path engine picks the optimal gate pair for cross-building journeys.
         </p>
       </div>
@@ -642,27 +640,27 @@ function EntrancePairsPanel({ campusId, buildings, onClose }) {
       {/* Body */}
       <div className="inter-bldg-body space-y-4">
         {loading ? (
-          <div className="flex items-center justify-center py-8 gap-2 text-gray-500 text-xs">
+          <div className="flex items-center justify-center py-8 gap-2 text-muted text-xs">
             <Loader2 size={14} className="animate-spin text-amber-400" /> Loading campus gates…
           </div>
         ) : (
           <>
             {/* Add New Link Form */}
-            <div className="p-3 rounded-2xl bg-white/[0.03] border border-white/10 space-y-2.5">
+            <div className="p-3 rounded-2xl bg-white/[0.03] border border-primary/12 space-y-2.5">
               <span className="text-[11px] font-semibold text-amber-300 uppercase tracking-wider block">
                 + Add Gate-to-Gate Distance Link
               </span>
 
               {gates.length === 0 ? (
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted">
                   No gate cells painted yet. Open a floor grid painter and paint "Gate" cells on your floor plans first.
                 </p>
               ) : (
                 <>
                   <div className="space-y-1">
-                    <label className="text-[10px] text-gray-400 font-medium">From Gate</label>
+                    <label className="text-[10px] text-muted font-medium">From Gate</label>
                     <select
-                      className="w-full px-2.5 py-1.5 rounded-xl text-xs bg-white/5 border border-white/10 text-gray-200 outline-none focus:border-amber-500"
+                      className="w-full px-2.5 py-1.5 rounded-xl text-xs bg-ground border border-primary/12 text-body outline-none focus:border-amber-500"
                       value={srcGateKey}
                       onChange={e => setSrcGateKey(e.target.value)}
                     >
@@ -676,9 +674,9 @@ function EntrancePairsPanel({ campusId, buildings, onClose }) {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[10px] text-gray-400 font-medium">To Gate</label>
+                    <label className="text-[10px] text-muted font-medium">To Gate</label>
                     <select
-                      className="w-full px-2.5 py-1.5 rounded-xl text-xs bg-white/5 border border-white/10 text-gray-200 outline-none focus:border-amber-500"
+                      className="w-full px-2.5 py-1.5 rounded-xl text-xs bg-ground border border-primary/12 text-body outline-none focus:border-amber-500"
                       value={tgtGateKey}
                       onChange={e => setTgtGateKey(e.target.value)}
                     >
@@ -693,13 +691,13 @@ function EntrancePairsPanel({ campusId, buildings, onClose }) {
 
                   <div className="flex items-center gap-2">
                     <div className="flex-1 space-y-1">
-                      <label className="text-[10px] text-gray-400 font-medium">Walking Distance (metres)</label>
+                      <label className="text-[10px] text-muted font-medium">Walking Distance (metres)</label>
                       <input
                         type="number"
                         min="0"
                         step="0.5"
                         placeholder="e.g. 45"
-                        className="w-full px-2.5 py-1.5 rounded-xl text-xs bg-white/5 border border-white/10 text-gray-200 outline-none focus:border-amber-500"
+                        className="w-full px-2.5 py-1.5 rounded-xl text-xs bg-ground border border-primary/12 text-body outline-none focus:border-amber-500"
                         value={distM}
                         onChange={e => setDistM(e.target.value)}
                       />
@@ -708,7 +706,7 @@ function EntrancePairsPanel({ campusId, buildings, onClose }) {
                       type="button"
                       onClick={handleAddPair}
                       disabled={!srcGateKey || !tgtGateKey || !distM}
-                      className="mt-4 px-3 py-2 rounded-xl text-xs font-semibold bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-white transition-all shadow-md shrink-0"
+                      className="mt-4 px-3 py-2 rounded-xl text-xs font-semibold bg-primary hover:bg-primary/90 disabled:opacity-40 text-white transition-all shadow-sm shrink-0"
                     >
                       Add Pair
                     </button>
@@ -719,34 +717,34 @@ function EntrancePairsPanel({ campusId, buildings, onClose }) {
 
             {/* List of configured entrance pair rules */}
             <div className="space-y-2">
-              <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block">
+              <span className="text-[11px] font-semibold text-muted uppercase tracking-wider block">
                 Configured Entrance Links ({pairs.length})
               </span>
 
               {pairs.length === 0 ? (
-                <p className="text-xs text-gray-500 text-center py-4">
+                <p className="text-xs text-muted text-center py-4">
                   No entrance pair distance overrides configured yet. The engine will use the default building-to-building distances as fallback.
                 </p>
               ) : (
                 pairs.map((p, idx) => (
-                  <div key={idx} className="p-2.5 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between gap-2 text-xs">
+                  <div key={idx} className="p-2.5 rounded-xl bg-ground border border-primary/12 flex items-center justify-between gap-2 text-xs">
                     <div className="space-y-0.5 min-w-0 flex-1">
-                      <div className="flex items-center gap-1 text-amber-300 font-semibold truncate">
+                      <div className="flex items-center gap-1 text-primary font-semibold truncate">
                         <span>{p.gate_a_label || 'Gate A'}</span>
-                        <span className="text-gray-500 text-[10px]">↔</span>
+                        <span className="text-muted text-[10px]">↔</span>
                         <span>{p.gate_b_label || 'Gate B'}</span>
                       </div>
-                      <div className="text-[10px] text-gray-400 truncate">
+                      <div className="text-[10px] text-muted truncate">
                         {p.floor_a_id.slice(0, 8)}… ↔ {p.floor_b_id.slice(0, 8)}…
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="font-extrabold text-white font-mono bg-white/10 px-2 py-0.5 rounded text-xs">
+                      <span className="font-extrabold text-body font-mono bg-secondary/15 px-2 py-0.5 rounded text-xs border border-secondary/20">
                         {p.distance_m} m
                       </span>
                       <button
                         onClick={() => handleRemovePair(idx)}
-                        className="p-1 text-gray-500 hover:text-red-400 transition-colors"
+                        className="p-1 text-muted hover:text-red-400 transition-colors"
                         title="Remove link"
                       >
                         <Trash2 size={12} />
@@ -770,7 +768,7 @@ function EntrancePairsPanel({ campusId, buildings, onClose }) {
         <button
           onClick={handleSave}
           disabled={saving}
-          className={`inter-bldg-save-btn ${ saved ? 'saved' : '' }`}
+          className={`inter-bldg-save-btn ${saved ? 'saved' : ''}`}
         >
           {saving
             ? <Loader2 size={12} className="animate-spin" />
@@ -788,13 +786,13 @@ function EntrancePairsPanel({ campusId, buildings, onClose }) {
 // Room Distance Calculator Panel
 // ---------------------------------------------------------------------------
 function RoomDistanceCalculatorPanel({ campusId, onClose }) {
-  const [rooms,         setRooms]         = useState([])
-  const [loadingRooms,  setLoadingRooms]  = useState(true)
-  const [fromRoomId,    setFromRoomId]    = useState('')
-  const [toRoomId,      setToRoomId]      = useState('')
-  const [result,        setResult]        = useState(null)
-  const [calculating,   setCalculating]   = useState(false)
-  const [error,         setError]         = useState(null)
+  const [rooms, setRooms] = useState([])
+  const [loadingRooms, setLoadingRooms] = useState(true)
+  const [fromRoomId, setFromRoomId] = useState('')
+  const [toRoomId, setToRoomId] = useState('')
+  const [result, setResult] = useState(null)
+  const [calculating, setCalculating] = useState(false)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     if (!campusId) return
@@ -848,7 +846,7 @@ function RoomDistanceCalculatorPanel({ campusId, onClose }) {
   }
 
   const fromRoom = rooms.find(r => r.id === fromRoomId)
-  const toRoom   = rooms.find(r => r.id === toRoomId)
+  const toRoom = rooms.find(r => r.id === toRoomId)
 
   const roomGroups = useMemo(() => {
     const map = {}
@@ -864,17 +862,17 @@ function RoomDistanceCalculatorPanel({ campusId, onClose }) {
     <div className="inter-bldg-panel">
       {/* Header */}
       <div className="inter-bldg-header">
-        <Ruler size={14} className="text-indigo-400" />
+        <Ruler size={14} className="text-primary" />
         <span>Room Distance Calculator</span>
-        <button onClick={onClose} className="ml-auto flex items-center gap-1 px-2 py-1 rounded text-[10px] text-gray-400 hover:text-gray-100 hover:bg-white/10 transition-colors" title="Back to campus tree">
+        <button onClick={onClose} className="ml-auto flex items-center gap-1 px-2 py-1 rounded text-[10px] text-muted hover:text-body hover:bg-secondary/8 transition-colors" title="Back to campus tree">
           <ArrowLeft size={12} /> Back
         </button>
       </div>
 
       {/* Description */}
       <div className="inter-bldg-desc">
-        <AlertCircle size={11} className="text-indigo-400 flex-shrink-0 mt-0.5" />
-        <p className="text-[11px] text-gray-400 leading-relaxed">
+        <AlertCircle size={11} className="text-primary flex-shrink-0 mt-0.5" />
+        <p className="text-[11px] text-muted leading-relaxed">
           Find exact walking distance between any two rooms across floors or buildings. Uses shortest-path BFS routing and tagged stairwells.
         </p>
       </div>
@@ -882,28 +880,28 @@ function RoomDistanceCalculatorPanel({ campusId, onClose }) {
       {/* Body */}
       <div className="inter-bldg-body space-y-4">
         {loadingRooms ? (
-          <div className="flex items-center justify-center py-10 gap-2 text-gray-500 text-xs">
+          <div className="flex items-center justify-center py-10 gap-2 text-muted text-xs">
             <Loader2 size={14} className="animate-spin" /> Loading campus mapped rooms…
           </div>
         ) : rooms.length < 2 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
-            <Building2 size={32} className="text-indigo-400 opacity-40" />
-            <p className="text-xs text-gray-500">Map at least 2 rooms on your floor grid canvas to calculate distance.</p>
+            <Building2 size={32} className="text-secondary opacity-40" />
+            <p className="text-xs text-muted">Map at least 2 rooms on your floor grid canvas to calculate distance.</p>
           </div>
         ) : (
           <>
             {/* From Room */}
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
-                <MapPin size={11} className="text-emerald-400" /> From Room
+              <label className="text-[11px] font-semibold text-muted uppercase tracking-wider flex items-center gap-1.5">
+                <MapPin size={11} className="text-emerald-500" /> From Room
               </label>
               <select
-                className="w-full px-3 py-2 rounded-xl text-xs bg-white/5 border border-white/10 text-gray-200 outline-none focus:border-indigo-500 focus:bg-white/10 transition-all cursor-pointer"
+                className="w-full px-3 py-2 rounded-xl text-xs bg-ground border border-primary/12 text-body outline-none focus:border-primary focus:bg-secondary/8 transition-all cursor-pointer"
                 value={fromRoomId}
                 onChange={e => setFromRoomId(e.target.value)}
               >
                 {Object.entries(roomGroups).map(([bname, bRooms]) => (
-                  <optgroup key={bname} label={bname} className="bg-[#1e2030] text-gray-300 font-semibold">
+                  <optgroup key={bname} label={bname} className="bg-surface text-body font-semibold">
                     {bRooms.map(r => (
                       <option key={r.id} value={r.id} style={{ background: "var(--c-surface)", color: "var(--c-body)" }}>
                         [{r.floor_name || 'Floor'}] {r.name} {r.code ? `(${r.code})` : ''} — {r.type}
@@ -914,11 +912,11 @@ function RoomDistanceCalculatorPanel({ campusId, onClose }) {
               </select>
 
               {fromRoom && (
-                <div className="flex items-center gap-2 pt-0.5 text-[10px] text-gray-500">
-                  <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 font-medium text-gray-300">
+                <div className="flex items-center gap-2 pt-0.5 text-[10px] text-muted">
+                  <span className="px-2 py-0.5 rounded bg-ground border border-primary/12 font-medium text-body">
                     {fromRoom.building_name}
                   </span>
-                  <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 font-medium text-gray-300">
+                  <span className="px-2 py-0.5 rounded bg-ground border border-primary/12 font-medium text-body">
                     {fromRoom.floor_name}
                   </span>
                 </div>
@@ -930,7 +928,7 @@ function RoomDistanceCalculatorPanel({ campusId, onClose }) {
               <button
                 type="button"
                 onClick={handleSwap}
-                className="p-2 rounded-full bg-white/5 hover:bg-indigo-600/30 border border-white/10 hover:border-indigo-500/50 text-gray-400 hover:text-indigo-200 transition-all shadow-md group"
+                className="p-2 rounded-full bg-ground hover:bg-secondary/15 border border-primary/12 hover:border-primary/30 text-primary transition-all shadow-sm group"
                 title="Swap From and To rooms"
               >
                 <ArrowRightLeft size={14} className="group-hover:rotate-180 transition-transform duration-300" />
@@ -939,16 +937,16 @@ function RoomDistanceCalculatorPanel({ campusId, onClose }) {
 
             {/* To Room */}
             <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
-                <MapPin size={11} className="text-red-400" /> To Room
+              <label className="text-[11px] font-semibold text-muted uppercase tracking-wider flex items-center gap-1.5">
+                <MapPin size={11} className="text-rose-500" /> To Room
               </label>
               <select
-                className="w-full px-3 py-2 rounded-xl text-xs bg-white/5 border border-white/10 text-gray-200 outline-none focus:border-indigo-500 focus:bg-white/10 transition-all cursor-pointer"
+                className="w-full px-3 py-2 rounded-xl text-xs bg-ground border border-primary/12 text-body outline-none focus:border-primary focus:bg-secondary/8 transition-all cursor-pointer"
                 value={toRoomId}
                 onChange={e => setToRoomId(e.target.value)}
               >
                 {Object.entries(roomGroups).map(([bname, bRooms]) => (
-                  <optgroup key={bname} label={bname} className="bg-[#1e2030] text-gray-300 font-semibold">
+                  <optgroup key={bname} label={bname} className="bg-surface text-body font-semibold">
                     {bRooms.map(r => (
                       <option key={r.id} value={r.id} style={{ background: "var(--c-surface)", color: "var(--c-body)" }}>
                         [{r.floor_name || 'Floor'}] {r.name} {r.code ? `(${r.code})` : ''} — {r.type}
@@ -959,11 +957,11 @@ function RoomDistanceCalculatorPanel({ campusId, onClose }) {
               </select>
 
               {toRoom && (
-                <div className="flex items-center gap-2 pt-0.5 text-[10px] text-gray-500">
-                  <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 font-medium text-gray-300">
+                <div className="flex items-center gap-2 pt-0.5 text-[10px] text-muted">
+                  <span className="px-2 py-0.5 rounded bg-ground border border-primary/12 font-medium text-body">
                     {toRoom.building_name}
                   </span>
-                  <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 font-medium text-gray-300">
+                  <span className="px-2 py-0.5 rounded bg-ground border border-primary/12 font-medium text-body">
                     {toRoom.floor_name}
                   </span>
                 </div>
@@ -973,29 +971,27 @@ function RoomDistanceCalculatorPanel({ campusId, onClose }) {
             {/* Calculation Result Display Card */}
             <div className="pt-2">
               {calculating ? (
-                <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/10 flex items-center justify-center gap-2 text-xs text-gray-400">
-                  <Loader2 size={14} className="animate-spin text-indigo-400" /> Calculating shortest walking path…
+                <div className="p-5 rounded-2xl bg-ground border border-primary/12 flex items-center justify-center gap-2 text-xs text-muted">
+                  <Loader2 size={14} className="animate-spin text-primary" /> Calculating shortest walking path…
                 </div>
               ) : result ? (
-                <div className={`p-4 rounded-2xl border transition-all ${
-                  !result.reachable
-                    ? 'bg-red-500/10 border-red-500/30'
+                <div className={`p-4 rounded-2xl border transition-all ${!result.reachable
+                    ? 'bg-red-50 border-red-200'
                     : result.route_type === 'same_floor'
-                      ? 'bg-emerald-500/10 border-emerald-500/30'
+                      ? 'bg-emerald-50 border-emerald-200'
                       : result.route_type === 'cross_floor'
-                        ? 'bg-indigo-500/10 border-indigo-500/30'
-                        : 'bg-purple-500/10 border-purple-500/30'
-                }`}>
+                        ? 'bg-secondary/10 border-secondary/30'
+                        : 'bg-amber-50 border-amber-200'
+                  }`}>
                   <div className="flex items-center justify-between mb-3">
-                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${
-                      !result.reachable
-                        ? 'bg-red-500/20 text-red-300 border border-red-500/40'
+                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${!result.reachable
+                        ? 'bg-red-100 text-red-700 border border-red-200'
                         : result.route_type === 'same_floor'
-                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                           : result.route_type === 'cross_floor'
-                            ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
-                            : 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
-                    }`}>
+                            ? 'bg-secondary/20 text-primary border border-secondary/30'
+                            : 'bg-amber-100 text-amber-800 border border-amber-200'
+                      }`}>
                       {!result.reachable
                         ? 'Unreachable'
                         : result.route_type === 'same_floor'
@@ -1007,56 +1003,56 @@ function RoomDistanceCalculatorPanel({ campusId, onClose }) {
 
                     {result.reachable && (
                       <div className="text-right">
-                        <span className="text-lg font-extrabold text-white font-mono">
-                          {result.distance_m ?? 0} <span className="text-xs font-normal text-gray-400">m</span>
+                        <span className="text-lg font-extrabold text-body font-mono">
+                          {result.distance_m ?? 0} <span className="text-xs font-normal text-muted">m</span>
                         </span>
-                        <span className="block text-[10px] font-mono text-gray-400">
+                        <span className="block text-[10px] font-mono text-muted">
                           ({result.distance_cells ?? 0} cells)
                         </span>
                       </div>
                     )}
                   </div>
 
-                  <p className="text-xs text-gray-300 leading-relaxed font-medium">
+                  <p className="text-xs text-body leading-relaxed font-medium">
                     {result.description}
                   </p>
 
                   {result.reachable && fromRoom && toRoom && (
-                    <div className="mt-4 pt-3 border-t border-white/10 space-y-2 text-[11px]">
-                      <div className="flex items-center gap-2 text-gray-300">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-                        <span className="font-semibold text-white">{fromRoom.name}</span>
-                        <span className="text-[10px] text-gray-500 font-mono">({fromRoom.building_name} • {fromRoom.floor_name})</span>
+                    <div className="mt-4 pt-3 border-t border-primary/12 space-y-2 text-[11px]">
+                      <div className="flex items-center gap-2 text-body">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                        <span className="font-semibold text-body">{fromRoom.name}</span>
+                        <span className="text-[10px] text-muted font-mono">({fromRoom.building_name} • {fromRoom.floor_name})</span>
                       </div>
-                      <div className="ml-1 pl-3 border-l-2 border-indigo-500/40 text-[10px] text-gray-400 py-1 space-y-1">
+                      <div className="ml-1 pl-3 border-l-2 border-primary/30 text-[10px] text-muted py-1 space-y-1">
                         {result.route_type === 'same_floor' && 'Direct walking path through corridors'}
                         {result.route_type === 'cross_floor' && (
                           <div>
                             <span>Walk to stairwell/lift</span>
-                            {result.stair_id && <span className="font-semibold text-indigo-300 ml-1">[{result.stair_id}]</span>}
+                            {result.stair_id && <span className="font-semibold text-primary ml-1">[{result.stair_id}]</span>}
                             <span> → Traverse floors → Walk to room</span>
                           </div>
                         )}
                         {result.route_type === 'cross_building' && (
                           <div className="space-y-1">
                             <div>
-                              <span className="font-semibold text-amber-300">{result.gate_a_label || 'Exit Gate'}</span>
-                              <span className="text-[9px] text-gray-500 font-mono ml-1">({fromRoom.building_name})</span>
+                              <span className="font-semibold text-primary">{result.gate_a_label || 'Exit Gate'}</span>
+                              <span className="text-[9px] text-muted font-mono ml-1">({fromRoom.building_name})</span>
                             </div>
-                            <div className="text-[10px] text-indigo-300 font-mono pl-3">
+                            <div className="text-[10px] text-secondary font-mono pl-3">
                               ↕ Outdoor walking route
                             </div>
                             <div>
-                              <span className="font-semibold text-amber-300">{result.gate_b_label || 'Entry Gate'}</span>
-                              <span className="text-[9px] text-gray-500 font-mono ml-1">({toRoom.building_name})</span>
+                              <span className="font-semibold text-primary">{result.gate_b_label || 'Entry Gate'}</span>
+                              <span className="text-[9px] text-muted font-mono ml-1">({toRoom.building_name})</span>
                             </div>
                           </div>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 text-gray-300">
-                        <span className="w-2 h-2 rounded-full bg-red-400 shrink-0" />
-                        <span className="font-semibold text-white">{toRoom.name}</span>
-                        <span className="text-[10px] text-gray-500 font-mono">({toRoom.building_name} • {toRoom.floor_name})</span>
+                      <div className="flex items-center gap-2 text-body">
+                        <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+                        <span className="font-semibold text-body">{toRoom.name}</span>
+                        <span className="text-[10px] text-muted font-mono">({toRoom.building_name} • {toRoom.floor_name})</span>
                       </div>
                     </div>
                   )}
@@ -1098,22 +1094,22 @@ function TeacherCommutePanel({
   onRefresh,
 }) {
   const roomColor = (rtype) => ({
-    staffroom: { bg: 'rgba(168,85,247,0.18)', border: '#a855f7', dot: '#a855f7', text: '#d8b4fe' },
-    classroom: { bg: 'rgba(99,102,241,0.18)',  border: '#6366f1', dot: '#6366f1', text: '#a5b4fc' },
-    lab:       { bg: 'rgba(6,182,212,0.18)',   border: '#06b6d4', dot: '#06b6d4', text: '#67e8f9' },
-    seminar:   { bg: 'rgba(245,158,11,0.18)',  border: '#f59e0b', dot: '#f59e0b', text: '#fcd34d' },
-    unknown:   { bg: 'rgba(107,114,128,0.18)', border: '#6b7280', dot: '#6b7280', text: '#9ca3af' },
-  }[rtype] || { bg: 'rgba(107,114,128,0.18)', border: '#6b7280', dot: '#6b7280', text: '#9ca3af' })
+    staffroom: { bg: 'rgba(168,85,247,0.12)', border: '#a855f7', dot: '#a855f7', text: '#6b21a8' },
+    classroom: { bg: 'rgba(99,102,241,0.12)', border: '#6366f1', dot: '#6366f1', text: '#3730a3' },
+    lab: { bg: 'rgba(6,182,212,0.12)', border: '#06b6d4', dot: '#06b6d4', text: '#0e7490' },
+    seminar: { bg: 'rgba(245,158,11,0.12)', border: '#f59e0b', dot: '#f59e0b', text: '#b45309' },
+    unknown: { bg: 'rgba(107,114,128,0.12)', border: '#6b7280', dot: '#6b7280', text: 'var(--c-muted)' },
+  }[rtype] || { bg: 'rgba(107,114,128,0.12)', border: '#6b7280', dot: '#6b7280', text: 'var(--c-muted)' })
 
   return (
-    <div className="inter-bldg-panel">
+    <div className="inter-bldg-panel commute-panel w-full max-w-full min-w-0 box-border overflow-x-hidden">
       {/* Header */}
-      <div className="inter-bldg-header">
-        <Route size={14} className="text-violet-400" />
-        <span className="font-semibold text-gray-100">Teacher Commute Itinerary</span>
+      <div className="inter-bldg-header w-full max-w-full min-w-0 box-border overflow-x-hidden">
+        <Route size={14} className="text-primary" />
+        <span className="min-w-0 whitespace-normal break-words font-semibold text-body">Teacher Commute Itinerary</span>
         <button
           onClick={onClose}
-          className="ml-auto p-1 rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors"
+          className="ml-auto p-1 rounded-lg hover:bg-secondary/8 text-muted hover:text-body transition-colors"
           title="Back to campus tree"
         >
           <ArrowLeft size={13} /> Back
@@ -1121,30 +1117,30 @@ function TeacherCommutePanel({
       </div>
 
       {/* Description */}
-      <div className="inter-bldg-desc">
-        <Navigation size={11} className="text-violet-400 flex-shrink-0 mt-0.5" />
-        <p className="text-[11px] text-gray-400 leading-relaxed">
-          Daily walk sequence: <strong className="text-violet-300">Staffroom</strong> → each period's room in order → <strong className="text-violet-300">Staffroom</strong>, labeled with Module 7f distances.
+      <div className="inter-bldg-desc w-full max-w-full min-w-0 box-border overflow-x-hidden">
+        <Navigation size={11} className="text-primary flex-shrink-0 mt-0.5" />
+        <p className="min-w-0 whitespace-normal break-words text-[11px] text-muted leading-relaxed">
+          Daily walk sequence: <strong className="text-primary">Staffroom</strong> → each period's room in order → <strong className="text-primary">Staffroom</strong>, labeled with Module 7f distances.
         </p>
       </div>
 
       {/* Body */}
-      <div className="inter-bldg-body space-y-3">
+      <div className="inter-bldg-body space-y-3 w-full max-w-full min-w-0 box-border overflow-x-hidden">
         {loadingMeta ? (
-          <div className="flex items-center justify-center py-10 gap-2 text-gray-400 text-xs">
-            <Loader2 size={14} className="animate-spin text-violet-400" /> Loading teachers…
+          <div className="flex items-center justify-center py-10 gap-2 text-muted text-xs">
+            <Loader2 size={14} className="animate-spin text-primary" /> Loading teachers…
           </div>
         ) : (
           <>
             {/* Quick selectors */}
-            <div className="space-y-2.5 p-3 rounded-2xl bg-white/[0.02] border border-white/5">
+            <div className="w-full max-w-full min-w-0 box-border space-y-2.5 p-3 rounded-2xl bg-white/[0.02] border border-primary/8">
               {/* Teacher select */}
               <div className="space-y-1">
-                <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider flex items-center gap-1.5">
-                  <Users size={10} className="text-violet-400" /> Teacher
+                <label className="text-[10px] text-muted font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                  <Users size={10} className="text-primary" /> Teacher
                 </label>
                 <select
-                  className="w-full px-2.5 py-1.5 rounded-xl text-xs bg-white/5 border border-white/10 text-gray-200 outline-none focus:border-violet-500 cursor-pointer"
+                  className="w-full max-w-full min-w-0 box-border px-2.5 py-1.5 rounded-xl text-xs bg-ground border border-primary/12 text-body outline-none focus:border-primary cursor-pointer"
                   value={teacherId}
                   onChange={e => setTeacherId(e.target.value)}
                 >
@@ -1157,9 +1153,9 @@ function TeacherCommutePanel({
 
               {/* Timetable select */}
               <div className="space-y-1">
-                <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Timetable Run</label>
+                <label className="text-[10px] text-muted font-semibold uppercase tracking-wider">Timetable Run</label>
                 <select
-                  className="w-full px-2.5 py-1.5 rounded-xl text-xs bg-white/5 border border-white/10 text-gray-200 outline-none focus:border-violet-500 cursor-pointer"
+                  className="w-full max-w-full min-w-0 box-border px-2.5 py-1.5 rounded-xl text-xs bg-ground border border-primary/12 text-body outline-none focus:border-primary cursor-pointer"
                   value={timetableId}
                   onChange={e => setTimetableId(e.target.value)}
                 >
@@ -1171,23 +1167,22 @@ function TeacherCommutePanel({
                   ))}
                 </select>
                 {timetables.length === 0 && (
-                  <p className="text-[10px] text-gray-500">No successful timetable runs yet.</p>
+                  <p className="text-[10px] text-muted">No successful timetable runs yet.</p>
                 )}
               </div>
 
               {/* Day selector */}
               <div className="space-y-1">
-                <label className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Day of Week</label>
+                <label className="text-[10px] text-muted font-semibold uppercase tracking-wider">Day of Week</label>
                 <div className="flex gap-1 flex-wrap">
                   {DAY_SHORT.map((d, i) => (
                     <button
                       key={i}
                       onClick={() => setDayOfWeek(i)}
-                      className={`px-2 py-1 text-[10px] rounded-lg border font-semibold transition-all ${
-                        dayOfWeek === i
-                          ? 'bg-violet-600 text-white border-violet-500 shadow-sm'
-                          : 'bg-white/5 text-gray-400 border-white/10 hover:border-violet-500/40 hover:text-violet-300'
-                      }`}
+                      className={`px-2 py-1 text-[10px] rounded-lg border font-semibold transition-all ${dayOfWeek === i
+                          ? 'bg-primary text-white border-primary shadow-sm'
+                          : 'bg-ground text-muted border-primary/12 hover:border-secondary/40 hover:text-primary'
+                        }`}
                     >
                       {d}
                     </button>
@@ -1198,46 +1193,46 @@ function TeacherCommutePanel({
 
             {/* Error */}
             {error && (
-              <div className="text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2 flex items-start gap-2">
-                <AlertCircle size={11} className="mt-0.5 shrink-0" /> {error}
+              <div className="w-full max-w-full min-w-0 box-border text-[11px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2 flex items-start gap-2">
+                <AlertCircle size={11} className="mt-0.5 shrink-0" /> <span className="min-w-0 whitespace-normal break-words">{error}</span>
               </div>
             )}
 
             {/* Loading */}
             {loading && (
-              <div className="flex items-center justify-center py-6 gap-2 text-gray-400 text-xs">
-                <Loader2 size={13} className="animate-spin text-violet-400" /> Computing Module 7f commute distances…
+              <div className="flex items-center justify-center py-6 gap-2 text-muted text-xs">
+                <Loader2 size={13} className="animate-spin text-primary" /> Computing Module 7f commute distances…
               </div>
             )}
 
             {/* Commute result */}
             {commute && !loading && (
-              <div className="space-y-3">
+              <div className="w-full max-w-full min-w-0 box-border space-y-3">
                 {/* Summary card */}
-                <div className="p-3.5 rounded-2xl bg-gradient-to-br from-violet-600/20 via-violet-900/10 to-transparent border border-violet-500/30 shadow-lg">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-bold text-violet-200 uppercase tracking-wider flex items-center gap-1.5">
-                      <Footprints size={12} className="text-violet-400" />
+                <div className="w-full max-w-full min-w-0 box-border p-3.5 rounded-2xl bg-ground border border-primary/12 shadow-sm">
+                  <div className="flex items-start justify-between gap-2 mb-1.5 min-w-0">
+                    <span className="min-w-0 whitespace-normal break-words text-xs font-bold text-body uppercase tracking-wider flex items-center gap-1.5">
+                      <Footprints size={12} className="text-primary" />
                       {commute.teacher_name}
                     </span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30 font-semibold">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-secondary/15 text-primary border border-secondary/30 font-semibold">
                       {commute.day_name}
                     </span>
                   </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-black text-white font-mono tracking-tight">
+                  <div className="flex items-baseline gap-2 min-w-0 flex-wrap">
+                    <span className="text-2xl font-black text-body font-mono tracking-tight">
                       {commute.total_distance_m}
                     </span>
-                    <span className="text-xs font-semibold text-gray-400">meters total walk</span>
+                    <span className="text-xs font-semibold text-muted">meters total walk</span>
                   </div>
-                  <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-[10px] text-gray-400">
+                  <div className="mt-2 pt-2 border-t border-primary/12 flex items-center justify-between text-[10px] text-muted">
                     <div>
-                      <span className="text-gray-200 font-bold">{commute.reachable_hops}</span>
+                      <span className="text-body font-bold">{commute.reachable_hops}</span>
                       /{commute.total_hops} hops connected
                     </div>
                     {commute.staffroom_name && (
-                      <div className="truncate max-w-[190px]" title={commute.staffroom_name}>
-                        Base: <span className="text-violet-300 font-semibold">{commute.staffroom_name}</span>
+                      <div className="min-w-0 max-w-full whitespace-normal break-words" title={commute.staffroom_name}>
+                        Base: <span className="text-primary font-semibold">{commute.staffroom_name}</span>
                       </div>
                     )}
                   </div>
@@ -1245,14 +1240,14 @@ function TeacherCommutePanel({
 
                 {/* Journey timeline */}
                 {commute.hops.length === 0 ? (
-                  <div className="text-center py-8 text-xs text-gray-500 bg-white/[0.02] rounded-xl border border-white/5">
+                  <div className="w-full max-w-full min-w-0 box-border whitespace-normal break-words text-center py-8 text-xs text-muted bg-white/[0.02] rounded-xl border border-primary/8">
                     No scheduled periods on {commute.day_name} for this teacher.
                   </div>
                 ) : (
-                  <div className="space-y-1 relative pt-1">
-                    <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider px-1 mb-2 flex items-center justify-between">
-                      <span>Commute Timeline</span>
-                      <span className="text-[9px] text-gray-500 font-normal">Hover or click to highlight on map</span>
+                  <div className="w-full max-w-full min-w-0 box-border space-y-1 relative pt-1">
+                    <div className="text-[10px] text-muted font-semibold uppercase tracking-wider px-1 mb-2 flex items-start justify-between gap-2 min-w-0">
+                      <span className="shrink-0">Commute Timeline</span>
+                      <span className="min-w-0 text-right whitespace-normal break-words text-[9px] text-muted font-normal">Hover or click to highlight on map</span>
                     </div>
 
                     {/* Timeline of Waypoints */}
@@ -1260,21 +1255,21 @@ function TeacherCommutePanel({
                       const waypoints = commute.waypoints && commute.waypoints.length > 0
                         ? commute.waypoints
                         : [
-                            { index: 0, room_id: commute.hops[0]?.from_room_id, room_name: commute.hops[0]?.from_room_name, room_type: commute.hops[0]?.from_room_type, is_staffroom: true, building_name: commute.hops[0]?.from_building_name, floor_name: commute.hops[0]?.from_floor_name },
-                            ...commute.hops.map((hop, hIdx) => ({
-                              index: hIdx + 1,
-                              room_id: hop.to_room_id,
-                              room_name: hop.to_room_name,
-                              room_type: hop.to_room_type,
-                              is_staffroom: hIdx === commute.hops.length - 1,
-                              period_index: hop.period_index,
-                              subject_name: hop.subject_name,
-                              subject_code: hop.subject_code,
-                              section_name: hop.section_name,
-                              building_name: hop.to_building_name,
-                              floor_name: hop.to_floor_name,
-                            }))
-                          ]
+                          { index: 0, room_id: commute.hops[0]?.from_room_id, room_name: commute.hops[0]?.from_room_name, room_type: commute.hops[0]?.from_room_type, is_staffroom: true, building_name: commute.hops[0]?.from_building_name, floor_name: commute.hops[0]?.from_floor_name },
+                          ...commute.hops.map((hop, hIdx) => ({
+                            index: hIdx + 1,
+                            room_id: hop.to_room_id,
+                            room_name: hop.to_room_name,
+                            room_type: hop.to_room_type,
+                            is_staffroom: hIdx === commute.hops.length - 1,
+                            period_index: hop.period_index,
+                            subject_name: hop.subject_name,
+                            subject_code: hop.subject_code,
+                            section_name: hop.section_name,
+                            building_name: hop.to_building_name,
+                            floor_name: hop.to_floor_name,
+                          }))
+                        ]
 
                       return waypoints.map((wp, idx) => {
                         const hop = commute.hops[idx - 1] // arriving hop
@@ -1288,45 +1283,42 @@ function TeacherCommutePanel({
                         return (
                           <div
                             key={idx}
-                            className={`commute-hop-card rounded-xl transition-all ${
-                              isHopHovered || isHopSelected ? 'bg-violet-600/10 ring-1 ring-violet-500/40' : ''
-                            }`}
+                            className={`commute-hop-card w-full max-w-full min-w-0 box-border rounded-xl transition-all ${isHopHovered || isHopSelected ? 'bg-secondary/12 ring-1 ring-primary/40' : ''
+                              }`}
                             onMouseEnter={() => hopIdx >= 0 && setHoveredHopIndex(hopIdx)}
                             onMouseLeave={() => setHoveredHopIndex(null)}
                             onClick={() => hopIdx >= 0 && setSelectedHopIndex(selectedHopIndex === hopIdx ? null : hopIdx)}
                           >
-                            <div className="flex items-start">
+                            <div className="flex items-start min-w-0 w-full max-w-full box-border">
                               {/* Left line & dot */}
                               <div className="flex flex-col items-center" style={{ width: 30, minWidth: 30 }}>
                                 {/* Hop connection pill above */}
                                 {!isFirst && hop && (
                                   <div className="flex flex-col items-center w-full py-0.5">
-                                    <div className="w-0.5 h-2 bg-white/10" />
+                                    <div className="w-0.5 h-2 bg-secondary/8" />
                                     <div
-                                      className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full border shadow-sm cursor-pointer transition-all ${
-                                        !hop.reachable
+                                      className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full border shadow-sm cursor-pointer transition-all ${!hop.reachable
                                           ? 'bg-red-500/20 text-red-300 border-red-500/40'
                                           : hop.distance_m === 0
-                                          ? 'bg-gray-500/20 text-gray-400 border-gray-500/30'
-                                          : hop.distance_m < 30
-                                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                                          : hop.distance_m < 80
-                                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                                          : 'bg-violet-500/20 text-violet-300 border-violet-500/40'
-                                      } ${isHopHovered || isHopSelected ? 'scale-110 shadow-violet-500/50' : ''}`}
+                                            ? 'bg-ground0/20 text-muted border-gray-500/30'
+                                            : hop.distance_m < 30
+                                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                              : hop.distance_m < 80
+                                                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                                                : 'bg-secondary/15 text-primary border-secondary/40'
+                                        } ${isHopHovered || isHopSelected ? 'scale-110 shadow-sm' : ''}`}
                                       title={hop.reachable ? `Hop #${hopIdx + 1}: ${hop.distance_m}m (${hop.distance_cells} cells · ${hop.route_type || 'walking'})` : 'No path found'}
                                     >
                                       {hop.reachable ? `${hop.distance_m}m` : '—'}
                                     </div>
-                                    <div className="w-0.5 h-2 bg-white/10" />
+                                    <div className="w-0.5 h-2 bg-secondary/8" />
                                   </div>
                                 )}
 
                                 {/* Waypoint Dot */}
                                 <div
-                                  className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 transition-all ${
-                                    isFirst || isLast ? 'ring-2 ring-violet-500/40' : ''
-                                  }`}
+                                  className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 transition-all ${isFirst || isLast ? 'ring-2 ring-primary/40' : ''
+                                    }`}
                                   style={{
                                     background: clr.bg,
                                     borderColor: clr.dot,
@@ -1334,27 +1326,27 @@ function TeacherCommutePanel({
                                   }}
                                 />
                                 {!isLast && (
-                                  <div className="w-0.5 bg-white/10 flex-1" style={{ minHeight: 10 }} />
+                                  <div className="w-0.5 bg-secondary/8 flex-1" style={{ minHeight: 10 }} />
                                 )}
                               </div>
 
                               {/* Right room card */}
                               <div
-                                className="ml-1.5 mb-1.5 flex-1 rounded-xl border px-3 py-2 cursor-pointer transition-all"
+                                className="ml-1.5 mb-1.5 flex-1 w-full max-w-full min-w-0 box-border rounded-xl border px-3 py-2 cursor-pointer transition-all"
                                 style={{
                                   background: isHopHovered || isHopSelected ? 'rgba(139,92,246,0.14)' : clr.bg,
                                   borderColor: isHopHovered || isHopSelected ? '#a855f7' : clr.border + '44',
                                 }}
                               >
-                                <div className="flex items-start justify-between gap-1.5">
+                                <div className="flex items-start justify-between gap-1.5 min-w-0 w-full max-w-full box-border">
                                   <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-1.5 flex-wrap">
                                       {isFirst ? (
-                                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-violet-600/30 text-violet-200 border border-violet-500/40">
+                                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-secondary/20 text-body border border-secondary/40">
                                           Start · Staffroom
                                         </span>
                                       ) : isLast ? (
-                                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-violet-600/30 text-violet-200 border border-violet-500/40">
+                                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-secondary/20 text-body border border-secondary/40">
                                           Return · Staffroom
                                         </span>
                                       ) : (wp.is_staffroom && wp.is_break) ? (
@@ -1362,29 +1354,29 @@ function TeacherCommutePanel({
                                           Staffroom Break ({wp.gap_periods} free period{wp.gap_periods > 1 ? 's' : ''})
                                         </span>
                                       ) : wp.period_index != null && (
-                                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-white/10 text-gray-300 border border-white/10 font-mono">
+                                        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-secondary/8 text-body border border-primary/12 font-mono">
                                           P{wp.period_index + 1}
                                         </span>
                                       )}
-                                      <span className="text-xs font-semibold text-gray-100 truncate" style={{ color: clr.text }}>
+                                      <span className="min-w-0 whitespace-normal break-words text-xs font-semibold text-body" style={{ color: clr.text }}>
                                         {wp.room_name}
                                       </span>
                                     </div>
 
                                     {wp.subject_name && (
-                                      <div className="text-[10px] text-gray-400 mt-0.5 truncate">
-                                        {wp.subject_code && <span className="font-mono text-gray-300 mr-1">[{wp.subject_code}]</span>}
+                                      <div className="min-w-0 max-w-full whitespace-normal break-words text-[10px] text-muted mt-0.5">
+                                        {wp.subject_code && <span className="font-mono text-body mr-1">[{wp.subject_code}]</span>}
                                         {wp.subject_name}
-                                        {wp.section_name && <span className="ml-1 text-gray-500">· {wp.section_name}</span>}
+                                        {wp.section_name && <span className="ml-1 text-muted">· {wp.section_name}</span>}
                                       </div>
                                     )}
 
                                     {/* Building & floor breadcrumb */}
                                     {(wp.building_name || wp.floor_name) && (
-                                      <div className="text-[9px] text-gray-500 mt-0.5 flex items-center gap-1 font-mono">
-                                        <Building2 size={9} className="text-gray-400" />
-                                        <span>{wp.building_name || 'Building'}</span>
-                                        {wp.floor_name && <span>› {wp.floor_name}</span>}
+                                      <div className="min-w-0 max-w-full whitespace-normal break-words flex flex-wrap items-center gap-1 font-mono text-[9px] text-muted mt-0.5">
+                                        <Building2 size={9} className="text-muted shrink-0" />
+                                        <span className="min-w-0 max-w-full whitespace-normal break-words">{wp.building_name || 'Building'}</span>
+                                        {wp.floor_name && <span className="min-w-0 max-w-full whitespace-normal break-words">› {wp.floor_name}</span>}
                                       </div>
                                     )}
                                   </div>
@@ -1417,27 +1409,27 @@ function TeacherCommutePanel({
 // Campus Map — draggable building boxes with Teacher Commute Path Overlay
 // ---------------------------------------------------------------------------
 function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddBuilding, selectedBuildingId, onDeleteBuilding, onRenameBuilding, onAddFloor, onSelectFloor }) {
-  const mapRef     = useRef(null)
-  const dragging   = useRef(null)   // { id, startX, startY, origX, origY }
+  const mapRef = useRef(null)
+  const dragging = useRef(null)   // { id, startX, startY, origX, origY }
 
   // Side panels
-  const [showCalcPanel,     setShowCalcPanel]     = useState(false)
+  const [showCalcPanel, setShowCalcPanel] = useState(false)
   const [showEntrancePanel, setShowEntrancePanel] = useState(false)
-  const [showCommutePanel,  setShowCommutePanel]  = useState(false)
+  const [showCommutePanel, setShowCommutePanel] = useState(false)
 
   // Teacher Commute Mode state
-  const [commuteMode,        setCommuteMode]        = useState(false)
-  const [teachers,           setTeachers]           = useState([])
-  const [timetables,         setTimetables]         = useState([])
-  const [loadingMeta,        setLoadingMeta]        = useState(false)
-  const [commuteTeacherId,   setCommuteTeacherId]   = useState('')
+  const [commuteMode, setCommuteMode] = useState(false)
+  const [teachers, setTeachers] = useState([])
+  const [timetables, setTimetables] = useState([])
+  const [loadingMeta, setLoadingMeta] = useState(false)
+  const [commuteTeacherId, setCommuteTeacherId] = useState('')
   const [commuteTimetableId, setCommuteTimetableId] = useState('')
-  const [commuteDayOfWeek,   setCommuteDayOfWeek]   = useState(0)
-  const [commute,            setCommute]            = useState(null)
-  const [commuteLoading,     setCommuteLoading]     = useState(false)
-  const [commuteError,       setCommuteError]       = useState(null)
-  const [hoveredHopIndex,    setHoveredHopIndex]    = useState(null)
-  const [selectedHopIndex,   setSelectedHopIndex]   = useState(null)
+  const [commuteDayOfWeek, setCommuteDayOfWeek] = useState(0)
+  const [commute, setCommute] = useState(null)
+  const [commuteLoading, setCommuteLoading] = useState(false)
+  const [commuteError, setCommuteError] = useState(null)
+  const [hoveredHopIndex, setHoveredHopIndex] = useState(null)
+  const [selectedHopIndex, setSelectedHopIndex] = useState(null)
 
   const MAP_W = 1600
   const MAP_H = 900
@@ -1459,7 +1451,7 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
       startClientY: e.clientY,
       origX: building.pos_x,
       origY: building.pos_y,
-      width:  building.width  ?? 120,
+      width: building.width ?? 120,
       height: building.height ?? 90,
     }
   }
@@ -1469,16 +1461,16 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
       if (!dragging.current) return
       const dx = e.clientX - dragging.current.startClientX
       const dy = e.clientY - dragging.current.startClientY
-      const newX = Math.max(0, Math.min(MAP_W - (dragging.current.width  ?? 120), dragging.current.origX + dx))
-      const newY = Math.max(0, Math.min(MAP_H - (dragging.current.height ?? 90),  dragging.current.origY + dy))
+      const newX = Math.max(0, Math.min(MAP_W - (dragging.current.width ?? 120), dragging.current.origX + dx))
+      const newY = Math.max(0, Math.min(MAP_H - (dragging.current.height ?? 90), dragging.current.origY + dy))
       onBuildingMove(dragging.current.id, newX, newY)
     }
     const onMouseUp = () => { dragging.current = null }
     window.addEventListener('mousemove', onMouseMove)
-    window.addEventListener('mouseup',   onMouseUp)
+    window.addEventListener('mouseup', onMouseUp)
     return () => {
       window.removeEventListener('mousemove', onMouseMove)
-      window.removeEventListener('mouseup',   onMouseUp)
+      window.removeEventListener('mouseup', onMouseUp)
     }
   }, [onBuildingMove])
 
@@ -1628,82 +1620,48 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
 
   // Active hop info for tooltip
   const activeHop = (selectedHopIndex != null && commute?.hops?.[selectedHopIndex]) ||
-                    (hoveredHopIndex != null && commute?.hops?.[hoveredHopIndex]) || null
+    (hoveredHopIndex != null && commute?.hops?.[hoveredHopIndex]) || null
   const activeHopIdx = selectedHopIndex != null ? selectedHopIndex : hoveredHopIndex
 
   return (
     <div className="flex flex-col h-full select-none">
       {/* Top Header & Commute Controls */}
       <div
-        className="flex items-center justify-between px-5 border-b flex-shrink-0 transition-colors"
+        className="flex items-center justify-between gap-3 px-5 py-2 border-b flex-shrink-0 transition-colors"
         style={{
-          height: 52,
           minHeight: 52,
-          maxHeight: 52,
           background: commuteMode ? 'rgba(46,42,107,0.06)' : 'var(--c-surface)',
           borderColor: 'var(--c-border)',
           boxSizing: 'border-box',
         }}
       >
         {/* Left Title / Commute Quick Controls */}
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           <div>
-            <h2 className="text-sm font-semibold text-gray-200 flex items-center gap-2">
-              <MapPin size={14} className={commuteMode ? "text-violet-400" : "text-indigo-400"} />
+            <h2 className="text-sm font-semibold text-body flex items-center gap-2">
+              <MapPin size={14} className={commuteMode ? "text-secondary" : "text-primary"} />
               {campus.name} — Campus Map
             </h2>
             {campus.description && !commuteMode && (
-              <p className="text-xs text-gray-500 mt-0.5">{campus.description}</p>
+              <p className="text-xs text-muted mt-0.5">{campus.description}</p>
             )}
           </div>
 
           {commuteMode && (
-            <div className="flex items-center gap-2 pl-3 border-l border-white/10 flex-wrap">
-              {/* Teacher selector */}
-              <div className="flex items-center gap-1.5 bg-black/40 px-2.5 py-1 rounded-xl border border-violet-500/30">
-                <Users size={12} className="text-violet-400" />
-                <select
-                  className="bg-transparent text-xs font-semibold text-violet-200 outline-none cursor-pointer"
-                  value={commuteTeacherId}
-                  onChange={e => setCommuteTeacherId(e.target.value)}
-                >
-                  <option value="" style={{ background: "var(--c-surface)", color: "var(--c-body)" }}>— Select Teacher —</option>
-                  {teachers.map(t => (
-                    <option key={t.id} value={t.id} style={{ background: "var(--c-surface)", color: "var(--c-body)" }}>{t.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Day pills */}
-              <div className="flex items-center gap-0.5 bg-black/40 p-0.5 rounded-xl border border-white/10">
-                {DAY_SHORT.map((d, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setCommuteDayOfWeek(i)}
-                    className={`px-2 py-0.5 text-[10px] rounded-lg font-bold transition-all ${
-                      commuteDayOfWeek === i
-                        ? 'bg-violet-600 text-white shadow-sm'
-                        : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
-                    }`}
-                  >
-                    {d}
-                  </button>
-                ))}
-              </div>
-
+            <div className="flex items-center gap-2 pl-3 border-l border-primary/12 flex-wrap">
               {/* Commute summary badge */}
               {commute && (
-                <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-violet-600/20 border border-violet-500/40 text-violet-200 text-xs font-mono font-bold shadow-sm">
-                  <Footprints size={12} className="text-violet-400" />
+                <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-secondary/15 border border-secondary/40 text-body text-xs font-mono font-bold shadow-sm">
+                  <Footprints size={12} className="text-primary" />
                   <span>{commute.total_distance_m}m total</span>
-                  <span className="text-[10px] font-normal text-violet-300/70">
+                  <span className="text-[10px] font-normal text-primary/70">
                     ({commute.reachable_hops}/{commute.total_hops} hops)
                   </span>
                 </div>
               )}
 
               {commuteLoading && (
-                <div className="flex items-center gap-1 text-[11px] text-violet-300 animate-pulse">
+                <div className="flex items-center gap-1 text-[11px] text-primary animate-pulse">
                   <Loader2 size={12} className="animate-spin" />
                   <span>Calculating path…</span>
                 </div>
@@ -1713,7 +1671,7 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
         </div>
 
         {/* Right Action Buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-end gap-2 flex-wrap shrink-0">
           {/* Find Room Distance */}
           <button
             id="room-distance-calc-btn"
@@ -1722,11 +1680,10 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
               setShowEntrancePanel(false)
               if (!showCalcPanel && commuteMode) setCommuteMode(false)
             }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
-              showCalcPanel
-                ? 'bg-indigo-600/30 text-indigo-200 border-indigo-500/50'
-                : 'bg-white/5 text-gray-400 border-white/10 hover:bg-indigo-600/15 hover:text-indigo-300 hover:border-indigo-500/30'
-            }`}
+            className={`inline-flex h-9 items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-semibold border whitespace-nowrap transition-all ${showCalcPanel
+                ? 'bg-primary text-white border-primary shadow-sm'
+                : 'bg-ground text-muted border-primary/12 hover:bg-secondary/15 hover:text-primary hover:border-secondary/30'
+              }`}
             title="Find walking distance between any two rooms across floors or buildings"
           >
             <Ruler size={13} />
@@ -1741,11 +1698,10 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
               setShowCalcPanel(false)
               if (!showEntrancePanel && commuteMode) setCommuteMode(false)
             }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
-              showEntrancePanel
-                ? 'bg-amber-600/30 text-amber-200 border-amber-500/50'
-                : 'bg-white/5 text-gray-400 border-white/10 hover:bg-amber-600/15 hover:text-amber-300 hover:border-amber-500/30'
-            }`}
+            className={`inline-flex h-9 items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-semibold border whitespace-nowrap transition-all ${showEntrancePanel
+                ? 'bg-primary text-white border-primary shadow-sm'
+                : 'bg-ground text-muted border-primary/12 hover:bg-secondary/15 hover:text-primary hover:border-secondary/30'
+              }`}
             title="Configure specific gate-to-gate inter-building walking distances"
           >
             <DoorOpen size={13} />
@@ -1756,11 +1712,10 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
           <button
             id="teacher-commute-btn"
             onClick={toggleCommuteMode}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
-              commuteMode
-                ? 'bg-violet-600 text-white border-violet-500 shadow-md shadow-violet-600/30 ring-2 ring-violet-500/40'
-                : 'bg-white/5 text-gray-400 border-white/10 hover:bg-violet-600/15 hover:text-violet-300 hover:border-violet-500/30'
-            }`}
+            className={`inline-flex h-9 items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-semibold border whitespace-nowrap transition-all ${commuteMode
+                ? 'bg-primary text-white border-primary shadow-md shadow-card ring-2 ring-primary/40'
+                : 'bg-ground text-muted border-primary/12 hover:bg-secondary/15 hover:text-primary hover:border-secondary/30'
+              }`}
             title="Overlay a teacher's full daily commute path with Module 7f distances"
           >
             <Route size={13} />
@@ -1771,11 +1726,10 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
           {commuteMode && (
             <button
               onClick={() => setShowCommutePanel(o => !o)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
-                showCommutePanel
-                  ? 'bg-violet-600/30 text-violet-200 border-violet-500/50'
-                  : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-gray-200'
-              }`}
+              className={`inline-flex h-9 items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-semibold border whitespace-nowrap transition-all ${showCommutePanel
+                  ? 'bg-secondary/20 text-body border-secondary/40'
+                  : 'bg-ground text-muted border-primary/12 hover:bg-secondary/8 hover:text-body'
+                }`}
               title="Toggle detailed commute itinerary list"
             >
               <Navigation size={13} />
@@ -1788,7 +1742,7 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
             <button
               id="add-building-btn"
               onClick={onAddBuilding}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/30 hover:text-indigo-200 transition-all"
+              className="inline-flex h-9 items-center justify-center gap-2 px-3 rounded-xl text-xs font-semibold whitespace-nowrap bg-primary text-white hover:bg-primary/90 transition-all shadow-sm"
             >
               <Plus size={13} /> Add Building
             </button>
@@ -1800,7 +1754,7 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
       <div className="campus-map-canvas relative flex-1">
         <div
           ref={mapRef}
-          style={{ width: MAP_W, height: MAP_H, position: 'relative', minWidth: '100%', minHeight: '100%' }}
+          style={{ width: MAP_W, height: MAP_H, position: 'static', minWidth: '100%', minHeight: '100%' }}
           onClick={() => {
             onBuildingSelect(null)
             setSelectedHopIndex(null)
@@ -1809,9 +1763,9 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
           {buildings.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="text-center space-y-2 opacity-40">
-                <Building2 size={40} className="mx-auto text-indigo-400" />
-                <p className="text-sm text-gray-400">No buildings yet.</p>
-                <p className="text-xs text-gray-600">Click "Add Building" to place one on the map.</p>
+                <Building2 size={40} className="mx-auto text-secondary opacity-60" />
+                <p className="text-sm text-muted">No buildings yet.</p>
+                <p className="text-xs text-muted">Click "Add Building" to place one on the map.</p>
               </div>
             </div>
           )}
@@ -1907,14 +1861,13 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
                           e.stopPropagation()
                           setSelectedHopIndex(selectedHopIndex === i ? null : i)
                         }}
-                        className={`cursor-pointer px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border shadow-lg flex items-center justify-center gap-1 transition-all select-none ${
-                          isHovered || isSelected ? 'scale-125 z-40' : 'hover:scale-110'
-                        }`}
+                        className={`cursor-pointer px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border shadow-lg flex items-center justify-center gap-1 transition-all select-none ${isHovered || isSelected ? 'scale-125 z-40' : 'hover:scale-110'
+                          }`}
                         style={{
-                          background: isHovered || isSelected ? hex : '#12141f',
+                          background: isHovered || isSelected ? hex : '#FFFFFF',
                           borderColor: hex,
                           color: isHovered || isSelected ? '#ffffff' : hex,
-                          boxShadow: isHovered || isSelected ? `0 0 16px ${hex}` : '0 2px 8px rgba(0,0,0,0.7)',
+                          boxShadow: isHovered || isSelected ? `0 0 12px ${hex}` : '0 1px 3px rgba(46,42,107,0.12)',
                         }}
                         title={`Hop #${i + 1}: ${hop.from_room_name} → ${hop.to_room_name} (${hop.is_break_return ? 'Break Return · ' : hop.is_break_departure ? 'Break Departure · ' : ''}${hop.reachable ? `${hop.distance_m}m · ${hop.distance_cells} cells` : 'Unreachable'})`}
                       >
@@ -1940,15 +1893,14 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
             return (
               <div
                 key={b.id}
-                className={`building-box ${selectedBuildingId === b.id ? 'selected' : ''} ${
-                  isCommuteBldg ? 'ring-2 ring-violet-500/80 shadow-[0_0_24px_rgba(168,85,247,0.4)]' : ''
-                } ${isHoveredHopBldg ? 'ring-4 ring-white shadow-[0_0_30px_rgba(255,255,255,0.7)]' : ''}`}
+                className={`building-box ${selectedBuildingId === b.id ? 'selected' : ''} ${isCommuteBldg ? 'ring-2 ring-primary shadow-card' : ''
+                  } ${isHoveredHopBldg ? 'ring-4 ring-primary shadow-md' : ''}`}
                 style={{
-                  left:   b.pos_x,
-                  top:    b.pos_y,
-                  width:  b.width,
+                  left: b.pos_x,
+                  top: b.pos_y,
+                  width: b.width,
                   height: b.height,
-                  color:  b.color,
+                  color: b.color,
                   background: isCommuteBldg ? 'rgba(139,92,246,0.18)' : b.color + '22',
                   zIndex: isHoveredHopBldg ? 25 : (isCommuteBldg ? 20 : 1),
                 }}
@@ -1966,12 +1918,12 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
                 {commuteMode && bMeta && (
                   <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex items-center gap-1 pointer-events-none z-30 whitespace-nowrap">
                     {bMeta.hasStaffroom && (
-                      <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-violet-600 text-white shadow-md flex items-center gap-1 border border-violet-400/50">
+                      <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-primary text-white shadow-md flex items-center gap-1 border border-primary/20">
                         Staffroom
                       </span>
                     )}
                     {bMeta.periods.length > 0 && (
-                      <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-indigo-950/90 text-indigo-200 border border-indigo-400/40 shadow-md">
+                      <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-secondary/20 text-primary border border-secondary/40 shadow-sm font-semibold">
                         P: {bMeta.periods.join(', ')}
                       </span>
                     )}
@@ -1983,7 +1935,7 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
                   {b.name}
                 </span>
                 <span className="text-[9px] opacity-60 font-mono">{b.code}</span>
-                
+
                 <button
                   type="button"
                   onClick={(e) => {
@@ -1994,16 +1946,16 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
                       onAddFloor(b)
                     }
                   }}
-                  className="text-[10px] font-semibold px-2 py-0.5 mt-0.5 rounded-full bg-black/50 text-gray-200 hover:text-indigo-300 hover:bg-black/80 border border-white/10 hover:border-indigo-500/50 shadow-sm flex items-center gap-1 transition-all"
+                  className="text-[10px] font-semibold px-2 py-0.5 mt-0.5 rounded-full bg-primary/10 text-body hover:text-primary hover:bg-ground border border-primary/12 hover:border-secondary/40 shadow-sm flex items-center gap-1 transition-all"
                   title={b.floors?.length ? "Click to open floor plan drawing canvas" : "Click to add a floor"}
                 >
-                  <Layers size={10} className="text-indigo-400" />
+                  <Layers size={10} className="text-primary" />
                   {b.floors?.length ?? 0} {(b.floors?.length ?? 0) === 1 ? 'floor' : 'floors'}
                 </button>
 
                 {/* Floor quick-links when building is selected */}
                 {selectedBuildingId === b.id && b.floors && b.floors.length > 0 && (
-                  <div 
+                  <div
                     className="flex flex-wrap gap-1 justify-center mt-1 max-w-full px-1"
                     onClick={e => e.stopPropagation()}
                   >
@@ -2011,7 +1963,7 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
                       <button
                         key={fl.id}
                         onClick={() => onSelectFloor && onSelectFloor({ ...fl, building_id: b.id })}
-                        className="px-1.5 py-0.5 text-[9px] rounded font-medium bg-indigo-600/40 hover:bg-indigo-600 text-indigo-100 border border-indigo-400/30 transition-colors"
+                        className="px-1.5 py-0.5 text-[9px] rounded font-medium bg-primary/10 hover:bg-primary text-body hover:text-white border border-primary/20 transition-colors"
                         title={`Open ${fl.name} drawing canvas`}
                       >
                         {fl.name}
@@ -2036,7 +1988,7 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
                     <button
                       title="Rename"
                       onClick={() => onRenameBuilding(b)}
-                      className="w-5 h-5 rounded-full bg-indigo-600 hover:bg-indigo-500 flex items-center justify-center transition-colors shadow-md"
+                      className="w-5 h-5 rounded-full bg-primary hover:bg-primary/90 flex items-center justify-center transition-colors shadow-md"
                     >
                       <Edit2 size={9} className="text-white" />
                     </button>
@@ -2056,57 +2008,61 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
           {/* ACTIVE HOP FLOATING CARD TOOLTIP */}
           {commuteMode && activeHop && activeHopIdx != null && (
             <div
-              className="absolute bottom-5 left-5 z-40 max-w-sm rounded-2xl bg-[#121420]/95 border border-violet-500/40 p-3.5 shadow-2xl backdrop-blur-md pointer-events-auto transition-all animate-fadeIn"
+              className="absolute bottom-3 left-3 z-40 rounded-2xl bg-surface border border-secondary/40 p-3.5 shadow-2xl backdrop-blur-md pointer-events-auto transition-all animate-fadeIn overflow-y-auto"
+              style={{
+                width: 'min(24rem, calc(100% - 1.5rem))',
+                maxHeight: 'calc(100% - 1.5rem)',
+                boxSizing: 'border-box',
+              }}
               onClick={e => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-white/10">
-                <span className="text-[11px] font-bold text-violet-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <Navigation size={12} className="text-violet-400" />
+              <div className="flex items-start justify-between gap-2 mb-2 pb-1.5 border-b border-primary/12 min-w-0">
+                <span className="min-w-0 whitespace-normal break-words text-[11px] font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
+                  <Navigation size={12} className="text-primary" />
                   Hop #{activeHopIdx + 1} Details
                 </span>
-                <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${
-                  !activeHop.reachable ? 'bg-red-500/20 text-red-300 border-red-500/40'
+                <span className={`shrink-0 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${!activeHop.reachable ? 'bg-red-500/20 text-red-300 border-red-500/40'
                     : (activeHop.distance_m || 0) < 30 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                    : (activeHop.distance_m || 0) < 80 ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                    : 'bg-violet-500/20 text-violet-300 border-violet-500/40'
-                }`}>
+                      : (activeHop.distance_m || 0) < 80 ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                        : 'bg-secondary/15 text-primary border-secondary/40'
+                  }`}>
                   {activeHop.reachable ? `${activeHop.distance_m}m · ${activeHop.distance_cells} cells` : 'Unreachable'}
                 </span>
               </div>
 
               <div className="space-y-1.5 text-xs">
-                <div className="flex items-center justify-between text-gray-300">
-                  <span className="text-gray-500 text-[10px]">From:</span>
-                  <span className="font-semibold text-gray-200">
-                    {activeHop.from_room_name} <span className="text-gray-500 text-[10px]">({activeHop.from_building_name || 'Campus'})</span>
+                <div className="flex items-start justify-between gap-2 text-body min-w-0">
+                  <span className="shrink-0 text-muted text-[10px]">From:</span>
+                  <span className="min-w-0 text-right whitespace-normal break-words font-semibold text-body">
+                    {activeHop.from_room_name} <span className="text-muted text-[10px]">({activeHop.from_building_name || 'Campus'})</span>
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-gray-300">
-                  <span className="text-gray-500 text-[10px]">To:</span>
-                  <span className="font-semibold text-violet-200">
-                    {activeHop.to_room_name} <span className="text-gray-500 text-[10px]">({activeHop.to_building_name || 'Campus'})</span>
+                <div className="flex items-start justify-between gap-2 text-body min-w-0">
+                  <span className="shrink-0 text-muted text-[10px]">To:</span>
+                  <span className="min-w-0 text-right whitespace-normal break-words font-semibold text-body">
+                    {activeHop.to_room_name} <span className="text-muted text-[10px]">({activeHop.to_building_name || 'Campus'})</span>
                   </span>
                 </div>
                 {activeHop.is_break_return && (
-                  <div className="flex items-center justify-between text-amber-300 pt-1 border-t border-white/5">
-                    <span className="text-gray-500 text-[10px]">Activity:</span>
-                    <span className="font-semibold text-[11px] text-amber-300">
+                  <div className="flex items-start justify-between gap-2 text-amber-300 pt-1 border-t border-primary/8 min-w-0">
+                    <span className="shrink-0 text-muted text-[10px]">Activity:</span>
+                    <span className="min-w-0 text-right whitespace-normal break-words font-semibold text-[11px] text-amber-300">
                       Return to Staffroom for Break ({activeHop.gap_periods} free period{activeHop.gap_periods > 1 ? 's' : ''})
                     </span>
                   </div>
                 )}
                 {activeHop.is_break_departure && (
-                  <div className="flex items-center justify-between text-violet-300 pt-1 border-t border-white/5">
-                    <span className="text-gray-500 text-[10px]">Activity:</span>
-                    <span className="font-semibold text-[11px] text-violet-300">
+                  <div className="flex items-start justify-between gap-2 text-primary pt-1 border-t border-primary/8 min-w-0">
+                    <span className="shrink-0 text-muted text-[10px]">Activity:</span>
+                    <span className="min-w-0 text-right whitespace-normal break-words font-semibold text-[11px] text-primary">
                       Walk to Period {activeHop.period_index != null ? activeHop.period_index + 1 : ''} Class
                     </span>
                   </div>
                 )}
                 {activeHop.period_index != null && !activeHop.is_break_return && (
-                  <div className="flex items-center justify-between text-gray-300 pt-1 border-t border-white/5">
-                    <span className="text-gray-500 text-[10px]">Period:</span>
-                    <span className="font-mono text-gray-200 font-bold">
+                  <div className="flex items-start justify-between gap-2 text-body pt-1 border-t border-primary/8 min-w-0">
+                    <span className="shrink-0 text-muted text-[10px]">Period:</span>
+                    <span className="min-w-0 text-right whitespace-normal break-words font-mono text-body font-bold">
                       Period {activeHop.period_index + 1}
                       {activeHop.subject_name && ` · ${activeHop.subject_name}`}
                       {activeHop.section_name && ` (${activeHop.section_name})`}
@@ -2114,9 +2070,9 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
                   </div>
                 )}
                 {activeHop.route_type && (
-                  <div className="flex items-center justify-between text-gray-400 text-[10px]">
-                    <span className="text-gray-500">Route Type:</span>
-                    <span className="font-mono capitalize text-gray-300">{activeHop.route_type.replace('_', ' ')}</span>
+                  <div className="flex items-start justify-between gap-2 text-muted text-[10px] min-w-0">
+                    <span className="shrink-0 text-muted">Route Type:</span>
+                    <span className="min-w-0 text-right whitespace-normal break-words font-mono capitalize text-body">{activeHop.route_type.replace('_', ' ')}</span>
                   </div>
                 )}
               </div>
@@ -2127,7 +2083,7 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
 
       {/* Room Distance Calculator Side Panel */}
       {showCalcPanel && (
-      <div className="campus-side-drawer-overlay">
+        <div className="campus-side-drawer-overlay">
           <div className="inter-bldg-drawer" onClick={e => e.stopPropagation()}>
             <RoomDistanceCalculatorPanel
               campusId={campus.id}
@@ -2139,7 +2095,7 @@ function CampusMap({ campus, buildings, onBuildingMove, onBuildingSelect, onAddB
 
       {/* Entrance Pair Distance Side Panel */}
       {showEntrancePanel && (
-      <div className="campus-side-drawer-overlay">
+        <div className="campus-side-drawer-overlay">
           <div className="inter-bldg-drawer" onClick={e => e.stopPropagation()}>
             <EntrancePairsPanel
               campusId={campus.id}
@@ -2201,7 +2157,7 @@ function TreeNode({ depth = 0, icon: Icon, label, isActive, isExpanded, hasChild
     >
       {/* expand chevron */}
       <span
-        className="shrink-0 w-4 h-4 flex items-center justify-center text-gray-600"
+        className="shrink-0 w-4 h-4 flex items-center justify-center text-muted"
         onClick={(e) => { e.stopPropagation(); onToggle?.() }}
       >
         {hasChildren
@@ -2211,7 +2167,7 @@ function TreeNode({ depth = 0, icon: Icon, label, isActive, isExpanded, hasChild
           : null}
       </span>
       <Icon size={13} className="shrink-0 opacity-70" />
-      <span className="flex-1 truncate text-gray-300">{label}</span>
+      <span className="flex-1 truncate text-body">{label}</span>
       {actions && (
         <span className="shrink-0 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
           {actions}
@@ -2225,17 +2181,17 @@ function TreeNode({ depth = 0, icon: Icon, label, isActive, isExpanded, hasChild
 // Main CampusLayout Page
 // ---------------------------------------------------------------------------
 export default function CampusLayout() {
-  const [campuses,        setCampuses]        = useState([])
-  const [loading,         setLoading]         = useState(true)
+  const [campuses, setCampuses] = useState([])
+  const [loading, setLoading] = useState(true)
 
   // Expanded sets
-  const [expandedCampuses,  setExpandedCampuses]  = useState(new Set())
+  const [expandedCampuses, setExpandedCampuses] = useState(new Set())
   const [expandedBuildings, setExpandedBuildings] = useState(new Set())
 
   // Selection
-  const [activeCampus,  setActiveCampus]  = useState(null)   // campus object
-  const [activeFloor,   setActiveFloor]   = useState(null)   // floor object (with grid_data)
-  const [selBuilding,   setSelBuilding]   = useState(null)   // building id on campus map
+  const [activeCampus, setActiveCampus] = useState(null)   // campus object
+  const [activeFloor, setActiveFloor] = useState(null)   // floor object (with grid_data)
+  const [selBuilding, setSelBuilding] = useState(null)   // building id on campus map
 
   // Buildings cache: { [campusId]: [...] }
   const [buildingsMap, setBuildingsMap] = useState({})
@@ -2396,16 +2352,16 @@ export default function CampusLayout() {
           }
           return next
         })
-      } catch {/* ignore */}
+      } catch {/* ignore */ }
     }, 800)
   }, [])
 
   // ── Resolve building list for active campus (with live positions) ──────────
   const resolvedBuildings = activeCampus
     ? (buildingsMap[activeCampus.id] ?? []).map(b => {
-        const live = livePos[b.id]
-        return live ? { ...b, pos_x: live.x, pos_y: live.y } : b
-      })
+      const live = livePos[b.id]
+      return live ? { ...b, pos_x: live.x, pos_y: live.y } : b
+    })
     : []
 
   // ===========================================================================
@@ -2622,16 +2578,16 @@ export default function CampusLayout() {
             >
               <button
                 onClick={handleCloseFloor}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-gray-400 hover:text-gray-100 hover:bg-white/10 transition-all border border-white/5"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-muted hover:text-body hover:bg-secondary/8 transition-all border border-primary/8"
                 title="Back to Campus Map"
               >
                 <ArrowLeft size={13} /> Back to Map
               </button>
-              <div className="h-4 w-px bg-white/10" />
-              <Layers size={15} className="text-indigo-400" />
+              <div className="h-4 w-px bg-secondary/8" />
+              <Layers size={15} className="text-primary" />
               <div className="flex-1 min-w-0">
                 <h2 className="text-sm font-bold truncate" style={{ color: "var(--c-body)" }}>{activeFloor.name}</h2>
-                <p className="text-[11px] text-gray-500">
+                <p className="text-[11px] text-muted">
                   {activeFloor.grid_cols} × {activeFloor.grid_rows} cells &nbsp;·&nbsp;
                   1 cell = {activeFloor.cell_size_m}m &nbsp;·&nbsp;
                   Level {activeFloor.level}
@@ -2640,27 +2596,27 @@ export default function CampusLayout() {
               <div className="flex items-center gap-0 self-stretch -my-3">
                 <button
                   onClick={() => setFloorTab('painter')}
-                  className={`flex items-center gap-1.5 px-3.5 h-full text-xs font-medium border-b-2 transition-all ${floorTab === 'painter' ? 'border-indigo-500 text-indigo-300' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                  className={`flex items-center gap-1.5 px-3.5 h-full text-xs font-medium border-b-2 transition-all ${floorTab === 'painter' ? 'border-primary text-primary font-bold' : 'border-transparent text-muted hover:text-body'}`}
                 >
                   <LayoutGrid size={12} /> Grid Painter
                 </button>
                 <button
                   onClick={() => setFloorTab('distances')}
-                  className={`flex items-center gap-1.5 px-3.5 h-full text-xs font-medium border-b-2 transition-all ${floorTab === 'distances' ? 'border-indigo-500 text-indigo-300' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                  className={`flex items-center gap-1.5 px-3.5 h-full text-xs font-medium border-b-2 transition-all ${floorTab === 'distances' ? 'border-primary text-primary font-bold' : 'border-transparent text-muted hover:text-body'}`}
                 >
                   <ArrowRightLeft size={12} /> Room Distances
                 </button>
               </div>
               <button
                 onClick={() => setModal({ type: 'rename-floor', data: activeFloor })}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-white/10 transition-all"
+                className="p-1.5 rounded-lg text-muted hover:text-body hover:bg-secondary/8 transition-all"
                 title="Edit floor settings"
               >
                 <Edit2 size={13} />
               </button>
               <button
                 onClick={handleCloseFloor}
-                className="p-1.5 rounded-lg text-gray-500 hover:text-gray-200 hover:bg-white/10 transition-all"
+                className="p-1.5 rounded-lg text-muted hover:text-body hover:bg-secondary/8 transition-all"
                 title="Close floor"
               >
                 <X size={13} />
@@ -2771,16 +2727,16 @@ export default function CampusLayout() {
         <nav className="flex-1 overflow-y-auto py-2 px-1.5 space-y-0.5">
           {loading && (
             <div className="flex items-center justify-center py-8">
-              <Loader2 size={16} className="animate-spin text-indigo-400" />
+              <Loader2 size={16} className="animate-spin text-primary" />
             </div>
           )}
 
           {!loading && campuses.length === 0 && (
             <div className="text-center py-8 space-y-1">
-              <p className="text-xs text-gray-600">No campuses yet.</p>
+              <p className="text-xs text-muted">No campuses yet.</p>
               <button
                 onClick={() => setModal({ type: 'campus' })}
-                className="text-xs text-indigo-400 hover:text-indigo-300 underline"
+                className="text-xs text-primary hover:text-primary/80 font-medium underline"
               >
                 Create one
               </button>
@@ -2788,7 +2744,7 @@ export default function CampusLayout() {
           )}
 
           {campuses.map(campus => {
-            const expanded  = expandedCampuses.has(campus.id)
+            const expanded = expandedCampuses.has(campus.id)
             const buildings = buildingsMap[campus.id] ?? []
             const isActiveCampus = activeCampus?.id === campus.id && !activeFloor
 
@@ -2801,29 +2757,29 @@ export default function CampusLayout() {
                   onClick={() => selectCampus(campus)}
                 >
                   <span
-                    className="shrink-0 w-4 h-4 flex items-center justify-center text-gray-600 cursor-pointer"
+                    className="shrink-0 w-4 h-4 flex items-center justify-center text-muted cursor-pointer"
                     onClick={(e) => { e.stopPropagation(); toggleCampus(campus) }}
                   >
                     {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                   </span>
-                  <School size={13} className="shrink-0 text-indigo-400 opacity-80" />
+                  <School size={13} className="shrink-0 text-primary opacity-80" />
                   <span className="flex-1 truncate font-semibold" style={{ color: "var(--c-body)" }}>{campus.name}</span>
                   {/* Campus actions */}
                   <span className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       title="Rename campus"
                       onClick={(e) => { e.stopPropagation(); setModal({ type: 'rename-campus', data: campus }) }}
-                      className="w-5 h-5 rounded flex items-center justify-center text-gray-600 hover:text-gray-200 hover:bg-white/10"
+                      className="w-5 h-5 rounded flex items-center justify-center text-muted hover:text-body hover:bg-secondary/8"
                     ><Edit2 size={10} /></button>
                     <button
                       title="Add building"
                       onClick={(e) => { e.stopPropagation(); selectCampus(campus); setModal({ type: 'building', data: campus }) }}
-                      className="w-5 h-5 rounded flex items-center justify-center text-gray-600 hover:text-green-300 hover:bg-green-500/10"
+                      className="w-5 h-5 rounded flex items-center justify-center text-muted hover:text-green-300 hover:bg-green-500/10"
                     ><Plus size={10} /></button>
                     <button
                       title="Delete campus"
                       onClick={(e) => { e.stopPropagation(); handleDeleteCampus(campus) }}
-                      className="w-5 h-5 rounded flex items-center justify-center text-gray-600 hover:text-red-400 hover:bg-red-500/10"
+                      className="w-5 h-5 rounded flex items-center justify-center text-muted hover:text-red-400 hover:bg-red-500/10"
                     ><Trash2 size={10} /></button>
                   </span>
                 </div>
@@ -2831,7 +2787,7 @@ export default function CampusLayout() {
                 {/* Buildings */}
                 {expanded && buildings.map(building => {
                   const bExpanded = expandedBuildings.has(building.id)
-                  const floors    = building.floors ?? []
+                  const floors = building.floors ?? []
 
                   return (
                     <div key={building.id} className="group">
@@ -2850,25 +2806,24 @@ export default function CampusLayout() {
                         }}
                       >
                         <span
-                          className="shrink-0 w-4 h-4 flex items-center justify-center text-gray-500 hover:text-gray-300 cursor-pointer"
+                          className="shrink-0 w-4 h-4 flex items-center justify-center text-muted hover:text-body cursor-pointer"
                           onClick={(e) => { e.stopPropagation(); toggleBuilding(building.id) }}
                           title={bExpanded ? "Collapse building" : "Expand building"}
                         >
                           {bExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                         </span>
                         <Building2 size={12} style={{ color: building.color }} className="shrink-0 opacity-80" />
-                        <span className="flex-1 truncate text-gray-300 text-xs flex items-center gap-1.5 min-w-0">
+                        <span className="flex-1 truncate text-body text-xs flex items-center gap-1.5 min-w-0">
                           <span className="truncate font-medium">{building.name}</span>
-                          <span className="text-[10px] text-gray-500 font-mono shrink-0">{building.code}</span>
+                          <span className="text-[10px] text-muted font-mono shrink-0">{building.code}</span>
                         </span>
 
                         {/* Floor count badge */}
                         <span
-                          className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono shrink-0 transition-all ${
-                            floors.length > 0
-                              ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/25'
-                              : 'bg-white/5 text-gray-500 border border-white/10'
-                          }`}
+                          className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono shrink-0 transition-all ${floors.length > 0
+                              ? 'bg-secondary/15 text-primary border border-secondary/30 font-semibold'
+                              : 'bg-ground text-muted border border-primary/12'
+                            }`}
                           title={`${floors.length} floor(s)`}
                         >
                           {floors.length} {floors.length === 1 ? 'floor' : 'floors'}
@@ -2879,17 +2834,17 @@ export default function CampusLayout() {
                           <button
                             title="Add floor"
                             onClick={(e) => { e.stopPropagation(); setModal({ type: 'floor', data: building }) }}
-                            className="w-5 h-5 rounded flex items-center justify-center text-gray-500 hover:text-green-300 hover:bg-green-500/10"
+                            className="w-5 h-5 rounded flex items-center justify-center text-muted hover:text-green-300 hover:bg-green-500/10"
                           ><Plus size={10} /></button>
                           <button
                             title="Rename building"
                             onClick={(e) => { e.stopPropagation(); setModal({ type: 'rename-building', data: building }) }}
-                            className="w-5 h-5 rounded flex items-center justify-center text-gray-500 hover:text-gray-200 hover:bg-white/10"
+                            className="w-5 h-5 rounded flex items-center justify-center text-muted hover:text-body hover:bg-secondary/8"
                           ><Edit2 size={10} /></button>
                           <button
                             title="Delete building"
                             onClick={(e) => { e.stopPropagation(); handleDeleteBuilding(building) }}
-                            className="w-5 h-5 rounded flex items-center justify-center text-gray-500 hover:text-red-400 hover:bg-red-500/10"
+                            className="w-5 h-5 rounded flex items-center justify-center text-muted hover:text-red-400 hover:bg-red-500/10"
                           ><Trash2 size={10} /></button>
                         </span>
                       </div>
@@ -2899,13 +2854,13 @@ export default function CampusLayout() {
                         <div>
                           {floors.length === 0 ? (
                             <div
-                              className="flex items-center justify-between text-[11px] text-gray-500 py-1.5 pr-2.5"
+                              className="flex items-center justify-between text-[11px] text-muted py-1.5 pr-2.5"
                               style={{ paddingLeft: '2.8rem' }}
                             >
-                              <span className="italic text-gray-500 text-[10px]">0 floors</span>
+                              <span className="italic text-muted text-[10px]">0 floors</span>
                               <button
                                 onClick={(e) => { e.stopPropagation(); setModal({ type: 'floor', data: building }) }}
-                                className="text-[10px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 hover:underline"
+                                className="text-[10px] text-primary hover:text-primary/80 font-semibold flex items-center gap-1 hover:underline"
                               >
                                 <Plus size={10} /> Add Floor
                               </button>
@@ -2919,22 +2874,22 @@ export default function CampusLayout() {
                                 onClick={() => selectFloor(floor)}
                               >
                                 <span className="shrink-0 w-4 h-4" />
-                                <Layers size={11} className="shrink-0 text-gray-400 opacity-70" />
-                                <span className="flex-1 truncate text-gray-300 text-xs">
+                                <Layers size={11} className="shrink-0 text-muted opacity-70" />
+                                <span className="flex-1 truncate text-body text-xs">
                                   {floor.name}
-                                  <span className="ml-1 text-[10px] text-gray-500">L{floor.level}</span>
+                                  <span className="ml-1 text-[10px] text-muted">L{floor.level}</span>
                                 </span>
                                 {/* Floor actions */}
                                 <span className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                   <button
                                     title="Edit floor settings"
                                     onClick={(e) => { e.stopPropagation(); setModal({ type: 'rename-floor', data: { ...floor, building_id: building.id } }) }}
-                                    className="w-5 h-5 rounded flex items-center justify-center text-gray-500 hover:text-gray-200 hover:bg-white/10"
+                                    className="w-5 h-5 rounded flex items-center justify-center text-muted hover:text-body hover:bg-secondary/8"
                                   ><Edit2 size={10} /></button>
                                   <button
                                     title="Delete floor"
                                     onClick={(e) => { e.stopPropagation(); handleDeleteFloor({ ...floor, building_id: building.id }) }}
-                                    className="w-5 h-5 rounded flex items-center justify-center text-gray-500 hover:text-red-400 hover:bg-red-500/10"
+                                    className="w-5 h-5 rounded flex items-center justify-center text-muted hover:text-red-400 hover:bg-red-500/10"
                                   ><Trash2 size={10} /></button>
                                 </span>
                               </div>

@@ -47,14 +47,24 @@ export default function Sidebar() {
 
   return (
     <aside className="app-sidebar">
-      {/* Logo */}
-      <div className="sidebar-logo">
-        <div className="sidebar-logo-icon" aria-hidden="true">
-          <Zap size={16} color="#1F1B4D" strokeWidth={2.5} />
-        </div>
+      {/* Brand logo */}
+      <div className="sidebar-logo" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <img
+          src="/logo.jpg"
+          alt="RouteTable"
+          style={{
+            width: '34px',
+            height: '34px',
+            borderRadius: '9px',
+            objectFit: 'contain',
+            background: '#FFFFFF',
+            padding: '2px',
+            flexShrink: 0,
+          }}
+        />
         <div>
-          <p className="sidebar-logo-name">TimeTable</p>
-          <p className="sidebar-logo-sub">Generator</p>
+          <p className="sidebar-logo-name" style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 700, fontSize: '0.9375rem', lineHeight: 1.15 }}>RouteTable</p>
+          <p className="sidebar-logo-sub" style={{ fontSize: '0.6875rem', color: 'rgba(255,255,255,0.6)', lineHeight: 1.1 }}>Timetable Generator</p>
         </div>
       </div>
 

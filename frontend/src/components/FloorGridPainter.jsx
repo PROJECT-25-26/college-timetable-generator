@@ -34,6 +34,8 @@ import {
   Footprints,
   Image,
   Link,
+  LayoutGrid,
+  ChevronDown,
   Link2Off,
   Loader2,
   MapPin,
@@ -59,95 +61,96 @@ import { buildingsApi, floorsApi, roomsApi, staffroomsApi } from '../api/index'
 
 const CELL_TYPES = {
   wall: {
-    label:    'Wall',
+    label: 'Wall',
     shortcut: 'W',
-    icon:     Square,
-    fill:     '#334155',
-    accent:   '#64748b',
-    pattern:  'wall-hatch',
+    icon: Square,
+    fill: '#334155',
+    accent: '#334155',
+    pattern: 'wall-hatch',
     linkable: false,
   },
   corridor: {
-    label:    'Corridor',
+    label: 'Container',
     shortcut: 'C',
-    icon:     Footprints,
-    fill:     '#1a2e05',
-    accent:   '#a3e635',
-    pattern:  'corridor-stripe',
+    icon: Footprints,
+    fill: '#dcfce7',
+    accent: '#84cc16',
+    pattern: 'corridor-stripe',
     linkable: false,
   },
   stairs: {
-    label:    'Stairs / Lift',
+    label: 'Stairs/Lift',
     shortcut: 'S',
-    icon:     ArrowUpDown,
-    fill:     '#292524',
-    accent:   '#facc15',
-    pattern:  'stairs-step',
+    icon: ArrowUpDown,
+    fill: '#fef3c7',
+    accent: '#d97706',
+    pattern: 'stairs-step',
     linkable: true,
   },
 
   door: {
-    label:    'Door',
+    label: 'Door',
     shortcut: 'D',
-    icon:     DoorOpen,
-    fill:     '#2e1065',
-    accent:   '#a78bfa',
-    pattern:  'door-lines',
+    icon: DoorOpen,
+    fill: '#f3e8ff',
+    accent: '#a855f7',
+    pattern: 'door-lines',
     linkable: false,
     description: 'Room/staffroom door',
   },
   gate: {
-    label:    'Gate',
+    label: 'Gate',
     shortcut: 'G',
-    icon:     DoorOpen,
-    fill:     '#451a03',
-    accent:   '#f59e0b',
-    pattern:  'gate-arch',
+    icon: DoorOpen,
+    fill: '#ffedd5',
+    accent: '#f97316',
+    pattern: 'gate-arch',
     linkable: false,
     description: 'Building gate / main entrance',
   },
   entrance: {
-    label:    'Entrance (Legacy)',
+    label: 'Entrance',
     shortcut: 'E',
-    icon:     DoorOpen,
-    fill:     '#082f49',
-    accent:   '#38bdf8',
-    pattern:  'entrance-arc',
+    icon: DoorOpen,
+    fill: '#e0f2fe',
+    accent: '#0284c7',
+    pattern: 'entrance-arc',
     linkable: false,
+    description: 'Deprecated entrance pin',
   },
   room: {
-    label:    'Room',
+    label: 'Room',
     shortcut: 'R',
-    icon:     Building2,
-    fill:     '#0c1a2e',
-    accent:   '#3b82f6',
-    pattern:  'room-fill',
+    icon: Building2,
+    fill: '#e0f2fe',
+    accent: '#0284c7',
+    pattern: 'room-fill',
     linkable: true,
   },
   staffroom: {
-    label:    'Staffroom',
+    label: 'Staffroom',
     shortcut: 'T',
-    icon:     Users,
-    fill:     '#1a0c2e',
-    accent:   '#a855f7',
-    pattern:  'staffroom-fill',
+    icon: Users,
+    fill: '#EDE9FF',
+    accent: '#2E2A6B',
+    pattern: 'staffroom-fill',
     linkable: true,
   },
   empty: {
-    label:    'Empty',
+    label: 'Eraser',
     shortcut: 'X',
-    icon:     Minus,
-    fill:     null,
-    accent:   '#6b7280',
-    pattern:  null,
+    icon: Eraser,
+    fill: '#FFFFFF',
+    accent: '#64748b',
+    pattern: null,
     linkable: false,
   },
 }
 
-const ERASER_TYPE    = 'empty'
-const BASE_CELL_PX   = 24
-const EMPTY_BG       = '#12141f'
-const GRID_LINE      = 'rgba(255,255,255,0.055)'
+const ERASER_TYPE = 'empty'
+const BASE_CELL_PX = 24
+const EMPTY_BG = '#FFFFFF'
+const GRID_LINE = 'rgba(46, 42, 107, 0.12)'
 
 // ---------------------------------------------------------------------------
 // Pure helpers
@@ -179,17 +182,17 @@ function floodFill(grid, sr, sc, type) {
   const rows = grid.length
   const cols = grid[0].length
   const visited = new Set()
-  const queue   = [{ r: sr, c: sc }]
-  const cells   = []
+  const queue = [{ r: sr, c: sc }]
+  const cells = []
   visited.add(`${sr},${sc}`)
   while (queue.length) {
     const { r, c } = queue.shift()
     cells.push({ r, c })
-    for (const [dr, dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+    for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
       const nr = r + dr, nc = c + dc
       const key = `${nr},${nc}`
       if (nr >= 0 && nr < rows && nc >= 0 && nc < cols &&
-          !visited.has(key) && grid[nr][nc] === type) {
+        !visited.has(key) && grid[nr][nc] === type) {
         visited.add(key)
         queue.push({ r: nr, c: nc })
       }
@@ -200,10 +203,10 @@ function floodFill(grid, sr, sc, type) {
 
 // Detect all blobs of linkable types in the grid
 function detectAllBlobs(grid) {
-  const rows    = grid.length
-  const cols    = grid[0]?.length ?? 0
+  const rows = grid.length
+  const cols = grid[0]?.length ?? 0
   const painted = new Set()
-  const blobs   = []
+  const blobs = []
 
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -227,7 +230,7 @@ function detectAllBlobs(grid) {
 function isWalkable(grid, blobCells) {
   const blobSet = new Set(blobCells.map(({ r, c }) => `${r},${c}`))
   for (const { r, c } of blobCells) {
-    for (const [dr, dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+    for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
       const nr = r + dr, nc = c + dc
       if (!blobSet.has(`${nr},${nc}`)) {
         const t = grid[nr]?.[nc]
@@ -446,11 +449,11 @@ async function loadPdfFile(file) {
   )
   pdfjsLib.GlobalWorkerOptions.workerSrc =
     'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.6.82/build/pdf.worker.min.mjs'
-  const pdf  = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
   const page = await pdf.getPage(1)
-  const vp   = page.getViewport({ scale: 2 })
+  const vp = page.getViewport({ scale: 2 })
   const canvas = document.createElement('canvas')
-  canvas.width  = vp.width
+  canvas.width = vp.width
   canvas.height = vp.height
   const ctx = canvas.getContext('2d')
   await page.render({ canvasContext: ctx, viewport: vp }).promise
@@ -462,10 +465,10 @@ async function loadPdfFile(file) {
 // ---------------------------------------------------------------------------
 
 function BgImagePanel({ bgImage, bgOpacity, setBgOpacity, bgMode, calibPins, calibDist,
-                        setCalibDist, onUpload, onRemove, onStartCalib, onResetCalib,
-                        onApplyCalib, onClose, svgW, svgH, cellPx }) {
+  setCalibDist, onUpload, onRemove, onStartCalib, onResetCalib,
+  onApplyCalib, onClose, svgW, svgH, cellPx }) {
   const [dragOver, setDragOver] = useState(false)
-  const [loading,  setLoading]  = useState(false)
+  const [loading, setLoading] = useState(false)
   const fileRef = useRef(null)
 
   const handleFile = async (file) => {
@@ -495,11 +498,11 @@ function BgImagePanel({ bgImage, bgOpacity, setBgOpacity, bgMode, calibPins, cal
     if (calibPins.length < 2 || !bgImage || !calibDist || isNaN(Number(calibDist))) return null
     const [A, B] = calibPins
     const pixDist = Math.sqrt((B.x - A.x) ** 2 + (B.y - A.y) ** 2)
-    const scaleX  = svgW / bgImage.width
-    const scaleY  = svgH / bgImage.height
-    const avgScale  = (scaleX + scaleY) / 2
-    const svgDist   = pixDist * avgScale
-    const numCells  = svgDist / cellPx
+    const scaleX = svgW / bgImage.width
+    const scaleY = svgH / bgImage.height
+    const avgScale = (scaleX + scaleY) / 2
+    const svgDist = pixDist * avgScale
+    const numCells = svgDist / cellPx
     if (numCells <= 0) return null
     return (Number(calibDist) / numCells).toFixed(3)
   })()
@@ -514,9 +517,9 @@ function BgImagePanel({ bgImage, bgOpacity, setBgOpacity, bgMode, calibPins, cal
   return (
     <div className="fgp-bg-panel">
       <div className="fgp-bg-panel-header">
-        <Image size={13} className="text-indigo-400" />
+        <Image size={13} className="text-primary" />
         <span>Background Image</span>
-        <button onClick={onClose} className="ml-auto flex items-center gap-1 px-2 py-1 rounded text-[10px] text-gray-400 hover:text-gray-100 hover:bg-white/10 transition-colors" title="Back to floor editor">
+        <button onClick={onClose} className="ml-auto flex items-center gap-1 px-2 py-1 rounded text-[10px] text-muted hover:text-body hover:bg-secondary/8 transition-colors" title="Back to floor editor">
           <ArrowLeft size={12} /> Back
         </button>
       </div>
@@ -540,8 +543,8 @@ function BgImagePanel({ bgImage, bgOpacity, setBgOpacity, bgMode, calibPins, cal
               onChange={(e) => handleFile(e.target.files?.[0])}
             />
             {loading
-              ? <Loader2 size={22} className="animate-spin text-indigo-400" />
-              : <Image size={22} className="text-indigo-400" />
+              ? <Loader2 size={22} className="animate-spin text-primary" />
+              : <Image size={22} className="text-primary" />
             }
             <p>
               <strong>Click or drag &amp; drop</strong><br />
@@ -552,7 +555,7 @@ function BgImagePanel({ bgImage, bgOpacity, setBgOpacity, bgMode, calibPins, cal
         ) : (
           <>
             {/* Thumbnail preview */}
-            <div className="rounded-md overflow-hidden border border-white/10" style={{ maxHeight: 110 }}>
+            <div className="rounded-md overflow-hidden border border-primary/12" style={{ maxHeight: 110 }}>
               <img src={bgImage.url} alt="floor plan" className="w-full h-full object-contain" style={{ maxHeight: 110 }} />
             </div>
 
@@ -682,8 +685,8 @@ function BgImagePanel({ bgImage, bgOpacity, setBgOpacity, bgMode, calibPins, cal
 // ---------------------------------------------------------------------------
 
 function SettingsPanel({ floor, onApply, onClose }) {
-  const [rows,  setRows]  = useState(floor.grid_rows)
-  const [cols,  setCols]  = useState(floor.grid_cols)
+  const [rows, setRows] = useState(floor.grid_rows)
+  const [cols, setCols] = useState(floor.grid_cols)
   const [scale, setScale] = useState(floor.cell_size_m)
 
   const footprintW = (Number(cols) * Number(scale)).toFixed(1)
@@ -699,9 +702,9 @@ function SettingsPanel({ floor, onApply, onClose }) {
   return (
     <div className="fgp-settings-panel animate-slide-in">
       <div className="fgp-settings-header">
-        <Settings2 size={13} className="text-indigo-400" />
+        <Settings2 size={13} className="text-primary" />
         <span>Floor Settings</span>
-        <button onClick={onClose} className="ml-auto flex items-center gap-1 px-2 py-1 rounded text-[10px] text-gray-400 hover:text-gray-100 hover:bg-white/10 transition-colors" title="Back to floor editor">
+        <button onClick={onClose} className="ml-auto flex items-center gap-1 px-2 py-1 rounded text-[10px] text-muted hover:text-body hover:bg-secondary/8 transition-colors" title="Back to floor editor">
           <ArrowLeft size={12} /> Back
         </button>
       </div>
@@ -724,7 +727,7 @@ function SettingsPanel({ floor, onApply, onClose }) {
           <div className="fgp-settings-row">
             <label className="fgp-settings-field-label">1 cell =</label>
             <input type="number" min="0.1" max="100" step="0.1" className="fgp-settings-input" value={scale} onChange={e => setScale(e.target.value)} />
-            <span className="text-[10px] text-gray-500 ml-1">m</span>
+            <span className="text-[10px] text-muted ml-1">m</span>
           </div>
         </div>
 
@@ -735,7 +738,7 @@ function SettingsPanel({ floor, onApply, onClose }) {
             <span className="fgp-footprint-x">×</span>
             <span className="fgp-footprint-value">{footprintH} m</span>
           </div>
-          <p className="text-[10px] text-gray-600 mt-1 leading-relaxed">
+          <p className="text-[10px] text-muted mt-1 leading-relaxed">
             {Number(cols)} cols × {Number(rows)} rows
           </p>
         </div>
@@ -744,7 +747,7 @@ function SettingsPanel({ floor, onApply, onClose }) {
           <Check size={12} />
           Apply Changes
         </button>
-        <p className="text-[9px] text-gray-600 mt-1.5 leading-relaxed text-center">
+        <p className="text-[9px] text-muted mt-1.5 leading-relaxed text-center">
           Existing cells outside the new bounds will be clipped.
         </p>
       </div>
@@ -757,13 +760,13 @@ function SettingsPanel({ floor, onApply, onClose }) {
 // ---------------------------------------------------------------------------
 
 function BlobLinkPanel({ blobs, onLink, onUnlink, onDismiss, activeBlobId, onSelectBlob, buildingId }) {
-  const [rooms,            setRooms]            = useState([])
-  const [staffrooms,        setStaffrooms]        = useState([])
-  const [loading,          setLoading]          = useState(true)
-  const [selected,         setSelected]         = useState('')
-  const [searchTerm,       setSearchTerm]       = useState('')
+  const [rooms, setRooms] = useState([])
+  const [staffrooms, setStaffrooms] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [selected, setSelected] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
   const [existingStairIds, setExistingStairIds] = useState([])
-  const [stairInput,       setStairInput]       = useState('')
+  const [stairInput, setStairInput] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -800,19 +803,19 @@ function BlobLinkPanel({ blobs, onLink, onUnlink, onDismiss, activeBlobId, onSel
                   if (sc.stair_id) ids.add(sc.stair_id)
                 }
               }
-            } catch {}
+            } catch { }
           }
         }
         setExistingStairIds(Array.from(ids))
       })
-      .catch(() => {})
+      .catch(() => { })
     return () => { cancelled = true }
   }, [buildingId])
 
   const activeBlob = blobs.find(b => b.blobId === activeBlobId) ?? blobs[0]
   const isStairsBlob = activeBlob?.type === 'stairs'
-  const isRoomBlob   = activeBlob?.type === 'room'
-  const rawList      = isRoomBlob ? rooms : staffrooms
+  const isRoomBlob = activeBlob?.type === 'room'
+  const rawList = isRoomBlob ? rooms : staffrooms
 
   useEffect(() => {
     if (activeBlob?.type === 'stairs') {
@@ -827,16 +830,16 @@ function BlobLinkPanel({ blobs, onLink, onUnlink, onDismiss, activeBlobId, onSel
 
   // Options for all records from the database
   const allRecordOptions = rawList.map(item => {
-    const id    = item.id
-    const name  = item.name ?? item.label ?? 'Unnamed'
-    const code  = item.code ?? item.department_code ?? (item.label ? item.label.slice(0, 6).toUpperCase() : 'STAFF')
+    const id = item.id
+    const name = item.name ?? item.label ?? 'Unnamed'
+    const code = item.code ?? item.department_code ?? (item.label ? item.label.slice(0, 6).toUpperCase() : 'STAFF')
     const deptInfo = item.department_name
       ? ` [Dept: ${item.department_name}]`
       : (item.department_code ? ` [Dept: ${item.department_code}]` : '')
 
     const found = blobs.find(b => b.record_id === id)
     const isLinkedToOther = found && found.blobId !== activeBlob?.blobId
-    const isCurrentLink   = found && found.blobId === activeBlob?.blobId
+    const isCurrentLink = found && found.blobId === activeBlob?.blobId
 
     let label = isRoomBlob ? `${name} (${code})` : `${name}${deptInfo}`
     if (isCurrentLink) label += ' [Linked to this blob]'
@@ -871,22 +874,22 @@ function BlobLinkPanel({ blobs, onLink, onUnlink, onDismiss, activeBlobId, onSel
     return (
       <div className="fgp-blob-panel">
         <div className="fgp-blob-panel-header">
-          <Link size={12} className="text-indigo-400" />
+          <Link size={12} className="text-primary" />
           <span>Link Rooms &amp; Stairs</span>
           <button
             onClick={onDismiss}
-            className="ml-auto flex items-center gap-1 px-2 py-1 rounded text-[10px] text-gray-400 hover:text-gray-100 hover:bg-white/10 transition-colors"
+            className="ml-auto flex items-center gap-1 px-2 py-1 rounded text-[10px] text-muted hover:text-body hover:bg-secondary/8 transition-colors"
             title="Back to floor editor"
           >
             <ArrowLeft size={12} /> Back
           </button>
         </div>
         <div className="fgp-blob-panel-body justify-center items-center text-center p-5 space-y-3">
-          <Building2 size={28} className="mx-auto text-indigo-400 opacity-60" />
+          <Building2 size={28} className="mx-auto text-secondary opacity-60" />
           <div>
-            <h4 className="text-xs font-semibold text-gray-200">No Linkable Blobs Painted Yet</h4>
-            <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
-              Use the <strong className="text-indigo-300 font-semibold">Room [R]</strong>, <strong className="text-purple-300 font-semibold">Staffroom [T]</strong>, or <strong className="text-amber-300 font-semibold">Stairs/Lift [S]</strong> tool from the left palette to paint cells on the grid.
+            <h4 className="text-xs font-semibold text-body">No Linkable Blobs Painted Yet</h4>
+            <p className="text-[11px] text-muted mt-1 leading-relaxed">
+              Use the <strong className="text-secondary font-semibold">Room [R]</strong>, <strong className="text-primary font-semibold">Staffroom [T]</strong>, or <strong className="text-accent font-semibold">Stairs/Lift [S]</strong> tool from the left palette to paint cells on the grid.
             </p>
           </div>
         </div>
@@ -899,11 +902,11 @@ function BlobLinkPanel({ blobs, onLink, onUnlink, onDismiss, activeBlobId, onSel
   return (
     <div className="fgp-blob-panel">
       <div className="fgp-blob-panel-header">
-        <Link size={12} className="text-indigo-400" />
+        <Link size={12} className="text-primary" />
         <span>{isStairsBlob ? 'Stairwell Grouping' : 'Link Rooms'}</span>
         <button
           onClick={onDismiss}
-          className="ml-auto flex items-center gap-1 px-2 py-1 rounded text-[10px] text-gray-400 hover:text-gray-100 hover:bg-white/10 transition-colors"
+          className="ml-auto flex items-center gap-1 px-2 py-1 rounded text-[10px] text-muted hover:text-body hover:bg-secondary/8 transition-colors"
           title="Back to floor editor"
         >
           <ArrowLeft size={12} /> Back
@@ -976,23 +979,22 @@ function BlobLinkPanel({ blobs, onLink, onUnlink, onDismiss, activeBlobId, onSel
                 <p className="fgp-settings-label mb-1">
                   {currentStairTag ? 'Change Stairwell Group' : 'Assign Stairwell Group ID'}
                 </p>
-                <p className="text-[10px] text-gray-400 mb-2 leading-relaxed">
+                <p className="text-[10px] text-muted mb-2 leading-relaxed">
                   Tag matching stairwells across floors with the same ID so cross-floor distances can connect them.
                 </p>
 
                 {/* Quick Suggestion Pills */}
                 <div className="mb-3">
-                  <span className="text-[9px] text-gray-500 uppercase font-semibold block mb-1">Suggested / Existing:</span>
+                  <span className="text-[9px] text-muted uppercase font-semibold block mb-1">Suggested / Existing:</span>
                   <div className="flex flex-wrap gap-1">
                     {allStairSuggestions.map(sId => (
                       <button
                         key={sId}
                         type="button"
-                        className={`px-2 py-1 rounded text-[10px] border transition-colors ${
-                          stairInput === sId
-                            ? 'bg-amber-500/20 border-amber-500 text-amber-300 font-semibold'
-                            : 'bg-gray-800 border-white/10 text-gray-300 hover:border-amber-500/50'
-                        }`}
+                        className={`px-2 py-1 rounded text-[10px] border transition-colors ${stairInput === sId
+                            ? 'bg-amber-50 border-amber-300 text-amber-800 font-semibold'
+                            : 'bg-ground border-primary/12 text-body hover:border-amber-400/60'
+                          }`}
                         onClick={() => setStairInput(sId)}
                       >
                         {sId}
@@ -1031,13 +1033,13 @@ function BlobLinkPanel({ blobs, onLink, onUnlink, onDismiss, activeBlobId, onSel
                 </p>
 
                 {loading ? (
-                  <div className="flex items-center gap-2 text-gray-500 text-xs py-2">
+                  <div className="flex items-center gap-2 text-muted text-xs py-2">
                     <Loader2 size={12} className="animate-spin" /> Loading records…
                   </div>
                 ) : rawList.length === 0 ? (
-                  <div className="p-3 rounded-lg bg-gray-800/60 border border-white/5 space-y-1.5 text-[11px] text-gray-400 leading-relaxed">
+                  <div className="p-3 rounded-lg bg-secondary/10 border border-secondary/20 space-y-1.5 text-[11px] text-muted leading-relaxed">
                     <p>No {isRoomBlob ? 'Room' : 'StaffRoom'} records found in the database.</p>
-                    <p className="text-[10px] text-indigo-300">
+                    <p className="text-[10px] text-primary">
                       Add {isRoomBlob ? 'rooms first under the Rooms tab' : 'departments first under the Departments tab'} in the sidebar.
                     </p>
                   </div>
@@ -1092,18 +1094,18 @@ function BlobLinkPanel({ blobs, onLink, onUnlink, onDismiss, activeBlobId, onSel
 // ---------------------------------------------------------------------------
 
 export default function FloorGridPainter({ floor, onSaved }) {
-  const svgRef    = useRef(null)
+  const svgRef = useRef(null)
   const saveTimer = useRef(null)
 
-  const [activeTool,   setActiveTool]   = useState('wall')
-  const [grid,         setGrid]         = useState(() =>
+  const [activeTool, setActiveTool] = useState('wall')
+  const [grid, setGrid] = useState(() =>
     mergeGrid(buildEmptyGrid(floor.grid_rows, floor.grid_cols), floor.grid_data)
   )
-  const [zoom,         setZoom]         = useState(1)
-  const [hover,        setHover]        = useState(null)
-  const [isPainting,   setIsPainting]   = useState(false)
-  const [paintTool,    setPaintTool]    = useState('wall')
-  const [saveStatus,   setSaveStatus]   = useState('idle')
+  const [zoom, setZoom] = useState(1)
+  const [hover, setHover] = useState(null)
+  const [isPainting, setIsPainting] = useState(false)
+  const [paintTool, setPaintTool] = useState('wall')
+  const [saveStatus, setSaveStatus] = useState('idle')
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   // Gate labels state
@@ -1113,43 +1115,43 @@ export default function FloorGridPainter({ floor, onSaved }) {
     try { return JSON.parse(raw) } catch { return {} }
   }
 
-  const [gateLabels,   setGateLabels]   = useState(() => parseGateLabels(floor.gate_labels))
-  const [editingGate,  setEditingGate]  = useState(null)  // { r, c, label }
+  const [gateLabels, setGateLabels] = useState(() => parseGateLabels(floor.gate_labels))
+  const [editingGate, setEditingGate] = useState(null)  // { r, c, label }
   const gateLabelsRef = useRef(gateLabels)
   useEffect(() => { gateLabelsRef.current = gateLabels }, [gateLabels])
 
   // Blob link state
-  const [blobLinks,      setBlobLinks]      = useState(() => reconcileLinks(
+  const [blobLinks, setBlobLinks] = useState(() => reconcileLinks(
     detectAllBlobs(mergeGrid(buildEmptyGrid(floor.grid_rows, floor.grid_cols), floor.grid_data)),
     floor.room_links ?? [],
     floor.stair_connections ?? []
   ))
-  const [blobPanelOpen,  setBlobPanelOpen]  = useState(false)
-  const [activeBlobId,   setActiveBlobId]   = useState(null)
+  const [blobPanelOpen, setBlobPanelOpen] = useState(false)
+  const [activeBlobId, setActiveBlobId] = useState(null)
 
   // Walkability warnings
   const [walkWarnings, setWalkWarnings] = useState([])
 
   // Background image state
-  const [bgImage,      setBgImage]      = useState(null)    // { url, width, height }
-  const [bgOpacity,    setBgOpacity]    = useState(40)      // 0–100
-  const [bgPanelOpen,  setBgPanelOpen]  = useState(false)
-  const [bgMode,       setBgMode]       = useState('off')   // 'off'|'place_pin_1'|'place_pin_2'|'calibrated'
-  const [calibPins,    setCalibPins]    = useState([])      // [{x,y}] in image-space coords
-  const [calibDist,    setCalibDist]    = useState('')      // user-entered metres
+  const [bgImage, setBgImage] = useState(null)    // { url, width, height }
+  const [bgOpacity, setBgOpacity] = useState(40)      // 0–100
+  const [bgPanelOpen, setBgPanelOpen] = useState(false)
+  const [bgMode, setBgMode] = useState('off')   // 'off'|'place_pin_1'|'place_pin_2'|'calibrated'
+  const [calibPins, setCalibPins] = useState([])      // [{x,y}] in image-space coords
+  const [calibDist, setCalibDist] = useState('')      // user-entered metres
 
   // Floor dimensions
-  const [gridRows,  setGridRows]  = useState(floor.grid_rows)
-  const [gridCols,  setGridCols]  = useState(floor.grid_cols)
+  const [gridRows, setGridRows] = useState(floor.grid_rows)
+  const [gridCols, setGridCols] = useState(floor.grid_cols)
   const [cellSizeM, setCellSizeM] = useState(floor.cell_size_m)
 
   // Always-fresh refs
-  const gridRef        = useRef(grid)
-  const blobLinksRef   = useRef(blobLinks)
-  const paintToolRef   = useRef('wall')
+  const gridRef = useRef(grid)
+  const blobLinksRef = useRef(blobLinks)
+  const paintToolRef = useRef('wall')
   const lastPaintedRef = useRef(null)
 
-  useEffect(() => { gridRef.current = grid },           [grid])
+  useEffect(() => { gridRef.current = grid }, [grid])
   useEffect(() => { blobLinksRef.current = blobLinks }, [blobLinks])
 
   const cellPx = Math.round(BASE_CELL_PX * zoom)
@@ -1169,7 +1171,7 @@ export default function FloorGridPainter({ floor, onSaved }) {
     setWalkWarnings([])
 
     const freshBlobs = detectAllBlobs(fresh)
-    const linked     = reconcileLinks(freshBlobs, floor.room_links ?? [], floor.stair_connections ?? [])
+    const linked = reconcileLinks(freshBlobs, floor.room_links ?? [], floor.stair_connections ?? [])
     setBlobLinks(linked)
     blobLinksRef.current = linked
     setBlobPanelOpen(false)
@@ -1193,10 +1195,10 @@ export default function FloorGridPainter({ floor, onSaved }) {
       if (blob.type === 'stairs') {
         if (!blob.stair_id && !blob.record_id) {
           warnings.push({
-            blobId:  blob.blobId,
-            type:    'stairs_unassigned',
-            name:    `Stairs/Lift at (row ${blob.cells[0].r + 1}, col ${blob.cells[0].c + 1})`,
-            cells:   blob.cells.length,
+            blobId: blob.blobId,
+            type: 'stairs_unassigned',
+            name: `Stairs/Lift at (row ${blob.cells[0].r + 1}, col ${blob.cells[0].c + 1})`,
+            cells: blob.cells.length,
           })
         }
         continue
@@ -1204,10 +1206,10 @@ export default function FloorGridPainter({ floor, onSaved }) {
       if (!blob.record_id) continue   // unlinked blobs skipped
       if (!isWalkable(currentGrid, blob.cells)) {
         warnings.push({
-          blobId:  blob.blobId,
-          type:    blob.type,
-          name:    blob.record_name ?? blob.record_id,
-          cells:   blob.cells.length,
+          blobId: blob.blobId,
+          type: blob.type,
+          name: blob.record_name ?? blob.record_id,
+          cells: blob.cells.length,
         })
       }
     }
@@ -1223,19 +1225,19 @@ export default function FloorGridPainter({ floor, onSaved }) {
     const roomLinksToSave = linksToSave
       .filter(b => b.type !== 'stairs' && b.record_id)
       .map(b => ({
-        record_id:    b.record_id,
-        record_name:  b.record_name,
-        record_code:  b.record_code,
-        type:         b.type,
+        record_id: b.record_id,
+        record_name: b.record_name,
+        record_code: b.record_code,
+        type: b.type,
         bounding_box: b.bounding_box,
-        cells:        b.cells.map(c => ({ r: c.r, c: c.c })),
+        cells: b.cells.map(c => ({ r: c.r, c: c.c })),
       }))
 
     const stairConnectionsToSave = linksToSave
       .filter(b => b.type === 'stairs' && (b.stair_id || b.record_id))
       .map(b => ({
         stair_id: b.stair_id || b.record_id,
-        cells:    b.cells.map(c => ({ r: c.r, c: c.c })),
+        cells: b.cells.map(c => ({ r: c.r, c: c.c })),
       }))
 
     setSaveStatus('saving')
@@ -1275,7 +1277,7 @@ export default function FloorGridPainter({ floor, onSaved }) {
     clearTimeout(saveTimer.current)
 
     const freshBlobs = detectAllBlobs(fresh)
-    const linked     = reconcileLinks(freshBlobs, blobLinksRef.current)
+    const linked = reconcileLinks(freshBlobs, blobLinksRef.current)
     setBlobLinks(linked)
     blobLinksRef.current = linked
 
@@ -1293,13 +1295,13 @@ export default function FloorGridPainter({ floor, onSaved }) {
         const max_c = Math.max(...b.cells.map(c => c.c))
         return {
           ...b,
-          stair_id:     b.type === 'stairs' ? recordId : b.stair_id,
-          record_id:    recordId,
-          record_name:  recordName,
-          record_code:  recordCode,
+          stair_id: b.type === 'stairs' ? recordId : b.stair_id,
+          record_id: recordId,
+          record_name: recordName,
+          record_code: recordCode,
           bounding_box: { min_r, min_c, max_r, max_c },
-          floor_id:     floor.id,
-          building_id:  floor.building_id,
+          floor_id: floor.id,
+          building_id: floor.building_id,
         }
       })
       blobLinksRef.current = next
@@ -1375,41 +1377,41 @@ export default function FloorGridPainter({ floor, onSaved }) {
 
   // ── Coord conversion ─────────────────────────────────────────────────────
   const toCell = useCallback((e) => {
-    const svg  = svgRef.current
+    const svg = svgRef.current
     if (!svg) return null
     const rect = svg.getBoundingClientRect()
     const c = Math.floor((e.clientX - rect.left) / cellPx)
-    const r = Math.floor((e.clientY - rect.top)  / cellPx)
+    const r = Math.floor((e.clientY - rect.top) / cellPx)
     if (r < 0 || r >= gridRows || c < 0 || c >= gridCols) return null
     return { r, c }
   }, [cellPx, gridRows, gridCols])
 
   // ── Background image calibration pin placement ───────────────────────────
-  const bgImageRef  = useRef(bgImage)
-  const bgModeRef   = useRef(bgMode)
+  const bgImageRef = useRef(bgImage)
+  const bgModeRef = useRef(bgMode)
   const calibPinsRef = useRef(calibPins)
-  useEffect(() => { bgImageRef.current   = bgImage   }, [bgImage])
-  useEffect(() => { bgModeRef.current    = bgMode    }, [bgMode])
+  useEffect(() => { bgImageRef.current = bgImage }, [bgImage])
+  useEffect(() => { bgModeRef.current = bgMode }, [bgMode])
   useEffect(() => { calibPinsRef.current = calibPins }, [calibPins])
 
-  const svgWRef  = useRef(0)
-  const svgHRef  = useRef(0)
+  const svgWRef = useRef(0)
+  const svgHRef = useRef(0)
   useEffect(() => { svgWRef.current = gridCols * Math.round(BASE_CELL_PX * zoom) }, [gridCols, zoom])
   useEffect(() => { svgHRef.current = gridRows * Math.round(BASE_CELL_PX * zoom) }, [gridRows, zoom])
 
   const handleSvgClickForPin = useCallback((e) => {
-    const svg  = svgRef.current
+    const svg = svgRef.current
     if (!svg || !bgImageRef.current) return
     const rect = svg.getBoundingClientRect()
     const svgX = e.clientX - rect.left
     const svgY = e.clientY - rect.top
     const curSvgW = svgWRef.current
     const curSvgH = svgHRef.current
-    const img    = bgImageRef.current
+    const img = bgImageRef.current
     // Convert SVG px → image-space px
     const imgX = (svgX / curSvgW) * img.width
     const imgY = (svgY / curSvgH) * img.height
-    const pin  = { x: imgX, y: imgY }
+    const pin = { x: imgX, y: imgY }
 
     const mode = bgModeRef.current
     if (mode === 'place_pin_1') {
@@ -1433,7 +1435,7 @@ export default function FloorGridPainter({ floor, onSaved }) {
     const cell = toCell(e)
     if (!cell) return
     const tool = e.button === 2 ? ERASER_TYPE : activeTool
-    paintToolRef.current   = tool
+    paintToolRef.current = tool
     lastPaintedRef.current = cell
     setPaintTool(tool)
     setIsPainting(true)
@@ -1455,7 +1457,7 @@ export default function FloorGridPainter({ floor, onSaved }) {
     const lastCell = lastPaintedRef.current
     const currentGrid = gridRef.current
 
-    const freshBlobs  = detectAllBlobs(currentGrid)
+    const freshBlobs = detectAllBlobs(currentGrid)
     const reconciled = reconcileLinks(freshBlobs, blobLinksRef.current)
     setBlobLinks(reconciled)
     blobLinksRef.current = reconciled
@@ -1497,16 +1499,16 @@ export default function FloorGridPainter({ floor, onSaved }) {
   const handleContextMenu = (e) => e.preventDefault()
 
   // ── Zoom helpers ─────────────────────────────────────────────────────────
-  const zoomIn    = () => setZoom(z => Math.min(4, +(z + 0.25).toFixed(2)))
-  const zoomOut   = () => setZoom(z => Math.max(0.25, +(z - 0.25).toFixed(2)))
+  const zoomIn = () => setZoom(z => Math.min(4, +(z + 0.25).toFixed(2)))
+  const zoomOut = () => setZoom(z => Math.max(0.25, +(z - 0.25).toFixed(2)))
   const zoomReset = () => setZoom(1)
 
   // ── Stats ────────────────────────────────────────────────────────────────
   const counts = countCells(grid)
-  const footW  = (gridCols * cellSizeM).toFixed(1)
-  const footH  = (gridRows * cellSizeM).toFixed(1)
-  const svgW   = gridCols * cellPx
-  const svgH   = gridRows * cellPx
+  const footW = (gridCols * cellSizeM).toFixed(1)
+  const footH = (gridRows * cellSizeM).toFixed(1)
+  const svgW = gridCols * cellPx
+  const svgH = gridRows * cellPx
 
   const activeDef = CELL_TYPES[activeTool]
 
@@ -1517,15 +1519,15 @@ export default function FloorGridPainter({ floor, onSaved }) {
     if (code) {
       for (const { r, c } of blob.cells) {
         cellLinkMap.set(`${r},${c}`, {
-          code:    code.slice(0, 6),
-          accent:  CELL_TYPES[blob.type].accent,
-          blobId:  blob.blobId,
+          code: code.slice(0, 6),
+          accent: CELL_TYPES[blob.type].accent,
+          blobId: blob.blobId,
         })
       }
     }
   }
 
-  const linkedBlobCount   = blobLinks.filter(b => b.record_id || b.stair_id).length
+  const linkedBlobCount = blobLinks.filter(b => b.record_id || b.stair_id).length
   const unlinkedBlobCount = blobLinks.filter(b => !b.record_id && !b.stair_id).length
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -1537,28 +1539,21 @@ export default function FloorGridPainter({ floor, onSaved }) {
         <span className="fgp-palette-label">Tools</span>
 
         {Object.entries(CELL_TYPES).filter(([t]) => t !== 'empty' && t !== 'entrance').map(([type, def]) => {
-          const Icon     = def.icon
           const isActive = activeTool === type
           return (
             <button
               key={type}
               id={`fgp-tool-${type}`}
               className={`fgp-tool-pill ${isActive ? 'active' : ''}`}
-              style={isActive ? {
-                borderColor: def.accent,
-                color:       def.accent,
-                boxShadow:   `0 0 10px ${def.accent}40, inset 0 0 8px ${def.accent}18`,
-              } : {}}
               onClick={() => setActiveTool(type)}
               title={`${def.label}  [${def.shortcut}]`}
             >
               <span
                 className="fgp-tool-swatch"
-                style={{ background: def.fill || '#374151', borderColor: def.accent + '60' }}
+                style={{ background: def.accent || def.fill }}
               />
-              <Icon size={13} />
               <span className="fgp-tool-name">{def.label}</span>
-              <span className="fgp-tool-shortcut">{def.shortcut}</span>
+              <ChevronDown size={10} style={{ opacity: isActive ? 0.9 : 0.4 }} />
             </button>
           )
         })}
@@ -1568,17 +1563,14 @@ export default function FloorGridPainter({ floor, onSaved }) {
         <button
           id="fgp-tool-eraser"
           className={`fgp-tool-pill eraser ${activeTool === 'empty' ? 'active' : ''}`}
-          style={activeTool === 'empty' ? {
-            borderColor: '#9ca3af',
-            color:       '#d1d5db',
-            boxShadow:   '0 0 8px rgba(156,163,175,0.3)',
-          } : {}}
           onClick={() => setActiveTool('empty')}
           title="Eraser  [X]  or  Right-click"
         >
-          <Eraser size={13} />
+          <span
+            className="fgp-tool-swatch"
+            style={{ background: '#2E2A6B' }}
+          />
           <span className="fgp-tool-name">Eraser</span>
-          <span className="fgp-tool-shortcut">X</span>
         </button>
 
         <div className="fgp-palette-divider" />
@@ -1601,16 +1593,16 @@ export default function FloorGridPainter({ floor, onSaved }) {
 
         {/* Toolbar */}
         <div className="fgp-toolbar">
-          <div className="fgp-active-tool-badge" style={{ borderColor: activeDef.accent + '60', color: activeDef.accent }}>
+          <div className="fgp-active-tool-badge">
             <activeDef.icon size={11} />
             <span>{activeDef.label}</span>
           </div>
 
           <div className="fgp-toolbar-sep" />
 
-          <button id="fgp-zoom-out"   onClick={zoomOut}   className="fgp-icon-btn" title="Zoom out"><ZoomOut  size={13} /></button>
+          <button id="fgp-zoom-out" onClick={zoomOut} className="fgp-icon-btn" title="Zoom out"><ZoomOut size={13} /></button>
           <span className="fgp-zoom-label">{Math.round(zoom * 100)}%</span>
-          <button id="fgp-zoom-in"    onClick={zoomIn}    className="fgp-icon-btn" title="Zoom in"><ZoomIn   size={13} /></button>
+          <button id="fgp-zoom-in" onClick={zoomIn} className="fgp-icon-btn" title="Zoom in"><ZoomIn size={13} /></button>
           <button id="fgp-zoom-reset" onClick={zoomReset} className="fgp-icon-btn" title="Reset zoom"><RefreshCw size={11} /></button>
 
           <div className="flex-1" />
@@ -1618,7 +1610,7 @@ export default function FloorGridPainter({ floor, onSaved }) {
           {/* Blob panel toggle — ALWAYS VISIBLE */}
           <button
             id="fgp-blob-panel-toggle"
-            className={`fgp-icon-btn ${blobPanelOpen ? 'text-indigo-400' : ''}`}
+            className={`fgp-icon-btn ${blobPanelOpen ? 'text-primary border-primary/40 bg-secondary/10' : ''}`}
             onClick={() => setBlobPanelOpen(o => !o)}
             title="Room link panel"
           >
@@ -1627,7 +1619,7 @@ export default function FloorGridPainter({ floor, onSaved }) {
               Links {blobLinks.length > 0 ? `(${linkedBlobCount}/${blobLinks.length})` : '(0)'}
             </span>
             {unlinkedBlobCount > 0 && (
-              <span className="ml-1 w-1.5 h-1.5 rounded-full bg-yellow-400 flex-shrink-0" />
+              <span className="ml-1 w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0" />
             )}
           </button>
 
@@ -1635,14 +1627,14 @@ export default function FloorGridPainter({ floor, onSaved }) {
 
           <button
             id="fgp-bg-toggle"
-            className={`fgp-icon-btn ${bgPanelOpen ? 'text-amber-400' : ''}`}
+            className={`fgp-icon-btn ${bgPanelOpen ? 'text-primary border-primary/40 bg-secondary/10' : ''}`}
             onClick={() => setBgPanelOpen(o => !o)}
             title="Background image (Ctrl+I)"
           >
             <Image size={13} />
             <span className="text-xs ml-1">Background</span>
             {bgImage && (
-              <span className="ml-1 w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
+              <span className="ml-1 w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0" />
             )}
           </button>
 
@@ -1650,7 +1642,7 @@ export default function FloorGridPainter({ floor, onSaved }) {
 
           <button
             id="fgp-settings-toggle"
-            className={`fgp-icon-btn ${settingsOpen ? 'text-indigo-400' : ''}`}
+            className={`fgp-icon-btn ${settingsOpen ? 'text-primary border-primary/40 bg-secondary/10' : ''}`}
             onClick={() => setSettingsOpen(o => !o)}
             title="Floor settings"
           >
@@ -1723,12 +1715,14 @@ export default function FloorGridPainter({ floor, onSaved }) {
             width={svgW}
             height={svgH}
             style={{
-              cursor:       (bgMode === 'place_pin_1' || bgMode === 'place_pin_2') ? 'crosshair' : 'crosshair',
-              display:      'block',
-              userSelect:   'none',
-              touchAction:  'none',
+              cursor: (bgMode === 'place_pin_1' || bgMode === 'place_pin_2') ? 'crosshair' : 'crosshair',
+              display: 'block',
+              flex: '0 0 auto',
+              maxWidth: 'none',
+              userSelect: 'none',
+              touchAction: 'none',
               borderRadius: '4px',
-              boxShadow:    (bgMode === 'place_pin_1' || bgMode === 'place_pin_2')
+              boxShadow: (bgMode === 'place_pin_1' || bgMode === 'place_pin_2')
                 ? '0 0 0 2px rgba(245,158,11,0.6)'
                 : '0 0 0 1px rgba(255,255,255,0.06)',
             }}
@@ -1759,12 +1753,12 @@ export default function FloorGridPainter({ floor, onSaved }) {
             {grid.map((row, r) =>
               row.map((type, c) => {
                 if (type === 'empty') return null
-                const def    = CELL_TYPES[type]
+                const def = CELL_TYPES[type]
                 if (!def) return null
-                const x      = c * cellPx
-                const y      = r * cellPx
-                const inset  = 0.5
-                const link   = cellLinkMap.get(`${r},${c}`)
+                const x = c * cellPx
+                const y = r * cellPx
+                const inset = 0.5
+                const link = cellLinkMap.get(`${r},${c}`)
 
                 return (
                   <g key={`${r}-${c}`}>
@@ -1837,9 +1831,9 @@ export default function FloorGridPainter({ floor, onSaved }) {
 
             {/* Hover ghost */}
             {hover && (() => {
-              const def   = CELL_TYPES[activeTool]
-              const x     = hover.c * cellPx
-              const y     = hover.r * cellPx
+              const def = CELL_TYPES[activeTool]
+              const x = hover.c * cellPx
+              const y = hover.r * cellPx
               const inset = 0.5
               return (
                 <rect
@@ -1868,7 +1862,7 @@ export default function FloorGridPainter({ floor, onSaved }) {
 
             {/* Calibration pin markers */}
             {bgImage && calibPins.map((pin, i) => {
-              const svgX = (pin.x / bgImage.width)  * svgW
+              const svgX = (pin.x / bgImage.width) * svgW
               const svgY = (pin.y / bgImage.height) * svgH
               const label = i === 0 ? 'A' : 'B'
               return (
@@ -1895,9 +1889,9 @@ export default function FloorGridPainter({ floor, onSaved }) {
 
             {/* Line connecting the two calibration pins */}
             {bgImage && calibPins.length === 2 && (() => {
-              const ax = (calibPins[0].x / bgImage.width)  * svgW
+              const ax = (calibPins[0].x / bgImage.width) * svgW
               const ay = (calibPins[0].y / bgImage.height) * svgH
-              const bx = (calibPins[1].x / bgImage.width)  * svgW
+              const bx = (calibPins[1].x / bgImage.width) * svgW
               const by = (calibPins[1].y / bgImage.height) * svgH
               return (
                 <line x1={ax} y1={ay} x2={bx} y2={by}
@@ -1911,7 +1905,8 @@ export default function FloorGridPainter({ floor, onSaved }) {
 
         {/* Status bar */}
         <div className="fgp-status-bar">
-          <span>
+          <span className="flex items-center gap-1.5" style={{ background: 'rgba(46, 42, 107, 0.05)', padding: '2px 8px', borderRadius: '6px' }}>
+            <LayoutGrid size={12} color="#2E2A6B" />
             <span className="fgp-stat-label">Grid</span>
             <span className="fgp-stat-val">{gridCols} × {gridRows}</span>
           </span>
@@ -1944,13 +1939,13 @@ export default function FloorGridPainter({ floor, onSaved }) {
           )}
 
           {hover && (
-            <span className="ml-auto text-gray-600">
+            <span className="ml-auto text-muted">
               row {hover.r + 1}, col {hover.c + 1}
             </span>
           )}
 
           {saveStatus === 'saving' && (
-            <span className="ml-auto flex items-center gap-1 text-indigo-400">
+            <span className="ml-auto flex items-center gap-1 text-primary">
               <Loader2 size={11} className="animate-spin" /> Auto-saving…
             </span>
           )}
@@ -2024,16 +2019,16 @@ export default function FloorGridPainter({ floor, onSaved }) {
       {/* ── Gate Labeling Dialog ───────────────────────────────── */}
       {editingGate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs" onClick={() => setEditingGate(null)}>
-          <div className="bg-[#181a26] border border-amber-500/40 rounded-2xl p-5 w-84 shadow-2xl space-y-3.5" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center gap-2 text-amber-400 font-semibold text-sm">
+          <div className="bg-surface border border-amber-300/50 rounded-2xl p-5 w-84 shadow-modal space-y-3.5" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2 text-amber-700 font-semibold text-sm">
               <DoorOpen size={16} /> Label Building Gate
             </div>
-            <p className="text-xs text-gray-400 leading-relaxed">
+            <p className="text-xs text-muted leading-relaxed">
               Assign a label to this gate (row {editingGate.r + 1}, col {editingGate.c + 1}). Used for inter-building entrance distance mapping.
             </p>
             <input
               type="text"
-              className="w-full px-3 py-2 rounded-xl text-xs bg-white/5 border border-white/10 text-white outline-none focus:border-amber-500 font-medium"
+              className="w-full px-3 py-2 rounded-xl text-xs bg-ground border border-primary/12 text-body outline-none focus:border-amber-400 font-medium"
               placeholder="e.g. Main Entrance, Gate A, West Exit"
               value={editingGate.label}
               onChange={e => setEditingGate({ ...editingGate, label: e.target.value })}
@@ -2052,7 +2047,7 @@ export default function FloorGridPainter({ floor, onSaved }) {
             />
             <div className="flex gap-2 justify-end pt-1">
               <button
-                className="px-3 py-1.5 rounded-lg text-xs bg-white/5 text-gray-400 hover:text-white transition-colors"
+                className="px-3 py-1.5 rounded-lg text-xs bg-ground text-muted hover:text-body transition-colors"
                 onClick={() => setEditingGate(null)}
               >
                 Cancel
