@@ -108,19 +108,27 @@ Let:
 - $U$: Set of all subjects.
 - $T$: Set of all teachers.
 - $R$: Set of all rooms.
-- $D$: Set of working days ($d \in \{0, \dots, \text{num\_days} - 1\}$).
-- $P$: Set of periods per day ($p \in \{0, \dots, \text{periods\_per\_day} - 1\}$).
+- $D$: Set of working days, where $d \in \{0, 1, \dots, |D| - 1\}$.
+- $P$: Set of periods per day, where $p \in \{0, 1, \dots, |P| - 1\}$.
 
 #### 4.1.1 Non-Lab Variables
-For non-lab subjects, variables are defined per period:
-$$\mathbf{X}_{s, u, t, r, d, p} \in \{0, 1\}$$
-$\mathbf{X} = 1$ if section $s$ is taught subject $u$ by teacher $t$ in room $r$ on day $d$ at period $p$.
-*(Room $r$ is deterministically constrained to the section's `homeroom_id` for standard lectures).*
+For standard non-lab subjects, binary variables are defined per period slot:
+
+$$
+X_{s, u, t, r, d, p} \in \{0, 1\}
+$$
+
+Where $X_{s, u, t, r, d, p} = 1$ if section $s$ is taught subject $u$ by teacher $t$ in room $r$ on day $d$ at period $p$.  
+*(Note: Room $r$ is deterministically fixed to the section's `homeroom_id` for lecture courses).*
 
 #### 4.1.2 Lab Block Variables
-For laboratory subjects requiring $K$ consecutive periods ($K = \text{lab\_consecutive\_periods}$):
-$$\mathbf{L}_{s, u, t, r, d, p} \in \{0, 1\} \quad \forall p \in \{0, \dots, |P| - K\}$$
-$\mathbf{L} = 1$ indicates a continuous lab session initiates at period $p$ and spans slots $p, p+1, \dots, p+K-1$ in specialized room $r$.
+For laboratory subjects requiring $K$ consecutive periods (configured via `lab_consecutive_periods`):
+
+$$
+L_{s, u, t, r, d, p} \in \{0, 1\} \quad \forall p \in \{0, 1, \dots, |P| - K\}
+$$
+
+Where $L_{s, u, t, r, d, p} = 1$ indicates a continuous practical block starting at period $p$ and spanning slots $p, p+1, \dots, p+K-1$ in specialized facility $r$.
 
 ---
 
@@ -130,63 +138,104 @@ The CP-SAT model strictly enforces constraints $C_1$ through $C_6$:
 
 #### $C_1$: Curriculum Coverage
 For every section-subject pair $(s, u)$ requiring $N_{s,u}$ periods:
-- **Non-Lab Subject:**
-  $$\sum_{t} \sum_{r} \sum_{d} \sum_{p} \mathbf{X}_{s, u, t, r, d, p} = N_{s,u}$$
-- **Lab Subject ($B_{s,u}$ sessions of duration $K$):**
-  $$\sum_{t} \sum_{r} \sum_{d} \sum_{p=0}^{|P|-K} \mathbf{L}_{s, u, t, r, d, p} = B_{s,u}$$
+
+**Non-Lab Lectures:**
+$$
+\sum_{t} \sum_{r} \sum_{d} \sum_{p} X_{s, u, t, r, d, p} = N_{s,u}
+$$
+
+**Lab Practicals ($B_{s,u}$ sessions of duration $K$):**
+$$
+\sum_{t} \sum_{r} \sum_{d} \sum_{p=0}^{|P|-K} L_{s, u, t, r, d, p} = B_{s,u}
+$$
 
 #### $C_2$: Teacher No-Double-Booking
-At any specific day $d$ and period $p$, an instructor $t$ can be assigned to at most one section:
-$$\sum_{s, u, r} \mathbf{X}_{s, u, t, r, d, p} + \sum_{s, u, r} \sum_{k=0}^{\min(p, K-1)} \mathbf{L}_{s, u, t, r, d, p-k} \le 1 \quad \forall t, d, p$$
+At any day $d$ and period $p$, an instructor $t$ can teach at most one class simultaneously:
+
+$$
+\sum_{s, u, r} X_{s, u, t, r, d, p} + \sum_{s, u, r} \sum_{k=0}^{\min(p, K-1)} L_{s, u, t, r, d, p-k} \le 1 \quad \forall t, d, p
+$$
 
 #### $C_3$: Section No-Double-Booking
-A student section $s$ can attend at most one lecture or lab simultaneously:
-$$\sum_{u, t, r} \mathbf{X}_{s, u, t, r, d, p} + \sum_{u, t, r} \sum_{k=0}^{\min(p, K-1)} \mathbf{L}_{s, u, t, r, d, p-k} \le 1 \quad \forall s, d, p$$
+A student cohort section $s$ can attend at most one lecture or lab simultaneously:
+
+$$
+\sum_{u, t, r} X_{s, u, t, r, d, p} + \sum_{u, t, r} \sum_{k=0}^{\min(p, K-1)} L_{s, u, t, r, d, p-k} \le 1 \quad \forall s, d, p
+$$
 
 #### $C_4$: Room & Lab Exclusivity
-A physical room or laboratory $r$ can host at most one active class during period $p$:
-$$\sum_{s, u, t} \mathbf{X}_{s, u, t, r, d, p} + \sum_{s, u, t} \sum_{k=0}^{\min(p, K-1)} \mathbf{L}_{s, u, t, r, d, p-k} \le 1 \quad \forall r, d, p$$
+A physical classroom or laboratory $r$ can host at most one active class during period $p$:
+
+$$
+\sum_{s, u, t} X_{s, u, t, r, d, p} + \sum_{s, u, t} \sum_{k=0}^{\min(p, K-1)} L_{s, u, t, r, d, p-k} \le 1 \quad \forall r, d, p
+$$
 
 #### $C_5$: Teacher Unavailability Blackout
-For every blocked slot $(d, p) \in \text{Unavailable}(t)$:
-$$\mathbf{X}_{s, u, t, r, d, p} = 0 \quad \text{and} \quad \mathbf{L}_{s, u, t, r, d, p-k} = 0 \quad (\forall k \in [0, K-1])$$
+For every blocked slot $(d, p) \in \mathrm{Unavailable}(t)$:
+
+$$
+X_{s, u, t, r, d, p} = 0 \quad \text{and} \quad L_{s, u, t, r, d, p-k} = 0 \quad (\forall k \in [0, K-1])
+$$
 
 #### $C_6$: Teacher Weekly Workload Cap
-The total scheduled teaching hours for teacher $t$ cannot exceed their limit $M_t$:
-$$\sum_{s, u, r, d, p} \mathbf{X}_{s, u, t, r, d, p} + \sum_{s, u, r, d, p} \left( K \cdot \mathbf{L}_{s, u, t, r, d, p} \right) \le M_t \quad \forall t$$
+Total scheduled weekly teaching periods for instructor $t$ cannot exceed contractual limit $M_t$:
+
+$$
+\sum_{s, u, r, d, p} X_{s, u, t, r, d, p} + \sum_{s, u, r, d, p} \left( K \cdot L_{s, u, t, r, d, p} \right) \le M_t \quad \forall t
+$$
 
 ---
 
 ### 4.3 Soft Optimization Objectives (Cost Function)
 
-The overall objective minimizes total penalty $\Phi = \Phi_{\text{spread}} + \Phi_{\text{pref}} + \Phi_{\text{transit}}$:
+The overall objective minimizes the aggregate penalty:
 
-#### $O_1$: Balanced Weekly Spread ($\Phi_{\text{spread}}$)
-To prevent subject clustering on single days:
-$$\text{FairShare}_{s,u} = \left\lceil \frac{N_{s,u}}{|D|} \right\rceil$$
-$$\text{DayLoad}_{s,u,d} = \sum_{t, r, p} \mathbf{X}_{s, u, t, r, d, p} + \sum_{t, r, p} \mathbf{L}_{s, u, t, r, d, p}$$
-$$\text{Excess}_{s,u,d} \ge \text{DayLoad}_{s,u,d} - \text{FairShare}_{s,u}, \quad \text{Excess}_{s,u,d} \ge 0$$
-$$\Phi_{\text{spread}} = W_{\text{spread}} \cdot \sum_{s, u, d} \text{Excess}_{s,u,d}$$
+$$
+\Phi = \Phi_{\mathrm{spread}} + \Phi_{\mathrm{pref}} + \Phi_{\mathrm{transit}}
+$$
 
-#### $O_2$: Teacher Preference Affinity ($\Phi_{\text{pref}}$)
-Rewards preferred pairings and penalizes avoided assignments:
-- If preference is `'preferred'` with rank $R \ge 1$: Bonus $= \lfloor B_{\text{base}} / R \rfloor$ (subtracted from objective).
-- If preference is `'avoid'`: Flat penalty $P_{\text{avoid}}$ (added to objective).
-- If preference is `'willing'`: Cost is 0.
+#### $O_1$: Balanced Weekly Spread ($\Phi_{\mathrm{spread}}$)
+Prevents clustering all periods of a subject on a single weekday:
 
-#### $O_3$: Campus Walking Distance Minimization ($\Phi_{\text{transit}}$)
-Minimizes walking distance between consecutive periods $p$ and $p+1$ on the same day for instructor $t$:
-$$\Phi_{\text{transit}} = W_{\text{transit}} \cdot \sum_{t, d, p} \text{Distance}\left(\text{Room}_{t, d, p}, \text{Room}_{t, d, p+1}\right)$$
-The distance metric is dynamically sourced from the **Campus Spatial Engine** matrix.
+$$
+\mathrm{FairShare}_{s,u} = \left\lceil \frac{N_{s,u}}{|D|} \right\rceil
+$$
+
+$$
+\mathrm{DayLoad}_{s,u,d} = \sum_{t, r, p} X_{s, u, t, r, d, p} + \sum_{t, r, p} L_{s, u, t, r, d, p}
+$$
+
+$$
+\mathrm{Excess}_{s,u,d} \ge \mathrm{DayLoad}_{s,u,d} - \mathrm{FairShare}_{s,u}, \quad \mathrm{Excess}_{s,u,d} \ge 0
+$$
+
+$$
+\Phi_{\mathrm{spread}} = W_{\mathrm{spread}} \cdot \sum_{s, u, d} \mathrm{Excess}_{s,u,d}
+$$
+
+#### $O_2$: Teacher Preference Affinity ($\Phi_{\mathrm{pref}}$)
+Incentivizes assigning teachers to preferred subjects and penalizes avoided pairings:
+- **Preferred** with rank $R \ge 1$: Bonus $= \lfloor B_{\mathrm{base}} / R \rfloor$ (subtracted from objective).
+- **Avoid**: Flat penalty $P_{\mathrm{avoid}}$ (added to objective).
+- **Willing**: Neutral baseline (cost is $0$).
+
+#### $O_3$: Campus Walking Distance Minimization ($\Phi_{\mathrm{transit}}$)
+Penalizes walking distance between consecutive periods $p$ and $p+1$ on the same day for teacher $t$:
+
+$$
+\Phi_{\mathrm{transit}} = W_{\mathrm{transit}} \cdot \sum_{t, d, p} \mathrm{Distance}\left(\mathrm{Room}_{t, d, p}, \mathrm{Room}_{t, d, p+1}\right)
+$$
+
+The distance metric is dynamically queried from the **Campus Spatial Engine** matrix.
 
 ---
 
 ### 4.4 Slot Locking & Differential Generation
 
-The system supports pinning approved slots ($\text{is\_locked} = \text{true}$):
-1. **Pre-Solve Injection**: Locked slots are extracted from the database and injected into `TimetableRequest.locked_slots`.
-2. **Variable Clamping**: During model construction, `apply_locked_slots()` fixes the corresponding decision variable $\mathbf{X}_{s, u, t, r, d, p} = 1$ and clamps conflicting variables in that slot to 0.
-3. **Differential Re-Solve**: The solver explores the remaining search space, ensuring zero alterations to pinned allocations.
+The system supports locking approved slots (`is_locked = true`):
+1. **Pre-Solve Injection**: Locked slots are loaded from the database into `TimetableRequest.locked_slots`.
+2. **Variable Clamping**: The solver clamps the corresponding decision variable $X_{s, u, t, r, d, p} = 1$ and forces all conflicting variables in that slot to $0$.
+3. **Differential Re-Solve**: The solver explores the remaining search space, preserving existing allocations.
 
 ---
 
@@ -202,21 +251,25 @@ Floors are stored as 2D coordinate arrays ($R \times C$). Each cell has a discre
 - `room` / `staffroom`: Interior facility cells.
 
 ### 5.2 Distance Computation Hierarchy
-To compute $\text{Distance}(Node_A, Node_B)$:
+To compute $\mathrm{Distance}(A, B)$:
 
 1. **Intra-Floor (Same Floor)**:
    - 4-directional **Breadth-First Search (BFS)** across walkable cells (`corridor`, `door`, `stairs`, `gate`).
    - Distance in cells multiplied by `cell_size_m` (meters/cell).
 
 2. **Inter-Floor (Same Building, Different Floors)**:
-   - Evaluates paths through shared `stair_connections`.
-   $$\text{Dist}(A, B) = \text{BFS}(A, \text{Stair}_i^{\text{Floor A}}) + \text{Penalty}_{\text{stair}} + \text{BFS}(\text{Stair}_i^{\text{Floor B}}, B)$$
-   Default `Penalty_stair = 15` cells per floor elevation.
+   - Evaluates paths through shared stairwell links:
+
+$$
+\mathrm{Distance}(A, B) = \mathrm{BFS}(A, \mathrm{Stair}_A) + P_{\mathrm{stair}} + \mathrm{BFS}(\mathrm{Stair}_B, B)
+$$
+
+   Where $P_{\mathrm{stair}} = 15$ cells penalty per vertical floor level.
 
 3. **Inter-Building (Different Buildings)**:
-   - Looks up `entrance_pair_distances` for specific gate-to-gate connections.
-   - Falls back to `inter_building_distances` if explicit gate paths are undefined.
-   - Falls back to 2D Euclidean distance between building coordinates ($pos\_x, pos\_y$) if manual distances are omitted.
+   - Queries `entrance_pair_distances` for explicit gate-to-gate links.
+   - Falls back to `inter_building_distances` if gate links are unconfigured.
+   - Falls back to 2D Euclidean distance between building coordinates (`pos_x`, `pos_y`) if manual distances are omitted.
 
 ### 5.3 Caching Subsystems
 - **`FloorBFSGraphCache`**: Caches all-pairs door/stair BFS distances per floor. Automatically invalidated via SHA-256 hash checks on `grid_data`.
