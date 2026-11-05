@@ -19,6 +19,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     SmallInteger,
@@ -321,3 +322,193 @@ class TimetableSlot(Base):
     is_locked:     Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     timetable: Mapped["Timetable"] = relationship("Timetable", back_populates="slots")
+
+
+# ---------------------------------------------------------------------------
+# Campus  (top-level physical container)
+# ---------------------------------------------------------------------------
+class Campus(Base):
+    __tablename__ = "campuses"
+
+    id:          Mapped[str]      = mapped_column(String(36), primary_key=True, default=_uuid)
+    name:        Mapped[str]      = mapped_column(String(120), nullable=False, unique=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at:  Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at:  Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    buildings: Mapped[list["Building"]] = relationship(
+        "Building", back_populates="campus", cascade="all, delete-orphan"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Building  (belongs to a campus; has a position on the campus map)
+# ---------------------------------------------------------------------------
+class Building(Base):
+    __tablename__ = "buildings"
+
+    id:        Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    campus_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("campuses.id", ondelete="CASCADE"), nullable=False
+    )
+    name:   Mapped[str] = mapped_column(String(120), nullable=False)
+    code:   Mapped[str] = mapped_column(String(20),  nullable=False)
+    # Position / size on the campus overview map (arbitrary units / pixels)
+    pos_x:  Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    pos_y:  Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    width:  Mapped[int] = mapped_column(Integer, nullable=False, default=120)
+    height: Mapped[int] = mapped_column(Integer, nullable=False, default=80)
+    color:  Mapped[str] = mapped_column(String(9), nullable=False, default="#6366f1")  # hex
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        UniqueConstraint("campus_id", "code", name="uq_building_campus_code"),
+    )
+
+    campus: Mapped["Campus"]       = relationship("Campus", back_populates="buildings")
+    floors: Mapped[list["Floor"]]  = relationship(
+        "Floor", back_populates="building", cascade="all, delete-orphan"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Floor  (belongs to a building; stores the painted grid as serialised JSON)
+# cell_size_m:        real-world scale — "1 cell = N metres"
+# grid_data:          JSON string representing a 2-D list[list[str]] of CellType values:
+#                     "empty" | "wall" | "corridor" | "stairs" | "door" | "gate" | "room" | "staffroom"
+#                     ("entrance" is a legacy alias for "gate")
+# room_links:         JSON string — list of blob-record links:
+#                     [{"blob_id": str, "cells": [[r,c],...], "record_type": "room"|"staffroom", "record_id": str|null}]
+# stair_connections:  JSON string — list of cross-floor stair link declarations for THIS floor.
+#                     Each entry: {"stair_id": str, "cells": [[r,c],...], "connected_floor_id": str,
+#                                  "crossing_cost": int|null}
+#                     stair_id is a shared label matching the paired floor's entry.
+# gate_labels:        JSON string — dict of {"row,col": "label"} for gate cells on this floor.
+#                     e.g. {"3,7": "Main Gate", "3,15": "Side Gate"}
+# ---------------------------------------------------------------------------
+class Floor(Base):
+    __tablename__ = "floors"
+
+    id:          Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    building_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("buildings.id", ondelete="CASCADE"), nullable=False
+    )
+    name:         Mapped[str]         = mapped_column(String(120), nullable=False)
+    level:        Mapped[int]         = mapped_column(SmallInteger, nullable=False, default=0)
+    grid_rows:    Mapped[int]         = mapped_column(Integer, nullable=False, default=20)
+    grid_cols:    Mapped[int]         = mapped_column(Integer, nullable=False, default=30)
+    cell_size_m:  Mapped[float]       = mapped_column(Float,   nullable=False, default=1.0)
+    # Serialised grid — None until the admin paints and saves
+    grid_data:         Mapped[str | None]  = mapped_column(Text, nullable=True)
+    # Serialised blob-to-record link map — JSON, None until links are defined
+    room_links:        Mapped[str | None]  = mapped_column(Text, nullable=True)
+    # Serialised stair connection declarations — JSON, None until connections are declared
+    stair_connections: Mapped[str | None]  = mapped_column(Text, nullable=True)
+    # Serialised gate label map — JSON dict {"row,col": "label"}, None until labels are set
+    gate_labels:       Mapped[str | None]  = mapped_column(Text, nullable=True)
+    created_at:   Mapped[datetime]    = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at:   Mapped[datetime]    = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        UniqueConstraint("building_id", "level", name="uq_floor_building_level"),
+        CheckConstraint("grid_rows >= 5 AND grid_rows <= 200", name="ck_floor_rows_range"),
+        CheckConstraint("grid_cols >= 5 AND grid_cols <= 200", name="ck_floor_cols_range"),
+        CheckConstraint("cell_size_m > 0",                    name="ck_floor_cell_size_positive"),
+    )
+
+    building: Mapped["Building"] = relationship("Building", back_populates="floors")
+
+
+# ---------------------------------------------------------------------------
+# InterBuildingDistance  (manually entered distance between two buildings)
+# ---------------------------------------------------------------------------
+class InterBuildingDistance(Base):
+    __tablename__ = "inter_building_distances"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    campus_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("campuses.id", ondelete="CASCADE"), nullable=False
+    )
+    building_a_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("buildings.id", ondelete="CASCADE"), nullable=False
+    )
+    building_b_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("buildings.id", ondelete="CASCADE"), nullable=False
+    )
+    distance_m: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    distance_cells: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        UniqueConstraint("building_a_id", "building_b_id", name="uq_building_pair_distance"),
+    )
+
+
+# ---------------------------------------------------------------------------
+# EntrancePairDistance  (per-gate cross-building distances)
+# ---------------------------------------------------------------------------
+class EntrancePairDistance(Base):
+    """
+    Stores the walking distance between a specific gate cell on one floor and
+    a specific gate cell on another floor (in a different building).
+
+    This is more precise than InterBuildingDistance, which only stores one
+    number per building pair. The engine uses this table first, falling back
+    to InterBuildingDistance, then to Euclidean estimation.
+    """
+    __tablename__ = "entrance_pair_distances"
+
+    id:            Mapped[str]   = mapped_column(String(36), primary_key=True, default=_uuid)
+    campus_id:     Mapped[str]   = mapped_column(
+        String(36), ForeignKey("campuses.id",  ondelete="CASCADE"), nullable=False
+    )
+    # Source gate
+    floor_a_id:    Mapped[str]   = mapped_column(
+        String(36), ForeignKey("floors.id",    ondelete="CASCADE"), nullable=False
+    )
+    gate_a_row:    Mapped[int]   = mapped_column(Integer, nullable=False)
+    gate_a_col:    Mapped[int]   = mapped_column(Integer, nullable=False)
+    gate_a_label:  Mapped[str | None] = mapped_column(String(80), nullable=True)
+    # Destination gate
+    floor_b_id:    Mapped[str]   = mapped_column(
+        String(36), ForeignKey("floors.id",    ondelete="CASCADE"), nullable=False
+    )
+    gate_b_row:    Mapped[int]   = mapped_column(Integer, nullable=False)
+    gate_b_col:    Mapped[int]   = mapped_column(Integer, nullable=False)
+    gate_b_label:  Mapped[str | None] = mapped_column(String(80), nullable=True)
+    # Distance
+    distance_m:     Mapped[float] = mapped_column(Float,   nullable=False, default=0.0)
+    distance_cells: Mapped[int]   = mapped_column(Integer, nullable=False, default=0)
+    created_at:  Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at:  Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "floor_a_id", "gate_a_row", "gate_a_col",
+            "floor_b_id", "gate_b_row", "gate_b_col",
+            name="uq_entrance_pair",
+        ),
+    )
+

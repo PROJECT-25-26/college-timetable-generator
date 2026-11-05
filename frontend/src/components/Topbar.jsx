@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { Bell, Search, LogOut, ShieldCheck, GraduationCap } from 'lucide-react'
+import { Search, LogOut, ShieldCheck, GraduationCap } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import GlobalSearchModal from './GlobalSearchModal'
 
@@ -10,17 +10,19 @@ const ROUTE_TITLES = {
   '/teachers':            'Teachers',
   '/subjects':            'Subjects',
   '/rooms':               'Rooms',
-  '/class-sections':      'Class Sections',
-  '/generate':            'Generate Timetable',
-  '/requests':            'Schedule Requests',
-  '/teacher-dashboard':   'My Schedule',
+  '/class-sections':      'Class sections',
+  '/generate':            'Generate timetable',
+  '/requests':            'Schedule requests',
+  '/teacher-dashboard':   'My schedule',
+  '/campus-layout':       'Campus layout',
+  '/analytics':           'Analytics',
 }
 
 export default function Topbar() {
   const { pathname }  = useLocation()
   const { user, logout } = useAuth()
   const [searchOpen, setSearchOpen] = useState(false)
-  const title = ROUTE_TITLES[pathname] ?? 'College Timetable Generator'
+  const title = ROUTE_TITLES[pathname] ?? 'College timetable generator'
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -40,67 +42,56 @@ export default function Topbar() {
   const isAdmin   = user?.role === 'admin'
   const roleLabel = isAdmin ? 'Admin' : 'Teacher'
   const RoleIcon  = isAdmin ? ShieldCheck : GraduationCap
-  const roleColor = isAdmin ? 'text-brand-400' : 'text-violet-400'
-  const roleBg    = isAdmin ? 'from-brand-500 to-purple-600' : 'from-violet-500 to-indigo-600'
 
   return (
     <>
-      <header className="app-topbar flex items-center justify-between px-6 bg-gray-900/70 backdrop-blur border-b border-white/10">
-        <h1 className="text-base font-semibold text-gray-100">{title}</h1>
+      <header className="app-topbar" role="banner">
+        <h1 className="topbar-title">{title}</h1>
 
-        <div className="flex items-center gap-3">
-          {/* Search Button */}
+        <div className="topbar-actions">
+          {/* Search trigger */}
           <button
             id="topbar-search-btn"
             onClick={() => setSearchOpen(true)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-400 text-sm hover:bg-white/10 hover:text-gray-200 transition-colors"
+            className="topbar-search-btn"
+            aria-label="Open global search (Ctrl+K)"
           >
-            <Search size={14} />
-            <span className="hidden sm:inline">Search schedule / free slots…</span>
-            <kbd className="hidden sm:inline text-xs bg-white/10 px-1.5 py-0.5 rounded text-gray-300 font-mono">
-              Ctrl+K
-            </kbd>
+            <Search size={14} strokeWidth={2} aria-hidden="true" />
+            <span className="hidden sm:inline" style={{ color: 'var(--c-muted)', fontSize: '0.875rem' }}>
+              Search…
+            </span>
           </button>
 
-          {/* Notifications placeholder — admin only */}
-          {isAdmin && (
-            <button
-              id="topbar-notifications-btn"
-              className="relative p-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10 transition-colors"
-            >
-              <Bell size={16} />
-              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-brand-400" />
-            </button>
-          )}
+          <div className="topbar-divider hidden sm:block" aria-hidden="true" />
 
-          {/* Divider */}
-          <div className="h-6 w-px bg-white/10 hidden sm:block" />
-
-          {/* Role badge + avatar */}
-          <div className="flex items-center gap-2">
-            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/10">
-              <RoleIcon size={12} className={roleColor} />
-              <span className={`text-xs font-medium ${roleColor}`}>{roleLabel}</span>
-            </div>
-
-            <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${roleBg} flex items-center justify-center text-xs font-bold text-white select-none`}>
-              {initials}
-            </div>
+          {/* Role badge */}
+          <div className="topbar-role-badge hidden sm:inline-flex" aria-label={`Signed in as ${roleLabel}`}>
+            <RoleIcon size={12} strokeWidth={2} aria-hidden="true" />
+            <span>{roleLabel}</span>
           </div>
 
-          {/* Quick logout */}
+          {/* Avatar */}
+          <div
+            className="topbar-avatar"
+            title={user?.name}
+            aria-label={`Account: ${user?.name}`}
+          >
+            {initials}
+          </div>
+
+          {/* Sign out */}
           <button
             id="topbar-logout-btn"
             onClick={logout}
             title="Sign out"
-            className="p-2 rounded-lg bg-white/5 border border-white/10 text-gray-500 hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/20 transition-all"
+            aria-label="Sign out"
+            className="topbar-icon-btn"
           >
-            <LogOut size={15} />
+            <LogOut size={15} strokeWidth={1.75} aria-hidden="true" />
           </button>
         </div>
       </header>
 
-      {/* Global Search Modal */}
       <GlobalSearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
     </>
   )

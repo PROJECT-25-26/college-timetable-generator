@@ -58,140 +58,150 @@ export default function DataTable({
     else { setSortKey(key); setSortDir('asc') }
   }
 
-  /* ── Skeleton rows ── */
+  /* ── Loading skeleton ── */
   if (loading) {
     return (
-      <div className="glass-card overflow-hidden">
-        <div className="p-4 border-b border-white/10">
-          <div className="h-9 w-64 bg-white/5 rounded-xl animate-pulse" />
+      <div className="data-table-wrap">
+        <div className="data-table-toolbar">
+          <div className="skeleton" style={{ height: '36px', width: '240px' }} />
         </div>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-white/10">
-              {columns.map((c) => (
-                <th key={c.key} className="px-4 py-3 text-left">
-                  <div className="h-3 w-20 bg-white/5 rounded animate-pulse" />
-                </th>
-              ))}
-              <th className="px-4 py-3 w-20" />
-            </tr>
-          </thead>
-          <tbody>
-            {[...Array(5)].map((_, i) => (
-              <tr key={i} className="border-b border-white/5">
+        <div style={{ overflowX: 'auto' }}>
+          <table className="data-table">
+            <thead>
+              <tr>
                 {columns.map((c) => (
-                  <td key={c.key} className="px-4 py-3">
-                    <div className="h-4 bg-white/5 rounded animate-pulse" style={{ width: `${60 + (i * 13) % 40}%` }} />
-                  </td>
+                  <th key={c.key}>
+                    <div className="skeleton" style={{ height: '12px', width: '80px' }} />
+                  </th>
                 ))}
-                <td className="px-4 py-3">
-                  <div className="h-4 w-16 bg-white/5 rounded animate-pulse" />
-                </td>
+                <th style={{ width: '80px' }} />
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {[...Array(5)].map((_, i) => (
+                <tr key={i}>
+                  {columns.map((c) => (
+                    <td key={c.key}>
+                      <div className="skeleton" style={{ height: '14px', width: `${55 + (i * 15) % 40}%` }} />
+                    </td>
+                  ))}
+                  <td>
+                    <div className="skeleton" style={{ height: '14px', width: '60px' }} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="glass-card overflow-hidden">
+    <div className="data-table-wrap">
       {/* Search bar */}
       {searchKeys.length > 0 && (
-        <div className="p-4 border-b border-white/10">
-          <div className="relative w-72">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+        <div className="data-table-toolbar">
+          <div className="data-table-search">
+            <Search
+              size={14}
+              strokeWidth={2}
+              className="data-table-search-icon"
+              aria-hidden="true"
+            />
             <input
               type="text"
               placeholder="Search…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="
-                w-full pl-8 pr-3 py-2 text-sm rounded-xl
-                bg-white/5 border border-white/10 text-gray-200
-                placeholder-gray-600 focus:outline-none focus:border-brand-500/50 focus:bg-white/8
-                transition-colors
-              "
+              className="data-table-search-input"
+              aria-label="Search records"
             />
           </div>
         </div>
       )}
 
       {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+      <div style={{ overflowX: 'auto' }}>
+        <table className="data-table" role="table">
           <thead>
-            <tr className="border-b border-white/10 text-xs text-gray-500 uppercase tracking-wider">
+            <tr>
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className={`px-4 py-3 text-left font-medium ${col.sortable !== false ? 'cursor-pointer select-none hover:text-gray-300 transition-colors' : ''} ${col.className ?? ''}`}
+                  className={`${col.sortable !== false ? 'sortable' : ''} ${col.className ?? ''}`}
                   onClick={() => col.sortable !== false && toggleSort(col.key)}
+                  aria-sort={
+                    sortKey === col.key
+                      ? sortDir === 'asc' ? 'ascending' : 'descending'
+                      : undefined
+                  }
                 >
-                  <span className="inline-flex items-center gap-1">
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                     {col.label}
                     {col.sortable !== false && sortKey === col.key && (
                       sortDir === 'asc'
-                        ? <ChevronUp size={12} className="text-brand-400" />
-                        : <ChevronDown size={12} className="text-brand-400" />
+                        ? <ChevronUp size={12} aria-hidden="true" style={{ color: '#2E2A6B' }} />
+                        : <ChevronDown size={12} aria-hidden="true" style={{ color: '#2E2A6B' }} />
                     )}
                   </span>
                 </th>
               ))}
-              {(onEdit || onDelete) && <th className="px-4 py-3 w-24" />}
+              {(onEdit || onDelete) && <th style={{ width: '80px' }} aria-label="Actions" />}
             </tr>
           </thead>
           <tbody>
             {sorted.length === 0 ? (
               <tr>
-                <td colSpan={columns.length + 1} className="px-4 py-16 text-center">
-                  <p className="text-gray-400 font-medium mb-1">
-                    {query ? 'No results found' : emptyTitle}
-                  </p>
-                  <p className="text-gray-600 text-xs mb-4">
-                    {query ? `No records match "${query}"` : emptyMessage}
-                  </p>
-                  {!query && onAdd && (
-                    <button
-                      onClick={onAdd}
-                      className="px-4 py-2 text-sm font-medium rounded-xl text-white bg-brand-600 hover:bg-brand-500 transition-colors"
-                    >
-                      {addLabel}
-                    </button>
-                  )}
+                <td colSpan={columns.length + 1}>
+                  <div className="data-table-empty">
+                    <p className="data-table-empty-title">
+                      {query ? 'No results found' : emptyTitle}
+                    </p>
+                    <p className="data-table-empty-sub">
+                      {query ? `No records match "${query}"` : emptyMessage}
+                    </p>
+                    {!query && onAdd && (
+                      <button
+                        onClick={onAdd}
+                        className="btn btn-primary btn-sm"
+                        style={{ marginTop: '4px' }}
+                      >
+                        {addLabel}
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ) : (
               sorted.map((row) => (
-                <tr
-                  key={row[keyField]}
-                  className="border-b border-white/5 hover:bg-white/3 transition-colors group"
-                >
+                <tr key={row[keyField]}>
                   {columns.map((col) => (
-                    <td key={col.key} className={`px-4 py-3 text-gray-300 ${col.className ?? ''}`}>
+                    <td key={col.key} className={col.className ?? ''}>
                       {col.render ? col.render(row[col.key], row) : (row[col.key] ?? '—')}
                     </td>
                   ))}
                   {(onEdit || onDelete) && (
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <td>
+                      <div className="data-table-actions">
                         {onEdit && (
                           <button
                             onClick={() => onEdit(row)}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-brand-300 hover:bg-brand-500/10 transition-colors"
+                            className="data-table-action-btn"
                             title="Edit"
+                            aria-label={`Edit record`}
                           >
-                            <Pencil size={14} />
+                            <Pencil size={13} strokeWidth={1.75} />
                           </button>
                         )}
                         {onDelete && (
                           <button
                             onClick={() => onDelete(row)}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
+                            className="data-table-action-btn danger"
                             title="Delete"
+                            aria-label={`Delete record`}
                           >
-                            <Trash2 size={14} />
+                            <Trash2 size={13} strokeWidth={1.75} />
                           </button>
                         )}
                       </div>
@@ -206,7 +216,7 @@ export default function DataTable({
 
       {/* Footer count */}
       {sorted.length > 0 && (
-        <div className="px-4 py-2.5 border-t border-white/10 text-xs text-gray-600">
+        <div className="data-table-footer">
           {sorted.length} {sorted.length === 1 ? 'record' : 'records'}
           {query && ` · filtered from ${data.length}`}
         </div>

@@ -77,8 +77,8 @@ function DayToggle({ selected, onChange }) {
             onClick={() => onChange(on ? selected.filter(x => x !== i) : [...selected, i].sort())}
             className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all border ${
               on
-                ? 'bg-brand-600 border-brand-500 text-white shadow-sm shadow-brand-500/30'
-                : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200'
+                ? 'bg-primary border-primary text-white shadow-sm'
+                : 'bg-ground border-primary/12 text-muted hover:bg-secondary/8 hover:text-body'
             }`}
           >
             {d}
@@ -107,24 +107,24 @@ function SolvingAnimation({ onCancel }) {
       </div>
 
       <div className="text-center space-y-2">
-        <p className="text-xl font-bold text-white">Solving…</p>
-        <p className="text-sm text-gray-400 max-w-xs">
+        <p className="text-xl font-bold text-body">Solving…</p>
+        <p className="text-sm text-muted max-w-xs">
           CP-SAT is applying constraints and optimising the schedule.
           This may take up to 60 seconds.
         </p>
       </div>
 
       {/* Progress bar */}
-      <div className="w-48 h-1 rounded-full bg-white/10 overflow-hidden">
+      <div className="w-48 h-1 rounded-full bg-secondary/8 overflow-hidden">
         <div
-          className="h-full bg-gradient-to-r from-brand-500 to-purple-500 rounded-full"
+          className="h-full bg-accent rounded-full"
           style={{ animation: 'progress-fill 60s linear forwards' }}
         />
       </div>
 
       <button
         onClick={onCancel}
-        className="flex items-center gap-2 px-4 py-2 text-sm rounded-xl border border-white/10 text-gray-400 hover:text-red-400 hover:border-red-500/30 hover:bg-red-500/10 transition-all"
+        className="flex items-center gap-2 px-4 py-2 text-sm rounded-xl border border-primary/12 text-muted hover:text-red-400 hover:border-red-500/30 hover:bg-red-500/10 transition-all"
       >
         <X size={14} /> Cancel
       </button>
@@ -135,12 +135,12 @@ function SolvingAnimation({ onCancel }) {
 function IdleState() {
   return (
     <div className="flex flex-col items-center justify-center h-full gap-4 py-16 text-center">
-      <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
-        <Zap size={28} className="text-gray-600" />
+      <div className="w-16 h-16 rounded-2xl bg-ground border border-primary/12 flex items-center justify-center">
+        <Zap size={28} className="text-muted" />
       </div>
       <div>
-        <p className="text-gray-300 font-medium">Ready to generate</p>
-        <p className="text-gray-500 text-sm mt-1">Configure the time grid and click Generate</p>
+        <p className="text-body font-medium">Ready to generate</p>
+        <p className="text-muted text-sm mt-1">Configure the time grid and click Generate</p>
       </div>
     </div>
   )
@@ -151,32 +151,32 @@ function StatusBanner({ result, onOpenExportModal }) {
   const isInfeasible  = result.status === 'infeasible'
 
   const colours = isOk
-    ? 'border-emerald-500/30 bg-emerald-500/10'
+    ? 'border-emerald-200 bg-emerald-50'
     : isInfeasible
-    ? 'border-red-500/30 bg-red-500/10'
-    : 'border-amber-500/30 bg-amber-500/10'
+    ? 'border-red-200 bg-red-50'
+    : 'border-amber-200 bg-amber-50'
 
   const Icon = isOk ? CheckCircle2 : isInfeasible ? XCircle : AlertTriangle
-  const iconCls = isOk ? 'text-emerald-400' : isInfeasible ? 'text-red-400' : 'text-amber-400'
+  const iconCls = isOk ? 'text-emerald-700' : isInfeasible ? 'text-red-600' : 'text-amber-700'
   const title = isOk ? 'Timetable Generated' : isInfeasible ? 'No Solution Found' : 'Timed Out'
 
   return (
     <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${colours} mb-4`}>
       <Icon size={20} className={`shrink-0 ${iconCls}`} />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-white">{title}</p>
+        <p className="text-sm font-semibold text-body">{title}</p>
         {result.message && (
-          <p className="text-xs text-gray-400 mt-0.5 truncate">{result.message}</p>
+          <p className="text-xs text-muted mt-0.5 truncate">{result.message}</p>
         )}
       </div>
       <div className="flex items-center gap-3 shrink-0">
         {result.solver_wall_ms != null && (
-          <span className="text-xs text-gray-500">{fmtMs(result.solver_wall_ms)}</span>
+          <span className="text-xs text-muted">{fmtMs(result.solver_wall_ms)}</span>
         )}
         {isOk && (
           <button
             onClick={onOpenExportModal}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-brand-600 hover:bg-brand-500 text-white transition-all shadow-sm shadow-brand-500/20"
+            className="btn btn-primary btn-sm"
           >
             <Download size={13} /> Export Schedule
           </button>
@@ -201,6 +201,7 @@ export default function Generate() {
   const [periodsPerDay, setPeriodsPerDay] = useState(8)
   const [workingDays,   setWorkingDays]   = useState([0, 1, 2, 3, 4])
   const [timeout,       setTimeout_]      = useState(60)
+  const [travelWeight,  setTravelWeight]  = useState(2)   // O3 walking-distance penalty (0 = disabled)
 
   // Solve state
   const [phase,   setPhase]   = useState('idle')   // 'idle' | 'solving' | 'done'
@@ -305,13 +306,14 @@ export default function Generate() {
     setPhase('solving')
     setResult(null)
     abortRef.current = new AbortController()
+    const startTime = Date.now()
 
     try {
-      // Step 1: get the assembled payload
-      const payloadRes = await generateApi.payload(periodsPerDay, workingDays)
-      const payload    = payloadRes.data
+      // Step 1: get the assembled payload with user timeout
+      const payloadRes = await generateApi.payload(periodsPerDay, workingDays, travelWeight, timeout)
+      const payload    = { ...payloadRes.data, timeout_seconds: timeout }
 
-      // Step 2: run solver (may take up to 60s)
+      // Step 2: run solver
       const res  = await generateApi.generate(payload, abortRef.current.signal)
       const data = res.data
 
@@ -326,10 +328,44 @@ export default function Generate() {
       else if (data.status === 'infeasible') toast.error('No feasible timetable found', 8000)
       else toast.info('Solver timed out — no solution found', 8000)
     } catch (err) {
-      setPhase('idle')
       if (err.code === 'ERR_CANCELED') {
+        setPhase('idle')
         toast.info('Generation cancelled')
-      } else {
+        return
+      }
+
+      // Resilient check: In case of upstream timeout (e.g. 504) or network interruption,
+      // the backend solver might have still completed and persisted the generated timetable.
+      let recovered = false
+      try {
+        toast.info('Checking for generated timetable…')
+        for (let attempt = 0; attempt < 3; attempt++) {
+          if (attempt > 0) await new Promise(r => setTimeout(r, 2000))
+          const runsRes = await timetablesApi.list()
+          const runs = runsRes.data || []
+          if (runs.length > 0) {
+            const latest = runs[0]
+            const createdAt = new Date(latest.created_at).getTime()
+            if (createdAt >= startTime - 15_000 && latest.status === 'ok') {
+              const fullRun = await timetablesApi.get(latest.id)
+              setResult(fullRun.data)
+              setPendingEdits(false)
+              setSlotHistory([])
+              setLockedSlotIds(new Set())
+              setPhase('done')
+              loadPastRuns()
+              toast.success(`Timetable retrieved successfully (${fullRun.data.slots?.length ?? 0} slots)`)
+              recovered = true
+              break
+            }
+          }
+        }
+      } catch {
+        // Recovery attempt failed; ignore and proceed to error state
+      }
+
+      if (!recovered) {
+        setPhase('idle')
         toast.error(err.message ?? 'Generation failed')
       }
     }
@@ -378,7 +414,7 @@ export default function Generate() {
     if (newHistory.length === 0) {
       setPendingEdits(false)
     }
-    toast.info('Swap undone ✓')
+    toast.info('Swap undone')
   }, [slotHistory, toast])
 
   // Ctrl+Z / Cmd+Z keyboard shortcut for Undo
@@ -487,6 +523,7 @@ export default function Generate() {
 
     setIsRegenerating(true)
     abortRef.current = new AbortController()
+    const startTime = Date.now()
 
     try {
       // Build the locked_slots array from the current result
@@ -503,10 +540,11 @@ export default function Generate() {
 
       toast.info(`Regenerating with ${lockedSlots.length} locked slot(s)…`)
 
-      // Fetch fresh payload then regenerate with locked slots pinned
-      const payloadRes = await generateApi.payload(periodsPerDay, workingDays)
+      // Fetch fresh payload then regenerate with locked slots pinned and user timeout
+      const payloadRes = await generateApi.payload(periodsPerDay, workingDays, travelWeight, timeout)
+      const payload    = { ...payloadRes.data, timeout_seconds: timeout }
       const res = await generateApi.regenerate(
-        payloadRes.data,
+        payload,
         lockedSlots,
         abortRef.current.signal,
       )
@@ -526,13 +564,45 @@ export default function Generate() {
       else
         toast.info('Solver timed out — try fewer locked slots or shorter timeout.', 8000)
     } catch (err) {
-      if (err.code !== 'ERR_CANCELED') {
+      if (err.code === 'ERR_CANCELED') {
+        toast.info('Regeneration cancelled')
+        return
+      }
+
+      let recovered = false
+      try {
+        for (let attempt = 0; attempt < 3; attempt++) {
+          if (attempt > 0) await new Promise(r => setTimeout(r, 2000))
+          const runsRes = await timetablesApi.list()
+          const runs = runsRes.data || []
+          if (runs.length > 0) {
+            const latest = runs[0]
+            const createdAt = new Date(latest.created_at).getTime()
+            if (createdAt >= startTime - 15_000 && latest.status === 'ok') {
+              const fullRun = await timetablesApi.get(latest.id)
+              setResult(fullRun.data)
+              setPendingEdits(false)
+              setSlotHistory([])
+              setLockedSlotIds(new Set())
+              setPhase('done')
+              loadPastRuns()
+              toast.success(`Regenerated timetable retrieved (${fullRun.data.slots?.length ?? 0} slots)`)
+              recovered = true
+              break
+            }
+          }
+        }
+      } catch {
+        // Recovery failed
+      }
+
+      if (!recovered) {
         toast.error(err.message ?? 'Regeneration failed')
       }
     } finally {
       setIsRegenerating(false)
     }
-  }, [result, lockedSlotIds, periodsPerDay, workingDays, loadPastRuns, toast])
+  }, [result, lockedSlotIds, periodsPerDay, workingDays, travelWeight, timeout, loadPastRuns, toast])
 
 
   async function handleDeleteRun(id, e) {
@@ -554,25 +624,62 @@ export default function Generate() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="flex gap-6 h-full animate-fade-in" style={{ maxHeight: 'calc(100vh - 64px - 48px)' }}>
-
-      {/* ── LEFT: Config + History ─────────────────────────────────────── */}
-      <aside className="w-72 shrink-0 flex flex-col gap-4 overflow-y-auto pr-1">
-
-        {/* Header */}
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-purple-600 flex items-center justify-center shadow-lg shadow-brand-500/30">
-            <Zap size={18} className="text-white" />
-          </div>
-          <div>
-            <h2 className="text-base font-bold text-white">Generate</h2>
-            <p className="text-[11px] text-gray-500">CP-SAT constraint solver</p>
+    <div
+      className="page-wrapper animate-fade-in"
+      style={{
+        height: 'calc(100vh - var(--topbar-height))',
+        display: 'flex',
+        flexDirection: 'column',
+        boxSizing: 'border-box',
+        overflow: 'hidden',
+        paddingBottom: 24,
+      }}
+    >
+      {/* ── Page Header ────────────────────────────────────────────── */}
+      <div className="page-header" style={{ marginBottom: 16, flexShrink: 0 }}>
+        <div className="page-header-left">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 'var(--r-btn)',
+                background: '#FFB020',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              <Zap size={18} style={{ color: '#1F1B4D' }} strokeWidth={2.5} />
+            </div>
+            <div>
+              <h1 className="page-heading" style={{ margin: 0, fontSize: '1.25rem' }}>
+                Generate timetable
+              </h1>
+              <p className="page-sub" style={{ margin: '2px 0 0 0' }}>
+                CP-SAT constraint solver · Produce collision-free, walking-distance-optimised schedules
+              </p>
+            </div>
           </div>
         </div>
+        {result && (
+          <button
+            onClick={() => setExportModalOpen(true)}
+            className="btn btn-secondary btn-sm"
+          >
+            <Download size={13} strokeWidth={2} /> Export timetable
+          </button>
+        )}
+      </div>
 
-        {/* Config card */}
-        <div className="glass-card p-4 space-y-5">
-          <div className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-widest">
+      {/* ── Main Two-Column Layout (Config Left, Result Right) ───────── */}
+      <div className="flex gap-6 flex-1 min-h-0 items-stretch">
+        {/* ── LEFT: Config + History ─────────────────────────────────────── */}
+        <aside className="w-80 shrink-0 flex flex-col gap-4 overflow-hidden">
+          {/* Config card */}
+        <div className="card p-4 space-y-4 shrink-0 overflow-y-auto" style={{ maxHeight: 'calc(100% - 210px)', borderRadius: 18 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: '0.75rem', fontWeight: 600, color: 'var(--c-muted)' }}>
             <Settings size={12} /> Configuration
           </div>
 
@@ -597,6 +704,53 @@ export default function Generate() {
             />
           </div>
 
+          {/* Travel Weight */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="form-label mb-0">Travel Weight</label>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-bold tabular-nums ${
+                  travelWeight === 0 ? 'text-muted' : 'text-secondary'
+                }`}>
+                  {travelWeight === 0 ? 'Off' : travelWeight}
+                </span>
+                <button
+                  type="button"
+                  title={travelWeight === 0 ? 'Enable travel penalty' : 'Disable travel penalty'}
+                  onClick={() => setTravelWeight(v => v === 0 ? 2 : 0)}
+                  disabled={phase === 'solving'}
+                  className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors duration-200 disabled:opacity-50 ${
+                    travelWeight > 0
+                      ? 'bg-primary border-primary'
+                      : 'bg-secondary/8 border-primary/18'
+                  }`}
+                >
+                  <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform duration-200 ${
+                    travelWeight > 0 ? 'translate-x-4' : 'translate-x-0.5'
+                  }`} />
+                </button>
+              </div>
+            </div>
+            <input
+              type="range" min={0} max={10} step={1}
+              value={travelWeight}
+              onChange={e => setTravelWeight(+e.target.value)}
+              disabled={phase === 'solving'}
+              className="w-full h-1.5 rounded-full appearance-none accent-primary disabled:opacity-50 cursor-pointer"
+              style={{
+                background: `linear-gradient(to right, #2E2A6B ${travelWeight * 10}%, #D5D3EE ${travelWeight * 10}%)`,
+              }}
+            />
+            <div className="flex justify-between text-[9px] text-muted mt-0.5 px-0.5">
+              <span>Off</span>
+              <span>Strong</span>
+            </div>
+            <p className="text-[10px] text-muted mt-1 leading-relaxed">
+              Penalises teachers walking far between consecutive classes.
+              Set to 0 to disable.
+            </p>
+          </div>
+
           {/* Timeout */}
           <div>
             <label className="form-label">Solver Timeout</label>
@@ -610,7 +764,7 @@ export default function Generate() {
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
-            <p className="text-[10px] text-gray-600 mt-1.5 leading-relaxed">
+            <p className="text-[10px] text-muted mt-1.5 leading-relaxed">
               Solver returns best partial result at timeout
             </p>
           </div>
@@ -620,79 +774,95 @@ export default function Generate() {
             id="generate-btn"
             onClick={phase === 'solving' ? handleCancel : handleGenerate}
             disabled={workingDays.length === 0}
-            className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all shadow-lg ${
-              phase === 'solving'
-                ? 'bg-red-600/80 hover:bg-red-600 text-white shadow-red-500/20'
-                : 'bg-gradient-to-r from-brand-600 to-purple-600 hover:from-brand-500 hover:to-purple-500 text-white shadow-brand-500/30 disabled:opacity-50 disabled:cursor-not-allowed'
-            }`}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 7,
+              padding: '11px 18px',
+              borderRadius: 12,
+              fontSize: '0.9375rem',
+              fontWeight: 600,
+              border: 'none',
+              cursor: workingDays.length === 0 ? 'not-allowed' : 'pointer',
+              opacity: workingDays.length === 0 ? 0.5 : 1,
+              transition: 'all 0.15s ease',
+              fontFamily: 'Figtree, sans-serif',
+              background: phase === 'solving' ? 'rgba(220,38,38,0.85)' : '#FFB020',
+              color: phase === 'solving' ? '#FFFFFF' : '#1F1B4D',
+              boxShadow: phase === 'solving' ? '0 2px 8px rgba(220,38,38,0.25)' : '0 2px 8px rgba(255,176,32,0.30)',
+            }}
           >
             {phase === 'solving'
               ? <><X size={15} /> Cancel</>
-              : <><Zap size={15} /> Generate Timetable</>
+              : <><Zap size={15} /> Generate timetable</>
             }
           </button>
         </div>
 
         {/* Past runs */}
-        <div className="glass-card p-4 flex-1 overflow-y-auto">
+        <div className="card p-4 flex-1 min-h-0 flex flex-col overflow-hidden">
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-widest">
+            <div className="flex items-center gap-2 text-sm font-semibold text-body">
               <History size={12} /> Past Runs
             </div>
-            <button onClick={loadPastRuns} className="text-gray-600 hover:text-gray-300 transition-colors">
+            <button onClick={loadPastRuns} className="text-muted hover:text-body transition-colors">
               <RefreshCw size={12} />
             </button>
           </div>
 
-          {runsLoading ? (
-            <div className="flex justify-center py-4">
-              <Loader2 size={16} className="text-gray-600 animate-spin" />
-            </div>
-          ) : pastRuns.length === 0 ? (
-            <p className="text-xs text-gray-600 text-center py-4">No runs yet</p>
-          ) : (
-            <ul className="space-y-1">
-              {pastRuns.map(run => {
-                const isActive = result?.id === run.id
-                const statusCls =
-                  run.status === 'ok'          ? 'bg-emerald-500'  :
-                  run.status === 'infeasible'  ? 'bg-red-500'      : 'bg-amber-500'
-                return (
-                  <li key={run.id}>
-                    <button
-                      onClick={() => handleLoadRun(run.id)}
-                      className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left transition-all group ${
-                        isActive
-                          ? 'bg-brand-600/20 border border-brand-500/30'
-                          : 'hover:bg-white/5 border border-transparent'
-                      }`}
-                    >
-                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusCls}`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-gray-200 truncate">
-                          {run.label ?? fmtDate(run.created_at)}
-                        </p>
-                        <p className="text-[10px] text-gray-500">
-                          {run.slot_count} slots · {fmtMs(run.solver_wall_ms)}
-                        </p>
-                      </div>
+          <div className="flex-1 min-h-0 flex flex-col">
+            {runsLoading ? (
+              <div className="flex justify-center py-6">
+                <Loader2 size={18} className="text-muted animate-spin" />
+              </div>
+            ) : pastRuns.length === 0 ? (
+              <p className="text-xs text-muted text-center py-6">No runs yet</p>
+            ) : (
+              <ul className="space-y-1 overflow-y-auto flex-1 min-h-0 pr-0.5">
+                {pastRuns.map(run => {
+                  const isActive = result?.id === run.id
+                  const statusCls =
+                    run.status === 'ok'          ? 'bg-emerald-500'  :
+                    run.status === 'infeasible'  ? 'bg-red-500'      : 'bg-amber-500'
+                  return (
+                    <li key={run.id}>
                       <button
-                        onClick={e => handleDeleteRun(run.id, e)}
-                        className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 transition-all p-0.5"
+                        onClick={() => handleLoadRun(run.id)}
+                        className={`w-full flex items-center gap-2 px-2.5 py-2.5 rounded-lg text-left transition-all group ${
+                          isActive
+                            ? 'bg-primary/15 border border-secondary/30'
+                            : 'hover:bg-ground border border-transparent'
+                        }`}
                       >
-                        <Trash2 size={11} />
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${statusCls}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-body truncate">
+                            {run.label ?? fmtDate(run.created_at)}
+                          </p>
+                          <p className="text-[11px] text-muted mt-0.5">
+                            {run.slot_count} slots · {fmtMs(run.solver_wall_ms)}
+                          </p>
+                        </div>
+                        <button
+                          onClick={e => handleDeleteRun(run.id, e)}
+                          className="opacity-0 group-hover:opacity-100 text-muted hover:text-red-400 transition-all p-0.5 shrink-0"
+                        >
+                          <Trash2 size={13} />
+                        </button>
                       </button>
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
         </div>
       </aside>
 
       {/* ── RIGHT: Result area ──────────────────────────────────────────── */}
-      <div className="flex-1 glass-card p-5 overflow-y-auto min-w-0">
+      <div className="flex-1 card p-5 overflow-y-auto min-w-0 flex flex-col" style={{ borderRadius: 18 }}>
 
         {phase === 'idle' && <IdleState />}
 
@@ -707,7 +877,7 @@ export default function Generate() {
               <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-amber-400/40 bg-amber-400/8 mb-4 text-xs">
                 <div className="flex items-center gap-2 min-w-0">
                   <Lock size={15} className="text-amber-400 shrink-0" />
-                  <p className="text-amber-200">
+                  <p className="text-amber-900">
                     <span className="font-semibold">{lockedSlotIds.size} slot{lockedSlotIds.size !== 1 ? 's' : ''} locked.</span>{' '}
                     The solver will keep these fixed and only re-optimise the rest.
                   </p>
@@ -716,7 +886,7 @@ export default function Generate() {
                   <button
                     onClick={() => setLockedSlotIds(new Set())}
                     disabled={isRegenerating}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-amber-400/30 text-amber-300 hover:bg-amber-400/15 transition-all disabled:opacity-40"
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-amber-500/30 text-amber-800 hover:bg-amber-400/15 transition-all disabled:opacity-40"
                     title="Clear all locks"
                   >
                     <X size={11} /> Clear locks
@@ -741,7 +911,7 @@ export default function Generate() {
               <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-amber-500/40 bg-amber-500/10 mb-4 text-xs">
                 <div className="flex items-center gap-2 min-w-0">
                   <AlertTriangle size={16} className="text-amber-400 shrink-0" />
-                  <p className="text-amber-200">
+                  <p className="text-amber-900">
                     <span className="font-semibold">Manual timetable edits pending.</span>{' '}
                     Save your changes to persist them to the database.
                   </p>
@@ -750,7 +920,7 @@ export default function Generate() {
                   <button
                     onClick={handleUndoSwap}
                     disabled={savingEdits || slotHistory.length === 0}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 transition-all text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-amber-500/30 text-amber-800 hover:bg-amber-500/20 transition-all text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Undo last swap (Ctrl+Z)"
                   >
                     <Undo2 size={12} />
@@ -759,7 +929,7 @@ export default function Generate() {
                   <button
                     onClick={handleDiscardEdits}
                     disabled={savingEdits}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 transition-all text-xs disabled:opacity-50"
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-amber-500/30 text-amber-800 hover:bg-amber-500/20 transition-all text-xs disabled:opacity-50"
                   >
                     <RotateCcw size={12} />
                     Discard
@@ -779,7 +949,7 @@ export default function Generate() {
             {result.status === 'ok' && result.slots?.length > 0 && (
               <div>
                 {/* ── View-mode tab bar ─────────────────────────────── */}
-                <div className="flex items-center gap-1 mb-4 p-1 rounded-xl bg-white/5 border border-white/10 w-fit">
+                <div className="flex items-center gap-1 mb-4 p-1 rounded-xl bg-ground border border-primary/12 w-fit">
                   {VIEW_MODES.map(({ key, label, Icon }) => {
                     const active = viewMode === key
                     return (
@@ -788,8 +958,8 @@ export default function Generate() {
                         onClick={() => setViewMode(key)}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                           active
-                            ? 'bg-brand-600 text-white shadow-sm shadow-brand-500/30'
-                            : 'text-gray-400 hover:text-gray-200 hover:bg-white/10'
+                            ? 'bg-primary text-white shadow-sm'
+                            : 'text-muted hover:text-body hover:bg-secondary/8'
                         }`}
                       >
                         <Icon size={12} />
@@ -830,6 +1000,8 @@ export default function Generate() {
           to   { width: 90% }
         }
       `}</style>
+
+      </div>
 
       {/* Export Modal */}
       <ExportModal

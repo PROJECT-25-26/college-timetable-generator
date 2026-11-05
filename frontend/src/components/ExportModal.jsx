@@ -1,5 +1,5 @@
 /**
- * ExportModal.jsx — High-end glassmorphism export modal for PDF, Excel, and CSV downloads.
+ * ExportModal.jsx — Clean studio export modal for PDF, Excel, and CSV downloads.
  *
  * Supports scopes:
  *   - 'class': Per-class timetable (All classes or specific section)
@@ -77,85 +77,126 @@ export default function ExportModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+    <div className="modal-overlay" onClick={onClose}>
       <div
-        className="relative w-full max-w-xl rounded-2xl border border-white/15 bg-gray-900/90 p-6 shadow-2xl backdrop-blur-xl"
+        className="modal-panel max-w-xl w-full"
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Export Timetable"
       >
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-white/10">
+        <div className="modal-header">
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-brand-500/20 text-brand-400 border border-brand-500/30">
-              <Download size={20} />
+            <div
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 'var(--r-btn)',
+                background: 'rgba(46,42,107,0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--c-primary)',
+              }}
+            >
+              <Download size={18} strokeWidth={2} />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-white">Export Timetable</h3>
-              <p className="text-xs text-gray-400">
-                Run: <span className="text-gray-200 font-medium">{timetable.label || timetable.id.slice(0, 8)}</span>
+              <h3 className="modal-title" style={{ margin: 0, fontSize: '1.0625rem' }}>
+                Export Timetable
+              </h3>
+              <p style={{ fontSize: '0.75rem', color: 'var(--c-muted)', margin: 0 }}>
+                Run: <span style={{ fontWeight: 600, color: 'var(--c-body)' }}>{timetable.label || timetable.id.slice(0, 8)}</span>
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="modal-close-btn"
+            aria-label="Close dialog"
           >
-            <X size={18} />
+            <X size={16} strokeWidth={2} />
           </button>
         </div>
 
         {/* Body */}
-        <div className="py-5 space-y-6">
+        <div className="modal-body space-y-5">
           {/* Scope Selector */}
           <div>
-            <label className="block text-xs font-semibold text-gray-300 mb-2.5">
-              1. Select Export Scope
+            <label className="form-label" style={{ marginBottom: 8, display: 'block' }}>
+              1. Select export scope
             </label>
             <div className="grid grid-cols-3 gap-3">
               <button
                 type="button"
                 onClick={() => { setScope('class'); setEntityId(''); }}
-                className={`flex flex-col items-center gap-2 p-3.5 rounded-xl border text-center transition-all ${
-                  scope === 'class'
-                    ? 'bg-brand-600/25 border-brand-500 text-white shadow-lg shadow-brand-500/20'
-                    : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200'
-                }`}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '14px 10px',
+                  borderRadius: 'var(--r-btn)',
+                  border: scope === 'class' ? '2px solid var(--c-primary)' : '1px solid var(--c-border)',
+                  background: scope === 'class' ? 'rgba(46,42,107,0.06)' : 'var(--c-surface)',
+                  color: scope === 'class' ? 'var(--c-body)' : 'var(--c-muted)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
               >
-                <LayoutGrid size={22} className={scope === 'class' ? 'text-brand-400' : 'text-gray-400'} />
-                <div>
-                  <p className="text-xs font-bold">Per-Class</p>
-                  <p className="text-[10px] text-gray-400 mt-0.5">By Class Section</p>
+                <LayoutGrid size={22} color={scope === 'class' ? 'var(--c-primary)' : 'var(--c-muted)'} strokeWidth={2} />
+                <div style={{ textAlign: 'center' }}>
+                  <p style={{ fontSize: '0.8125rem', fontWeight: 700, margin: 0 }}>Per-class</p>
+                  <p style={{ fontSize: '0.6875rem', color: 'var(--c-muted)', margin: '2px 0 0 0' }}>By class section</p>
                 </div>
               </button>
 
               <button
                 type="button"
                 onClick={() => { setScope('teacher'); setEntityId(''); }}
-                className={`flex flex-col items-center gap-2 p-3.5 rounded-xl border text-center transition-all ${
-                  scope === 'teacher'
-                    ? 'bg-teal-600/25 border-teal-500 text-white shadow-lg shadow-teal-500/20'
-                    : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200'
-                }`}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '14px 10px',
+                  borderRadius: 'var(--r-btn)',
+                  border: scope === 'teacher' ? '2px solid var(--c-primary)' : '1px solid var(--c-border)',
+                  background: scope === 'teacher' ? 'rgba(46,42,107,0.06)' : 'var(--c-surface)',
+                  color: scope === 'teacher' ? 'var(--c-body)' : 'var(--c-muted)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
               >
-                <Users size={22} className={scope === 'teacher' ? 'text-teal-400' : 'text-gray-400'} />
-                <div>
-                  <p className="text-xs font-bold">Per-Teacher</p>
-                  <p className="text-[10px] text-gray-400 mt-0.5">By Faculty Member</p>
+                <Users size={22} color={scope === 'teacher' ? 'var(--c-primary)' : 'var(--c-muted)'} strokeWidth={2} />
+                <div style={{ textAlign: 'center' }}>
+                  <p style={{ fontSize: '0.8125rem', fontWeight: 700, margin: 0 }}>Per-teacher</p>
+                  <p style={{ fontSize: '0.6875rem', color: 'var(--c-muted)', margin: '2px 0 0 0' }}>By faculty member</p>
                 </div>
               </button>
 
               <button
                 type="button"
                 onClick={() => { setScope('master'); setEntityId(''); }}
-                className={`flex flex-col items-center gap-2 p-3.5 rounded-xl border text-center transition-all ${
-                  scope === 'master'
-                    ? 'bg-purple-600/25 border-purple-500 text-white shadow-lg shadow-purple-500/20'
-                    : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200'
-                }`}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '14px 10px',
+                  borderRadius: 'var(--r-btn)',
+                  border: scope === 'master' ? '2px solid var(--c-primary)' : '1px solid var(--c-border)',
+                  background: scope === 'master' ? 'rgba(46,42,107,0.06)' : 'var(--c-surface)',
+                  color: scope === 'master' ? 'var(--c-body)' : 'var(--c-muted)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
               >
-                <Calendar size={22} className={scope === 'master' ? 'text-purple-400' : 'text-gray-400'} />
-                <div>
-                  <p className="text-xs font-bold">Master</p>
-                  <p className="text-[10px] text-gray-400 mt-0.5">Full College Matrix</p>
+                <Calendar size={22} color={scope === 'master' ? 'var(--c-primary)' : 'var(--c-muted)'} strokeWidth={2} />
+                <div style={{ textAlign: 'center' }}>
+                  <p style={{ fontSize: '0.8125rem', fontWeight: 700, margin: 0 }}>Master</p>
+                  <p style={{ fontSize: '0.6875rem', color: 'var(--c-muted)', margin: '2px 0 0 0' }}>Full college matrix</p>
                 </div>
               </button>
             </div>
@@ -164,19 +205,19 @@ export default function ExportModal({
           {/* Filter Dropdown (Class or Teacher) */}
           {scope === 'class' && (
             <div>
-              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
-                2. Filter Specific Class Section (Optional)
+              <label className="form-label" style={{ marginBottom: 6, display: 'block' }}>
+                2. Filter specific class section (optional)
               </label>
               <select
                 value={entityId}
                 onChange={(e) => setEntityId(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-gray-200 focus:outline-none focus:border-brand-500 transition-colors"
+                className="form-input"
               >
-                <option value="" className="bg-gray-900 text-white">
-                  ✨ Export All Class Sections (Multi-Page / Multi-Sheet)
+                <option value="">
+                  Export all class sections (multi-sheet / multi-page)
                 </option>
                 {sectionsList.map((sec) => (
-                  <option key={sec.id} value={sec.id} className="bg-gray-900 text-white">
+                  <option key={sec.id} value={sec.id}>
                     {sec.name} ({sec.code})
                   </option>
                 ))}
@@ -186,19 +227,19 @@ export default function ExportModal({
 
           {scope === 'teacher' && (
             <div>
-              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
-                2. Filter Specific Teacher (Optional)
+              <label className="form-label" style={{ marginBottom: 6, display: 'block' }}>
+                2. Filter specific teacher (optional)
               </label>
               <select
                 value={entityId}
                 onChange={(e) => setEntityId(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm text-gray-200 focus:outline-none focus:border-brand-500 transition-colors"
+                className="form-input"
               >
-                <option value="" className="bg-gray-900 text-white">
-                  ✨ Export All Teachers (Multi-Page / Multi-Sheet)
+                <option value="">
+                  Export all teachers (multi-sheet / multi-page)
                 </option>
                 {teachersList.map((t) => (
-                  <option key={t.id} value={t.id} className="bg-gray-900 text-white">
+                  <option key={t.id} value={t.id}>
                     {t.name}
                   </option>
                 ))}
@@ -207,18 +248,30 @@ export default function ExportModal({
           )}
 
           {scope === 'master' && (
-            <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20 text-xs text-purple-300 flex items-center gap-2">
-              <CheckCircle2 size={16} className="shrink-0 text-purple-400" />
+            <div
+              style={{
+                padding: '12px 14px',
+                borderRadius: 'var(--r-input)',
+                background: 'rgba(46,42,107,0.05)',
+                border: '1px solid var(--c-border)',
+                fontSize: '0.8125rem',
+                color: 'var(--c-body)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+              }}
+            >
+              <CheckCircle2 size={16} color="var(--c-primary)" strokeWidth={2} className="shrink-0" />
               <span>
-                Master export includes the complete college timetable matrix, per-class schedule breakdown, teacher schedule breakdown, and raw slot logs.
+                Master export compiles the complete college timetable matrix, per-class schedule breakdown, and faculty assignments.
               </span>
             </div>
           )}
 
           {/* Download Buttons */}
           <div>
-            <label className="block text-xs font-semibold text-gray-300 mb-2.5">
-              {scope === 'master' ? '2. Select Export Format' : '3. Select Export Format'}
+            <label className="form-label" style={{ marginBottom: 8, display: 'block' }}>
+              {scope === 'master' ? '2. Select export format' : '3. Select export format'}
             </label>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -227,12 +280,19 @@ export default function ExportModal({
                 type="button"
                 disabled={!!downloading}
                 onClick={() => handleDownload('pdf')}
-                className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-red-600/80 hover:bg-red-600 border border-red-500/50 text-white text-xs font-bold transition-all shadow-md shadow-red-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn btn-secondary"
+                style={{
+                  minHeight: 44,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                }}
               >
                 {downloading === 'pdf' ? (
                   <Loader2 size={16} className="animate-spin" />
                 ) : (
-                  <FileText size={16} />
+                  <FileText size={16} color="#c62828" strokeWidth={2} />
                 )}
                 <span>Export PDF</span>
               </button>
@@ -242,27 +302,41 @@ export default function ExportModal({
                 type="button"
                 disabled={!!downloading}
                 onClick={() => handleDownload('excel')}
-                className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-emerald-600/80 hover:bg-emerald-600 border border-emerald-500/50 text-white text-xs font-bold transition-all shadow-md shadow-emerald-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn btn-secondary"
+                style={{
+                  minHeight: 44,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                }}
               >
                 {downloading === 'excel' ? (
                   <Loader2 size={16} className="animate-spin" />
                 ) : (
-                  <FileSpreadsheet size={16} />
+                  <FileSpreadsheet size={16} color="#2e7d32" strokeWidth={2} />
                 )}
                 <span>Export Excel</span>
               </button>
 
-              {/* CSV Button */}
+              {/* CSV Button - One Main Action with Primary / Accent Highlight */}
               <button
                 type="button"
                 disabled={!!downloading}
                 onClick={() => handleDownload('csv')}
-                className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-gray-200 text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn btn-primary"
+                style={{
+                  minHeight: 44,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                }}
               >
                 {downloading === 'csv' ? (
                   <Loader2 size={16} className="animate-spin" />
                 ) : (
-                  <Download size={16} />
+                  <Download size={16} strokeWidth={2} />
                 )}
                 <span>Export CSV</span>
               </button>

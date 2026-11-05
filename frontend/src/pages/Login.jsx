@@ -1,31 +1,64 @@
 /**
  * Login page — supports Admin and Teacher roles.
- * Admin  : username "admin"        / password "admin123"
- * Teacher: username <email prefix> / password "teacher123"
+ * Features RouteTable brand logo, split responsive layout,
+ * and quick-fill demo credentials.
  */
 
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Zap, User, Lock, Eye, EyeOff, ShieldCheck, GraduationCap, AlertCircle } from 'lucide-react'
+import {
+  User, Lock, Eye, EyeOff, ShieldCheck, GraduationCap,
+  AlertCircle, Zap, MapPin, CheckCircle2, ArrowRight
+} from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import logoImg from '../assets/logo.jpg'
 
 const ROLES = [
-  { id: 'admin',   label: 'Administrator', icon: ShieldCheck,    hint: 'username: admin  •  password: admin123'      },
-  { id: 'teacher', label: 'Teacher',        icon: GraduationCap, hint: 'email: teacher\'s email  •  password: teacher123' },
+  {
+    id: 'admin',
+    label: 'Administrator',
+    icon: ShieldCheck,
+    hintUsername: 'admin',
+    hintPassword: 'admin123',
+    hint: 'Username: admin · Password: admin123',
+  },
+  {
+    id: 'teacher',
+    label: 'Teacher',
+    icon: GraduationCap,
+    hintUsername: 'alice@college.edu',
+    hintPassword: 'teacher123',
+    hint: "Email: teacher's email · Password: teacher123",
+  },
 ]
 
 export default function Login() {
-  const { login }    = useAuth()
-  const navigate     = useNavigate()
-  const location     = useLocation()
-  const from         = location.state?.from?.pathname ?? '/'
+  const { login } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const from = location.state?.from?.pathname ?? '/'
 
   const [selectedRole, setSelectedRole] = useState('admin')
-  const [username, setUsername]         = useState('')
-  const [password, setPassword]         = useState('')
-  const [showPw,   setShowPw]           = useState(false)
-  const [error,    setError]            = useState('')
-  const [busy,     setBusy]             = useState(false)
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPw, setShowPw] = useState(false)
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const currentRole = ROLES.find(r => r.id === selectedRole) || ROLES[0]
+
+  const handleRoleChange = (roleId) => {
+    setSelectedRole(roleId)
+    setError('')
+    setUsername('')
+    setPassword('')
+  }
+
+  const fillDemoCredentials = () => {
+    setUsername(currentRole.hintUsername)
+    setPassword(currentRole.hintPassword)
+    setError('')
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -34,7 +67,6 @@ export default function Login() {
     const result = await login(username, password)
     setBusy(false)
     if (result.ok) {
-      // Role-aware redirect
       if (selectedRole === 'teacher') {
         navigate('/teacher-dashboard', { replace: true })
       } else {
@@ -45,80 +77,397 @@ export default function Login() {
     }
   }
 
-  const currentRole = ROLES.find(r => r.id === selectedRole)
-
   return (
-    <div className="login-bg min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Ambient glow orbs */}
-      <div className="orb orb-1" />
-      <div className="orb orb-2" />
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '32px 16px',
+        background: '#F4F3FB',
+        position: 'relative',
+      }}
+    >
+      {/* Background ambient lighting */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage:
+            'radial-gradient(ellipse 65% 50% at 50% 25%, rgba(143,140,214,0.14) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }}
+      />
 
-      <div className="w-full max-w-md relative z-10 animate-fade-in">
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-500 to-purple-600 flex items-center justify-center shadow-2xl shadow-brand-500/40 mb-4">
-            <Zap size={28} className="text-white" />
+      {/* Main Container Card */}
+      <div
+        className="animate-fade-in"
+        style={{
+          width: '100%',
+          maxWidth: '920px',
+          background: '#FFFFFF',
+          borderRadius: '24px',
+          boxShadow: '0 4px 12px rgba(46,42,107,0.06), 0 16px 40px rgba(46,42,107,0.12)',
+          border: '1px solid rgba(46,42,107,0.10)',
+          overflow: 'hidden',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+          position: 'relative',
+          zIndex: 1,
+        }}
+      >
+        {/* ── Left Column: Brand Hero Panel ───────────────────────────── */}
+        <div
+          style={{
+            background: '#2E2A6B',
+            color: '#FFFFFF',
+            padding: '44px 38px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+        >
+          {/* Top Brand Presentation */}
+          <div>
+            {/* Logo box */}
+            <div
+              style={{
+                background: '#FFFFFF',
+                borderRadius: '20px',
+                padding: '12px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 6px 20px rgba(0,0,0,0.22)',
+                marginBottom: '26px',
+                width: '112px',
+                height: '112px',
+              }}
+            >
+              <img
+                src={logoImg}
+                alt="RouteTable Logo"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain',
+                  display: 'block',
+                }}
+              />
+            </div>
+
+            <h1
+              style={{
+                fontFamily: 'Space Grotesk, sans-serif',
+                fontSize: '1.75rem',
+                fontWeight: 700,
+                color: '#FFFFFF',
+                letterSpacing: '-0.03em',
+                lineHeight: 1.15,
+                margin: '0 0 10px 0',
+              }}
+            >
+              RouteTable
+            </h1>
+
+            <p
+              style={{
+                fontFamily: 'Figtree, sans-serif',
+                fontSize: '0.9375rem',
+                color: 'rgba(255, 255, 255, 0.82)',
+                lineHeight: 1.55,
+                margin: '0 0 32px 0',
+              }}
+            >
+              Intelligent college timetable generator with spatial campus walking minimization and zero clash guarantee.
+            </p>
+
+            {/* Feature Points */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                <div
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '10px',
+                    background: 'rgba(255, 176, 32, 0.15)',
+                    border: '1px solid rgba(255, 176, 32, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    marginTop: '2px',
+                  }}
+                >
+                  <Zap size={15} color="#FFB020" />
+                </div>
+                <div>
+                  <p style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: '0.875rem', fontWeight: 600, color: '#FFFFFF', margin: 0 }}>
+                    OR-Tools CP-SAT Solver
+                  </p>
+                  <p style={{ fontSize: '0.8125rem', color: 'rgba(255, 255, 255, 0.65)', lineHeight: 1.4, margin: '2px 0 0 0' }}>
+                    Constraint satisfaction solving thousands of slot permutations per second.
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                <div
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '10px',
+                    background: 'rgba(143, 140, 214, 0.20)',
+                    border: '1px solid rgba(143, 140, 214, 0.35)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    marginTop: '2px',
+                  }}
+                >
+                  <MapPin size={15} color="#8F8CD6" />
+                </div>
+                <div>
+                  <p style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: '0.875rem', fontWeight: 600, color: '#FFFFFF', margin: 0 }}>
+                    Spatial Campus Graph
+                  </p>
+                  <p style={{ fontSize: '0.8125rem', color: 'rgba(255, 255, 255, 0.65)', lineHeight: 1.4, margin: '2px 0 0 0' }}>
+                    Minimizes faculty walking distance and stair climbing across building gates.
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
-          <h1 className="text-2xl font-bold gradient-text">College Timetable</h1>
-          <p className="text-gray-500 text-sm mt-1">Sign in to your account</p>
+
+          {/* Bottom Version Tag */}
+          <div
+            style={{
+              paddingTop: '28px',
+              borderTop: '1px solid rgba(255, 255, 255, 0.12)',
+              marginTop: '32px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <span style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.55)', fontFamily: 'Figtree, sans-serif' }}>
+              Academic Scheduling System
+            </span>
+            <span
+              style={{
+                fontSize: '0.6875rem',
+                fontWeight: 600,
+                color: '#FFB020',
+                background: 'rgba(255, 176, 32, 0.12)',
+                padding: '2px 8px',
+                borderRadius: '6px',
+                border: '1px solid rgba(255, 176, 32, 0.25)',
+              }}
+            >
+              Version V1
+            </span>
+          </div>
         </div>
 
-        <div className="glass-card p-8 shadow-2xl">
-          {/* Role selector */}
-          <div className="flex rounded-xl overflow-hidden border border-white/10 mb-6 bg-white/5">
-            {ROLES.map(role => {
-              const Icon = role.icon
-              const active = selectedRole === role.id
-              return (
-                <button
-                  key={role.id}
-                  type="button"
-                  onClick={() => { setSelectedRole(role.id); setError(''); setUsername(''); setPassword('') }}
-                  className={[
-                    'flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-all duration-200',
-                    active
-                      ? 'bg-brand-600/30 text-brand-300 border-b-2 border-brand-400'
-                      : 'text-gray-500 hover:text-gray-300 hover:bg-white/5',
-                  ].join(' ')}
-                >
-                  <Icon size={15} />
-                  {role.label}
-                </button>
-              )
-            })}
+        {/* ── Right Column: Sign In Form ──────────────────────────────── */}
+        <div
+          style={{
+            background: '#FFFFFF',
+            padding: '44px 38px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+          }}
+        >
+          {/* Header */}
+          <div style={{ marginBottom: '24px' }}>
+            <h2
+              style={{
+                fontFamily: 'Space Grotesk, sans-serif',
+                fontSize: '1.5rem',
+                fontWeight: 700,
+                color: '#1F1B4D',
+                letterSpacing: '-0.025em',
+                lineHeight: 1.2,
+                margin: '0 0 6px 0',
+              }}
+            >
+              Sign in to your account
+            </h2>
+            <p
+              style={{
+                fontFamily: 'Figtree, sans-serif',
+                fontSize: '0.9375rem',
+                color: 'var(--c-muted)',
+                margin: 0,
+              }}
+            >
+              Select your role and enter your academic credentials.
+            </p>
           </div>
 
-          {/* Hint */}
-          <div className="mb-5 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-500">
-            <span className="text-gray-400 font-medium">Demo credentials: </span>{currentRole?.hint}
-          </div>
+          {/* Role tabs */}
+          <fieldset style={{ border: 'none', padding: 0, marginBottom: '18px' }}>
+            <legend
+              style={{
+                fontFamily: 'Figtree, sans-serif',
+                fontSize: '0.8125rem',
+                fontWeight: 600,
+                color: '#2E2A6B',
+                marginBottom: '8px',
+              }}
+            >
+              Sign in as
+            </legend>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '8px',
+              }}
+            >
+              {ROLES.map(role => {
+                const Icon = role.icon
+                const active = selectedRole === role.id
+                return (
+                  <button
+                    key={role.id}
+                    type="button"
+                    onClick={() => handleRoleChange(role.id)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      padding: '10px 14px',
+                      borderRadius: '12px',
+                      border: active ? '2px solid #2E2A6B' : '1.5px solid rgba(46,42,107,0.15)',
+                      background: active ? 'rgba(46,42,107,0.06)' : 'transparent',
+                      color: active ? '#2E2A6B' : 'var(--c-muted)',
+                      fontFamily: 'Figtree, sans-serif',
+                      fontSize: '0.9375rem',
+                      fontWeight: active ? 600 : 500,
+                      cursor: 'pointer',
+                      transition: 'all 0.13s ease',
+                      minHeight: '44px',
+                    }}
+                  >
+                    <Icon size={16} strokeWidth={1.8} />
+                    <span>{role.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </fieldset>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Username / Email */}
+          {/* Demo credentials hint & quick fill */}
+          <div
+            style={{
+              marginBottom: '20px',
+              padding: '10px 14px',
+              borderRadius: '12px',
+              background: 'rgba(255, 176, 32, 0.08)',
+              border: '1px solid rgba(255, 176, 32, 0.28)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '10px',
+              fontSize: '0.8125rem',
+              fontFamily: 'Figtree, sans-serif',
+              color: '#8a6200',
+            }}
+            role="note"
+          >
             <div>
-              <label htmlFor="login-username" className="form-label">
-                {selectedRole === 'admin' ? 'Username' : 'Email Address'}
+              <strong style={{ color: '#6e4e00' }}>Demo:</strong> {currentRole?.hint}
+            </div>
+            <button
+              type="button"
+              onClick={fillDemoCredentials}
+              style={{
+                background: '#FFB020',
+                color: '#1F1B4D',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '4px 9px',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'opacity 0.15s ease',
+              }}
+              title="Click to automatically fill credentials"
+            >
+              Fill demo
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Username / Email */}
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label htmlFor="login-username" className="form-label" style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#1F1B4D', marginBottom: '6px', display: 'block' }}>
+                {selectedRole === 'admin' ? 'Username' : 'Email address'}
               </label>
-              <div className="relative">
-                <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+              <div style={{ position: 'relative' }}>
+                <User
+                  size={16}
+                  strokeWidth={1.75}
+                  style={{
+                    position: 'absolute',
+                    left: '14px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'var(--c-muted)',
+                    pointerEvents: 'none',
+                  }}
+                  aria-hidden="true"
+                />
                 <input
                   id="login-username"
                   type={selectedRole === 'admin' ? 'text' : 'email'}
                   autoComplete={selectedRole === 'admin' ? 'username' : 'email'}
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  placeholder={selectedRole === 'admin' ? 'admin' : 'jane@college.edu'}
-                  className="form-input pl-9"
+                  placeholder={selectedRole === 'admin' ? 'admin' : 'alice@college.edu'}
+                  className="form-input"
+                  style={{
+                    paddingLeft: '40px',
+                    minHeight: '44px',
+                    borderRadius: '12px',
+                    border: '1.5px solid rgba(46,42,107,0.18)',
+                    fontSize: '0.9375rem',
+                    width: '100%',
+                    boxSizing: 'border-box',
+                  }}
                   required
                 />
               </div>
             </div>
 
             {/* Password */}
-            <div>
-              <label htmlFor="login-password" className="form-label">Password</label>
-              <div className="relative">
-                <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label htmlFor="login-password" className="form-label" style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#1F1B4D', marginBottom: '6px', display: 'block' }}>
+                Password
+              </label>
+              <div style={{ position: 'relative' }}>
+                <Lock
+                  size={16}
+                  strokeWidth={1.75}
+                  style={{
+                    position: 'absolute',
+                    left: '14px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'var(--c-muted)',
+                    pointerEvents: 'none',
+                  }}
+                  aria-hidden="true"
+                />
                 <input
                   id="login-password"
                   type={showPw ? 'text' : 'password'}
@@ -126,80 +475,118 @@ export default function Login() {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="form-input pl-9 pr-10"
+                  className="form-input"
+                  style={{
+                    paddingLeft: '40px',
+                    paddingRight: '44px',
+                    minHeight: '44px',
+                    borderRadius: '12px',
+                    border: '1.5px solid rgba(46,42,107,0.18)',
+                    fontSize: '0.9375rem',
+                    width: '100%',
+                    boxSizing: 'border-box',
+                  }}
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPw(v => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                  style={{
+                    position: 'absolute',
+                    right: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--c-muted)',
+                    padding: '6px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    borderRadius: '8px',
+                  }}
                   tabIndex={-1}
+                  aria-label={showPw ? 'Hide password' : 'Show password'}
                 >
-                  {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
+                  {showPw ? <EyeOff size={16} strokeWidth={1.75} /> : <Eye size={16} strokeWidth={1.75} />}
                 </button>
               </div>
             </div>
 
-            {/* Error */}
+            {/* Error Message */}
             {error && (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm animate-fade-in">
-                <AlertCircle size={14} className="shrink-0" />
-                {error}
+              <div
+                role="alert"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  background: 'rgba(220,38,38,0.08)',
+                  border: '1px solid rgba(220,38,38,0.22)',
+                  color: '#dc2626',
+                  fontSize: '0.875rem',
+                  fontFamily: 'Figtree, sans-serif',
+                }}
+                className="animate-fade-in"
+              >
+                <AlertCircle size={16} strokeWidth={1.8} aria-hidden="true" />
+                <span>{error}</span>
               </div>
             )}
 
-            {/* Submit */}
+            {/* Submit Button */}
             <button
               id="login-submit-btn"
               type="submit"
               disabled={busy}
-              className={[
-                'w-full py-2.5 rounded-xl text-sm font-semibold transition-all duration-200',
-                'bg-gradient-to-r from-brand-600 to-purple-600 text-white',
-                'hover:from-brand-500 hover:to-purple-500 hover:shadow-lg hover:shadow-brand-500/25',
-                busy ? 'opacity-60 cursor-not-allowed' : '',
-              ].join(' ')}
+              style={{
+                width: '100%',
+                marginTop: '6px',
+                minHeight: '46px',
+                background: '#FFB020',
+                color: '#1F1B4D',
+                borderRadius: '12px',
+                border: 'none',
+                fontFamily: 'Figtree, sans-serif',
+                fontSize: '0.9375rem',
+                fontWeight: 600,
+                cursor: busy ? 'not-allowed' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={e => {
+                if (!busy) e.currentTarget.style.background = '#e69e1c'
+              }}
+              onMouseLeave={e => {
+                if (!busy) e.currentTarget.style.background = '#FFB020'
+              }}
             >
-              {busy ? 'Signing in…' : `Sign in as ${currentRole?.label}`}
+              {busy ? (
+                <span
+                  className="spinner"
+                  style={{
+                    width: '16px',
+                    height: '16px',
+                    borderWidth: '2px',
+                    borderColor: 'rgba(31,27,77,0.25)',
+                    borderTopColor: '#1F1B4D',
+                  }}
+                  aria-hidden="true"
+                />
+              ) : (
+                <ArrowRight size={16} strokeWidth={2} />
+              )}
+              <span>{busy ? 'Signing in…' : `Sign in as ${currentRole?.label}`}</span>
             </button>
           </form>
         </div>
-
-        <p className="text-center text-xs text-gray-700 mt-6">
-          College Timetable Generator v0.1.0 · prototype
-        </p>
       </div>
-
-      <style>{`
-        .login-bg {
-          background: radial-gradient(ellipse 80% 60% at 50% -10%, hsl(250 70% 12%), transparent),
-                      radial-gradient(ellipse 60% 50% at 80% 80%, hsl(220 60% 10%), transparent),
-                      hsl(222 47% 5%);
-        }
-        .orb {
-          position: absolute;
-          border-radius: 50%;
-          filter: blur(80px);
-          opacity: 0.18;
-          pointer-events: none;
-        }
-        .orb-1 {
-          width: 420px; height: 420px;
-          background: hsl(250 80% 60%);
-          top: -100px; left: -120px;
-          animation: orb-drift 8s ease-in-out infinite alternate;
-        }
-        .orb-2 {
-          width: 320px; height: 320px;
-          background: hsl(210 90% 55%);
-          bottom: -80px; right: -100px;
-          animation: orb-drift 10s ease-in-out infinite alternate-reverse;
-        }
-        @keyframes orb-drift {
-          from { transform: translate(0, 0); }
-          to   { transform: translate(30px, 20px); }
-        }
-      `}</style>
     </div>
   )
 }

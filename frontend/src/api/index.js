@@ -81,10 +81,10 @@ export const generateApi = {
    * POST /api/v1/generate-timetable
    * Accepts a TimetableRequest body; persists and returns TimetableOut.
    * Supports an AbortSignal for cancel-during-solve.
-   * Timeout is set to 130s (solver cap = 60s + network headroom).
+   * Timeout is set to 300s (solver cap + network headroom).
    */
   generate: (data, signal) =>
-    api.post('/generate-timetable', data, { signal, timeout: 130_000 }),
+    api.post('/generate-timetable', data, { signal, timeout: 300_000 }),
 
   /**
    * POST /api/v1/generate-timetable — with locked_slots injected.
@@ -96,16 +96,21 @@ export const generateApi = {
     api.post(
       '/generate-timetable',
       { ...data, locked_slots: lockedSlots },
-      { signal, timeout: 130_000 },
+      { signal, timeout: 300_000 },
     ),
 
   /**
    * GET /api/v1/generate-timetable/payload
    * Returns a fully-assembled TimetableRequest from current DB state.
    */
-  payload: (periodsPerDay = 8, workingDays = [0, 1, 2, 3, 4]) =>
+  payload: (periodsPerDay = 8, workingDays = [0, 1, 2, 3, 4], travelWeight = 2, timeoutSeconds = 60) =>
     api.get('/generate-timetable/payload', {
-      params: { periods_per_day: periodsPerDay, working_days: workingDays.join(',') },
+      params: {
+        periods_per_day: periodsPerDay,
+        working_days: workingDays.join(','),
+        travel_weight: travelWeight,
+        timeout_seconds: timeoutSeconds,
+      },
     }),
 
   /** GET /api/v1/generate-timetable/health */
@@ -150,3 +155,131 @@ export const timetablesApi = {
     api.get(`/timetables/${id}/search`, { params }),
 }
 
+// ---------------------------------------------------------------------------
+// Campus Layout — Campus / Building / Floor
+// ---------------------------------------------------------------------------
+
+export const campusApi = {
+  /** GET /api/v1/campuses */
+  list: () => api.get('/campuses'),
+  /** GET /api/v1/campuses/{id} — includes nested buildings */
+  get: (id) => api.get(`/campuses/${id}`),
+  /** POST /api/v1/campuses */
+  create: (data) => api.post('/campuses', data),
+  /** PATCH /api/v1/campuses/{id} */
+  update: (id, data) => api.patch(`/campuses/${id}`, data),
+  /** DELETE /api/v1/campuses/{id} */
+  remove: (id) => api.delete(`/campuses/${id}`),
+  /** GET /api/v1/campuses/{campusId}/buildings */
+  buildings: (campusId) => api.get(`/campuses/${campusId}/buildings`),
+  /** GET /api/v1/campuses/{campusId}/distances — precomputed staffRoomDistance & roomRoomDistance matrices */
+  distances: (campusId) => api.get(`/campuses/${campusId}/distances`),
+  /** GET /api/v1/campuses/{campusId}/mapped-rooms */
+  mappedRooms: (campusId) => api.get(`/campuses/${campusId}/mapped-rooms`),
+  /** GET /api/v1/campuses/{campusId}/room-distance-calculator */
+  calculateRoomDistance: (campusId, fromRoomId, toRoomId) =>
+    api.get(`/campuses/${campusId}/room-distance-calculator`, {
+      params: { from_room_id: fromRoomId, to_room_id: toRoomId },
+    }),
+  /** GET /api/v1/campuses/{campusId}/gates — list all gate cells with labels */
+  gates: (campusId) => api.get(`/campuses/${campusId}/gates`),
+  /** GET /api/v1/campuses/{campusId}/entrance-pairs — list all per-gate inter-building distance pairs */
+  entrancePairs: (campusId) => api.get(`/campuses/${campusId}/entrance-pairs`),
+  /** PUT /api/v1/campuses/{campusId}/entrance-pairs — bulk update per-gate entrance pair distances */
+  saveEntrancePairs: (campusId, pairs) => api.put(`/campuses/${campusId}/entrance-pairs`, { pairs }),
+  /**
+   * GET /api/v1/campuses/{campusId}/teacher-commute
+   * Returns the full daily commute path for a teacher on a given day using Module 7f distance data.
+   */
+  teacherCommute: (campusId, teacherId, timetableId, dayOfWeek = 0) =>
+    api.get(`/campuses/${campusId}/teacher-commute`, {
+      params: { teacher_id: teacherId, timetable_id: timetableId, day_of_week: dayOfWeek },
+    }),
+}
+
+
+export const buildingsApi = {
+  /** POST /api/v1/buildings */
+  create: (data) => api.post('/buildings', data),
+  /** GET /api/v1/buildings/{id} */
+  get: (id) => api.get(`/buildings/${id}`),
+  /** PATCH /api/v1/buildings/{id} */
+  update: (id, data) => api.patch(`/buildings/${id}`, data),
+  /** DELETE /api/v1/buildings/{id} */
+  remove: (id) => api.delete(`/buildings/${id}`),
+  /** GET /api/v1/buildings/{buildingId}/floors */
+  floors: (buildingId) => api.get(`/buildings/${buildingId}/floors`),
+}
+
+export const floorsApi = {
+  /** POST /api/v1/floors */
+  create: (data) => api.post('/floors', data),
+  /** GET /api/v1/floors/{id} — includes deserialized grid_data and room_links */
+  get: (id) => api.get(`/floors/${id}`),
+  /** PATCH /api/v1/floors/{id} — update metadata (name, level, scale) */
+  update: (id, data) => api.patch(`/floors/${id}`, data),
+  /** PUT /api/v1/floors/{id}/grid — save the full painted 2-D grid + room links + stair connections + gate labels */
+  saveGrid: (id, gridData, roomLinks = null, stairConnections = null, gateLabels = null) =>
+    api.put(`/floors/${id}/grid`, { grid_data: gridData, room_links: roomLinks, stair_connections: stairConnections, gate_labels: gateLabels }),
+  /** DELETE /api/v1/floors/{id} */
+  remove: (id) => api.delete(`/floors/${id}`),
+  /**
+   * GET /api/v1/floors/{id}/room-distances
+   * Returns BFS shortest-path distances (cells + metres) between every pair of
+   * rooms linked on the floor's painted grid.
+   * Response: { floor_id, cell_size_m, distances: [{from_room_id, to_room_id, distance_cells, distance_m}] }
+   */
+  roomDistances: (id) => api.get(`/floors/${id}/room-distances`),
+}
+
+export const staffroomsApi = {
+  /** GET /api/v1/departments/staffrooms — list all staffrooms */
+  list: () => api.get('/departments/staffrooms'),
+  /** GET /api/v1/departments/staffrooms/{id} */
+  get: (id) => api.get(`/departments/staffrooms/${id}`),
+}
+
+// ---------------------------------------------------------------------------
+// Analytics — Admin dashboard endpoints
+// ---------------------------------------------------------------------------
+export const analyticsApi = {
+  /**
+   * GET /api/v1/analytics/workload?timetable_id=...
+   * Teacher workload distribution (periods/week per teacher).
+   */
+  workload: (timetableId) =>
+    api.get('/analytics/workload', { params: timetableId ? { timetable_id: timetableId } : {} }),
+
+  /**
+   * GET /api/v1/analytics/preferences?timetable_id=...
+   * Per-teacher preference breakdown (% Preferred / % Willing / % Avoid).
+   */
+  preferences: (timetableId) =>
+    api.get('/analytics/preferences', { params: timetableId ? { timetable_id: timetableId } : {} }),
+
+  /**
+   * GET /api/v1/analytics/room-utilisation?timetable_id=...&campus_id=...&periods_per_day=...&working_days=...
+   * Room occupancy % with proximity-ranked substitutes.
+   */
+  roomUtil: (timetableId, campusId = null, periodsPerDay = 8, workingDays = [0, 1, 2, 3, 4]) =>
+    api.get('/analytics/room-utilisation', {
+      params: {
+        ...(timetableId ? { timetable_id: timetableId } : {}),
+        ...(campusId ? { campus_id: campusId } : {}),
+        periods_per_day: periodsPerDay,
+        working_days: workingDays.join(','),
+      },
+    }),
+
+  /**
+   * GET /api/v1/analytics/commute-costs?timetable_id=...&campus_id=...
+   * Per-teacher weekly commute distance report.
+   */
+  commuteCosts: (timetableId, campusId = null) =>
+    api.get('/analytics/commute-costs', {
+      params: {
+        ...(timetableId ? { timetable_id: timetableId } : {}),
+        ...(campusId ? { campus_id: campusId } : {}),
+      },
+    }),
+}

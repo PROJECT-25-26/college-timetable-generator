@@ -1,0 +1,15 @@
+name,email,department_code,max_periods_per_week,max_periods_per_day,unavailable_slots,subject_1,subject_2,subject_3
+Dr. Kavya Rao,cs1@example.com,CS,25,6,,CS101:preferred,CS103L:willing,
+Mr. Sanjay Bhat,cs2@example.com,CS,25,6,,CS102:preferred,CS103L:willing,
+Dr. Neha Kulkarni,cs3@example.com,CS,22,5,,CS103L:preferred,CS101:willing,CS102:willing
+Prof. Ramesh Iyer,ee1@example.com,EE,24,6,,EE101:preferred,EE103L:willing,
+Dr. Sneha Kapoor,ee2@example.com,EE,22,5,,EE102:preferred,EE103L:willing,
+Mr. Anand Verma,ee3@example.com,EE,22,5,,EE103L:preferred,EE101:willing,EE102:willing
+Dr. Kiran Desai,me1@example.com,ME,24,6,,ME101:preferred,ME103L:willing,
+Mr. Suresh Pawar,me2@example.com,ME,22,5,,ME102:preferred,ME103L:willing,
+Dr. Anita Joshi,me3@example.com,ME,22,5,,ME103L:preferred,ME101:willing,ME102:willing
+Dr. Priya Menon,sc1@example.com,SC,30,6,,MATH101:preferred,PHY201:willing,
+Dr. Ganesh Nair,sc2@example.com,SC,30,6,,MATH101:preferred,ENG101:willing,
+Dr. John Mathew,sc3@example.com,SC,28,6,,PHY201:preferred,MATH101:willing,
+Dr. Lakshmi Iyer,sc4@example.com,SC,26,6,,PHY201:preferred,ENG101:willing,
+Ms. Fatima Sheikh,sc5@example.com,SC,24,5,,ENG101:preferred,MATH101:willing,

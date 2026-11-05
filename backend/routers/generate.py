@@ -31,7 +31,9 @@ from database import get_db
 from models.orm import (
     ClassSection,
     ClassSectionSubject,
+    Floor,
     Room,
+    StaffRoom,
     Subject,
     Teacher,
     TeacherSubject,
@@ -61,6 +63,15 @@ from solver import (
     build_variables,
     extract_solution,
 )
+from solver.floor_graph import (
+    compute_room_distances,
+    compute_building_distances,
+    compute_campus_distances,
+    GLOBAL_CAMPUS_MATRIX_CACHE,
+    FloorData,
+    StairConnection,
+)
+
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/generate-timetable", tags=["Generate"])
@@ -109,6 +120,8 @@ async def generate_health():
 async def get_payload(
     periods_per_day: int = 8,
     working_days: str = "0,1,2,3,4",
+    travel_weight: int = 2,
+    timeout_seconds: int = 60,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -118,6 +131,8 @@ async def get_payload(
     **Query parameters** (time grid — the only runtime config):
     - `periods_per_day` (default 8)
     - `working_days`    (default \"0,1,2,3,4\" = Mon–Fri, comma-separated 0-based ints)
+    - `travel_weight`   (default 2, 0 disables walking distance penalty)
+    - `timeout_seconds` (default 60, solver wall-clock limit in seconds)
 
     Returns HTTP 422 if any critical cross-reference issues are detected
     (e.g. a section has no homeroom, or no teacher is eligible for a subject).
@@ -130,7 +145,13 @@ async def get_payload(
     if not days:
         raise HTTPException(status_code=422, detail="working_days must not be empty")
 
-    req = await _assemble_payload(db, periods_per_day=periods_per_day, working_days=days)
+    req = await _assemble_payload(
+        db,
+        periods_per_day=periods_per_day,
+        working_days=days,
+        travel_weight=travel_weight,
+        timeout_seconds=timeout_seconds,
+    )
     return req
 
 
@@ -194,6 +215,8 @@ async def _assemble_payload(
     *,
     periods_per_day: int,
     working_days: list[int],
+    travel_weight: int = 2,
+    timeout_seconds: int = 60,
 ) -> TimetableRequest:
     """Query all entities and map ORM rows to solver schema objects."""
 
@@ -249,6 +272,16 @@ async def _assemble_payload(
             )
             for u in t.unavailable_slots
         ]
+        # Resolve staffroom: Teacher → Department → StaffRoom
+        staffroom_id: str | None = None
+        if t.department_id:
+            sr_row = (
+                await db.execute(
+                    select(StaffRoom).where(StaffRoom.department_id == t.department_id)
+                )
+            ).scalar_one_or_none()
+            if sr_row is not None:
+                staffroom_id = sr_row.id
         solver_teachers.append(
             SolverTeacher(
                 id=t.id,
@@ -256,6 +289,7 @@ async def _assemble_payload(
                 max_periods_per_week=t.max_periods_per_week,
                 subject_links=subject_links,
                 unavailable_slots=unavailable,
+                staffroom_id=staffroom_id,
             )
         )
 
@@ -284,6 +318,25 @@ async def _assemble_payload(
             )
         )
 
+    # ── BFS / Dijkstra campus room distances (from precomputed cache) ──────────────
+    from routers.campus import recompute_campus_matrices
+
+    if GLOBAL_CAMPUS_MATRIX_CACHE.is_valid():
+        room_distances      = GLOBAL_CAMPUS_MATRIX_CACHE.all_distances
+        staffroom_distances = GLOBAL_CAMPUS_MATRIX_CACHE.staff_room_distance
+    else:
+        res = await recompute_campus_matrices(db)
+        room_distances      = res.get("allDistances", {})
+        staffroom_distances = res.get("staffRoomDistance", {})
+
+    logger.info(
+        "_assemble_payload: campus distance engine provided %d source rooms "
+        "and %d staffrooms with distance data.",
+        len(room_distances),
+        len(staffroom_distances),
+    )
+
+
     req = TimetableRequest(
         subjects=solver_subjects,
         teachers=solver_teachers,
@@ -293,6 +346,10 @@ async def _assemble_payload(
             periods_per_day=periods_per_day,
             working_days=working_days,
         ),
+        room_distances=room_distances,
+        staffroom_distances=staffroom_distances,
+        travel_weight=travel_weight,
+        timeout_seconds=timeout_seconds,
     )
     _validate_request(req)
     return req
@@ -361,10 +418,11 @@ def _run_solver(req: TimetableRequest) -> TimetableResponse:
     apply_locked_slots(model, req, var_sets)
 
     build_constraints(model, req, var_sets)
-    build_objectives(model, req, var_sets)
+    build_objectives(model, req, var_sets, travel_weight=req.travel_weight)
 
     solver = cp_model.CpSolver()
-    solver.parameters.max_time_in_seconds = _SOLVER_TIMEOUT_SECONDS
+    solver_timeout = float(getattr(req, "timeout_seconds", 60) or _SOLVER_TIMEOUT_SECONDS)
+    solver.parameters.max_time_in_seconds = solver_timeout
     solver.parameters.log_search_progress = False
 
     status_code = solver.solve(model)
@@ -402,7 +460,7 @@ def _run_solver(req: TimetableRequest) -> TimetableResponse:
         slots=[],
         solver_wall_time_ms=elapsed_ms,
         message=(
-            f"Solver found no solution within {_SOLVER_TIMEOUT_SECONDS:.0f}s "
+            f"Solver found no solution within {solver_timeout:.0f}s "
             f"(status: {status_name})."
         ),
     )

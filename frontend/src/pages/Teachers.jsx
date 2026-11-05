@@ -19,22 +19,22 @@ const PREF_TYPES = [
     value: 'preferred',
     label: 'Preferred',
     icon: Star,
-    activeClass: 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300',
-    inactiveClass: 'bg-white/4 border-white/10 text-gray-500 hover:text-emerald-400 hover:border-emerald-500/30',
+    activeClass: 'bg-emerald-50 border-emerald-300 text-emerald-800',
+    inactiveClass: 'bg-ground border-primary/12 text-muted hover:text-emerald-400 hover:border-emerald-500/30',
   },
   {
     value: 'willing',
     label: 'Willing',
     icon: Check,
-    activeClass: 'bg-brand-500/20 border-brand-500/50 text-brand-300',
-    inactiveClass: 'bg-white/4 border-white/10 text-gray-500 hover:text-brand-400 hover:border-brand-500/30',
+    activeClass: 'bg-secondary/15 border-secondary/50 text-secondary',
+    inactiveClass: 'bg-ground border-primary/12 text-muted hover:text-secondary hover:border-secondary/30',
   },
   {
     value: 'avoid',
     label: 'Avoid',
     icon: X,
-    activeClass: 'bg-red-500/20 border-red-500/50 text-red-300',
-    inactiveClass: 'bg-white/4 border-white/10 text-gray-500 hover:text-red-400 hover:border-red-500/30',
+    activeClass: 'bg-red-50 border-red-300 text-red-700',
+    inactiveClass: 'bg-ground border-primary/12 text-muted hover:text-red-400 hover:border-red-500/30',
   },
 ]
 
@@ -96,11 +96,11 @@ function SubjectLinks({ links, subjects, onChange }) {
   return (
     <div className="space-y-3">
       {subjects.length === 0 ? (
-        <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs">
+        <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs">
           No subjects exist in the system yet. Please create subjects in the <strong>Subjects</strong> page first before assigning preferences.
         </div>
       ) : links.length === 0 ? (
-        <p className="text-xs text-gray-400 italic">No subjects assigned yet. Click "+ Add subject & preference" below to select a subject.</p>
+        <p className="text-xs text-muted italic">No subjects assigned yet. Click "+ Add subject & preference" below to select a subject.</p>
       ) : null}
 
       {links.map((link, idx) => {
@@ -108,7 +108,7 @@ function SubjectLinks({ links, subjects, onChange }) {
         return (
           <div
             key={idx}
-            className="flex flex-col gap-2.5 p-3 rounded-xl bg-white/5 border border-white/10"
+            className="flex flex-col gap-2.5 p-3 rounded-xl bg-ground border border-primary/12"
           >
             {/* Row 1: subject select + rank + delete */}
             <div className="flex items-center gap-2">
@@ -125,7 +125,7 @@ function SubjectLinks({ links, subjects, onChange }) {
                 ))}
               </select>
               <div className="flex items-center gap-1.5 shrink-0">
-                <span className="text-xs text-gray-400 whitespace-nowrap">Rank</span>
+                <span className="text-xs text-muted whitespace-nowrap">Rank</span>
                 <input
                   type="number"
                   min={1}
@@ -137,7 +137,7 @@ function SubjectLinks({ links, subjects, onChange }) {
               <button
                 type="button"
                 onClick={() => removeLink(idx)}
-                className="p-1.5 text-gray-400 hover:text-red-400 transition-colors shrink-0"
+                className="p-1.5 text-muted hover:text-red-400 transition-colors shrink-0"
                 title="Remove subject"
               >
                 <Trash2 size={15} />
@@ -145,8 +145,8 @@ function SubjectLinks({ links, subjects, onChange }) {
             </div>
 
             {/* Row 2: preference type toggle */}
-            <div className="flex items-center gap-2 pt-1 border-t border-white/5">
-              <span className="text-xs font-medium text-gray-400 mr-1">Preference Level:</span>
+            <div className="flex items-center gap-2 pt-1 border-t border-primary/8">
+              <span className="text-xs font-medium text-muted mr-1">Preference Level:</span>
               <div className="flex items-center gap-1.5">
                 {PREF_TYPES.map((pt) => {
                   const Icon = pt.icon
@@ -173,14 +173,14 @@ function SubjectLinks({ links, subjects, onChange }) {
       })}
 
       {subjects.length > 0 && available.length === 0 && links.length > 0 && (
-        <p className="text-xs text-gray-500 italic">All available subjects have been assigned to this teacher.</p>
+        <p className="text-xs text-muted italic">All available subjects have been assigned to this teacher.</p>
       )}
 
       {subjects.length > 0 && available.length > 0 && (
         <button
           type="button"
           onClick={addLink}
-          className="flex items-center gap-1 text-xs font-medium text-brand-400 hover:text-brand-300 transition-colors pt-1"
+          className="flex items-center gap-1 text-xs font-medium text-secondary hover:text-secondary transition-colors pt-1"
         >
           + Add subject & preference
         </button>
@@ -211,14 +211,14 @@ function UnavailableGrid({ slots, onChange }) {
           <tr>
             <th className="w-10" />
             {DAYS.map((d) => (
-              <th key={d} className="text-center text-gray-500 font-medium pb-1.5">{d}</th>
+              <th key={d} className="text-center text-muted font-medium pb-1.5">{d}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {PERIODS.map((p) => (
             <tr key={p}>
-              <td className="text-gray-600 text-right pr-2">P{p + 1}</td>
+              <td className="text-muted text-right pr-2">P{p + 1}</td>
               {DAYS.map((_, d) => {
                 const blocked = set.has(slotKey(d, p))
                 return (
@@ -229,11 +229,11 @@ function UnavailableGrid({ slots, onChange }) {
                       className={`w-full h-7 rounded transition-colors ${
                         blocked
                           ? 'bg-red-500/30 border border-red-500/50 text-red-400'
-                          : 'bg-white/4 border border-white/8 hover:bg-white/10 text-gray-700 hover:text-gray-500'
+                          : 'bg-ground border border-primary/10 hover:bg-secondary/8 text-muted hover:text-muted'
                       }`}
                       title={`${DAYS[d]} Period ${p + 1} — ${blocked ? 'blocked' : 'available'}`}
                     >
-                      {blocked ? '✕' : ''}
+                      {blocked ? '×' : ''}
                     </button>
                   </td>
                 )
@@ -242,7 +242,7 @@ function UnavailableGrid({ slots, onChange }) {
           ))}
         </tbody>
       </table>
-      <p className="text-xs text-gray-600 mt-2">Click cells to mark unavailable slots (shown in red)</p>
+      <p className="text-xs text-muted mt-2">Click cells to mark unavailable slots (shown in red)</p>
     </div>
   )
 }
@@ -305,12 +305,12 @@ function TeacherForm({ form, errors, onChange, departments, subjects }) {
       </div>
 
       {/* Subject preferences */}
-      <div className="border-t border-white/10 pt-4">
+      <div className="border-t border-primary/12 pt-4">
         <div className="flex items-center gap-2 mb-3">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
+          <p className="text-xs font-semibold text-muted uppercase tracking-widest">
             Subject Preferences
           </p>
-          <span className="text-xs text-gray-600">— set preferred ★, willing ✓, or avoid ✗ per subject</span>
+          <span className="text-xs text-muted">— configure preferred, willing, or avoid preferences below per subject</span>
         </div>
         <SubjectLinks
           links={form.subject_links}
@@ -320,8 +320,8 @@ function TeacherForm({ form, errors, onChange, departments, subjects }) {
       </div>
 
       {/* Unavailability grid */}
-      <div className="border-t border-white/10 pt-4">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Unavailable Slots</p>
+      <div className="border-t border-primary/12 pt-4">
+        <p className="text-xs font-semibold text-muted uppercase tracking-widest mb-3">Unavailable Slots</p>
         <UnavailableGrid
           slots={form.unavailable_slots}
           onChange={(v) => onChange('unavailable_slots', v)}
@@ -342,14 +342,14 @@ function validate(form) {
    Table columns
 ────────────────────────────────────────────── */
 function SubjectPills({ links }) {
-  if (!links?.length) return <span className="text-gray-600 text-xs">—</span>
+  if (!links?.length) return <span className="text-muted text-xs">—</span>
   const show = links.slice(0, 3)
   const more = links.length - show.length
 
   const prefColor = (type) => {
-    if (type === 'preferred') return 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300'
-    if (type === 'avoid')     return 'bg-red-500/15 border border-red-500/30 text-red-300'
-    return 'bg-brand-500/15 border border-brand-500/30 text-brand-300'
+    if (type === 'preferred') return 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+    if (type === 'avoid')     return 'bg-red-50 border border-red-200 text-red-700'
+    return 'bg-secondary/12 border border-secondary/30 text-secondary'
   }
 
   return (
@@ -377,14 +377,14 @@ const COLUMNS = (departments) => [
     label: 'Department',
     render: (v) => {
       const d = departments.find((dep) => dep.id === v)
-      return d ? <Badge variant="default">{d.code}</Badge> : <span className="text-gray-600 text-xs">—</span>
+      return d ? <Badge variant="default">{d.code}</Badge> : <span style={{ color: 'var(--c-muted)', fontSize: '0.875rem' }}>—</span>
     },
   },
   {
     key: 'max_periods_per_week',
-    label: 'Max Periods',
+    label: 'Max periods',
     render: (v) => (
-      <span className="text-gray-400 text-xs">{v}/week</span>
+      <span style={{ color: 'var(--c-muted)', fontSize: '0.875rem' }}>{v}/week</span>
     ),
   },
   {
@@ -506,32 +506,64 @@ export default function Teachers() {
     }
   }
 
+  const totalCapacity = rows.reduce((sum, t) => sum + (t.max_periods_per_week || 0), 0)
+  const avgCapacity = (totalCapacity / (rows.length || 1)).toFixed(1)
+  const withConstraints = rows.filter((t) => t.unavailable_slots?.length > 0).length
+
   return (
-    <div className="space-y-6 max-w-5xl">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-100">Teachers</h2>
-          <p className="text-xs text-gray-500 mt-0.5">Manage staff, subject preferences, and availability</p>
+    <div className="page-wrapper">
+      {/* Page header */}
+      <div className="page-header">
+        <div className="page-header-left">
+          <h1 className="page-heading">Teachers</h1>
+          <p className="page-sub">Manage faculty staff, subject competency preferences, and unavailable period slots</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="page-header-actions">
           <button
             id="teacher-import-csv-btn"
             onClick={() => setCsvOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-gray-300 bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+            className="btn btn-secondary btn-sm"
           >
-            <Upload size={15} />
+            <Upload size={14} />
             Import CSV
           </button>
           <button
             id="teacher-add-btn"
             onClick={openCreate}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-white bg-brand-600 hover:bg-brand-500 transition-colors"
+            className="btn btn-primary btn-sm"
           >
-            <Plus size={16} />
-            Add Teacher
+            <Plus size={14} />
+            Add teacher
           </button>
         </div>
       </div>
+
+      {/* Stats row */}
+      {rows.length > 0 && (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+          gap: 12,
+          marginBottom: 24,
+        }}>
+          {[
+            { label: 'Total faculty', val: rows.length, color: '#2E2A6B' },
+            { label: 'Weekly capacity', val: `${totalCapacity} periods`, color: '#8F8CD6' },
+            { label: 'Avg cap/teacher', val: `${avgCapacity} p/wk`, color: '#2E2A6B' },
+            { label: 'With slot constraints', val: withConstraints, color: '#FFB020' },
+          ].map((stat) => (
+            <div key={stat.label} className="stat-card">
+              <div className="stat-card-icon" style={{ background: `${stat.color}12` }}>
+                <span style={{ width: 18, height: 18, display: 'block', borderRadius: 4, background: stat.color, opacity: 0.7 }} />
+              </div>
+              <div>
+                <p className="stat-card-value">{stat.val}</p>
+                <p className="stat-card-label">{stat.label}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <DataTable
         columns={COLUMNS(departments)}
@@ -543,15 +575,15 @@ export default function Teachers() {
         emptyTitle="No teachers yet"
         emptyMessage="Add teachers and assign their subject preferences."
         onAdd={openCreate}
-        addLabel="Add Teacher"
+        addLabel="Add teacher"
       />
 
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editing ? 'Edit Teacher' : 'New Teacher'}
+        title={editing ? 'Edit teacher' : 'New teacher'}
         onSubmit={handleSave}
-        submitLabel={editing ? 'Save Changes' : 'Create'}
+        submitLabel={editing ? 'Save changes' : 'Create'}
         loading={saving}
         size="lg"
       >
@@ -578,7 +610,7 @@ export default function Teachers() {
         onClose={() => setCsvOpen(false)}
         onSuccess={() => { setCsvOpen(false); load() }}
         importFn={teachersApi.importCsv}
-        title="Import Teachers from CSV"
+        title="Import teachers from CSV"
         hint={TEACHER_CSV_HINT}
         templateRows={TEACHER_CSV_TEMPLATE}
         templateFilename="teachers_template.csv"

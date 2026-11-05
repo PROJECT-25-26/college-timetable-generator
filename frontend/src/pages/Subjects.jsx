@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, FlaskConical, Upload } from 'lucide-react'
+import { Plus, FlaskConical, Upload, BookOpen, Microscope, Clock } from 'lucide-react'
 import { subjectsApi } from '../api'
 import { useToast } from '../hooks/useToast'
 import DataTable from '../components/DataTable'
@@ -39,9 +39,9 @@ function Toggle({ checked, onChange }) {
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`toggle-track ${checked ? 'bg-brand-600' : 'bg-gray-700'}`}
+      className="toggle-track"
     >
-      <span className={`toggle-thumb ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
+      <span className="toggle-thumb" style={{ transform: checked ? 'translateX(18px)' : 'translateX(0)' }} />
     </button>
   )
 }
@@ -57,9 +57,20 @@ function PeriodSlider({ label, value, onChange, min = 1, max = 30 }) {
           max={max}
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}
-          className="flex-1 accent-brand-500"
+          style={{ flex: 1, accentColor: '#2E2A6B' }}
         />
-        <span className="w-10 text-center text-sm font-semibold text-brand-300 bg-brand-500/10 border border-brand-500/20 rounded-lg py-1">
+        <span style={{
+          minWidth: 40,
+          textAlign: 'center',
+          fontSize: '0.875rem',
+          fontWeight: 700,
+          color: '#2E2A6B',
+          background: 'rgba(46,42,107,0.08)',
+          border: '1px solid rgba(46,42,107,0.15)',
+          borderRadius: 8,
+          padding: '2px 8px',
+          fontFamily: 'Space Grotesk, sans-serif',
+        }}>
           {value}
         </span>
       </div>
@@ -71,7 +82,7 @@ function SubjectForm({ form, errors, onChange }) {
   return (
     <div className="space-y-4">
       <div>
-        <label className="form-label">Subject Name *</label>
+        <label className="form-label">Subject name *</label>
         <input
           className={`form-input ${errors.name ? 'error' : ''}`}
           placeholder="e.g. Data Structures"
@@ -83,7 +94,7 @@ function SubjectForm({ form, errors, onChange }) {
         {errors.name && <p className="form-error">{errors.name}</p>}
       </div>
       <div>
-        <label className="form-label">Subject Code *</label>
+        <label className="form-label">Subject code *</label>
         <input
           className={`form-input font-mono ${errors.code ? 'error' : ''}`}
           placeholder="e.g. CS201"
@@ -94,10 +105,18 @@ function SubjectForm({ form, errors, onChange }) {
         {errors.code && <p className="form-error">{errors.code}</p>}
       </div>
 
-      <div className="flex items-center justify-between py-2 px-3 bg-white/3 rounded-xl border border-white/8">
-        <div className="flex items-center gap-2">
-          <FlaskConical size={15} className="text-amber-400" />
-          <span className="text-sm text-gray-300">Lab Subject</span>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '12px 14px',
+        background: 'rgba(46,42,107,0.04)',
+        borderRadius: 12,
+        border: '1px solid rgba(46,42,107,0.12)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <FlaskConical size={15} style={{ color: '#FFB020' }} />
+          <span style={{ fontSize: '0.9375rem', color: 'var(--c-body)', fontWeight: 500 }}>Lab subject</span>
         </div>
         <Toggle
           checked={form.lab}
@@ -107,8 +126,13 @@ function SubjectForm({ form, errors, onChange }) {
 
       {form.lab ? (
         <>
-          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 space-y-2">
-            <label className="form-label text-amber-300">Required Lab Category / Type (Optional)</label>
+          <div style={{
+            padding: '14px',
+            borderRadius: 12,
+            background: 'rgba(255,176,32,0.06)',
+            border: '1px solid rgba(255,176,32,0.20)',
+          }}>
+            <label className="form-label" style={{ color: '#A07010' }}>Required lab category (optional)</label>
             <input
               className="form-input"
               placeholder="e.g. programming"
@@ -116,18 +140,25 @@ function SubjectForm({ form, errors, onChange }) {
               maxLength={50}
               onChange={(e) => onChange('required_lab_type', e.target.value.toLowerCase())}
             />
-            <div className="flex items-center gap-1.5 flex-wrap pt-1">
-              <span className="text-[10px] text-gray-400">Suggestions:</span>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10, alignItems: 'center' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--c-muted)' }}>Suggestions:</span>
               {COMMON_LAB_TYPES.map((lt) => (
                 <button
                   key={lt}
                   type="button"
                   onClick={() => onChange('required_lab_type', lt)}
-                  className={`px-2 py-0.5 rounded text-[10px] font-medium border transition-colors ${
-                    form.required_lab_type === lt
-                      ? 'bg-amber-500/30 border-amber-500/50 text-amber-200'
-                      : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200'
-                  }`}
+                  style={{
+                    padding: '3px 10px',
+                    borderRadius: 9999,
+                    fontSize: '0.75rem',
+                    fontWeight: 500,
+                    border: '1px solid',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    background: form.required_lab_type === lt ? 'rgba(255,176,32,0.18)' : 'transparent',
+                    borderColor: form.required_lab_type === lt ? 'rgba(255,176,32,0.50)' : 'rgba(46,42,107,0.18)',
+                    color: form.required_lab_type === lt ? '#A07010' : 'var(--c-muted)',
+                  }}
                 >
                   {lt}
                 </button>
@@ -136,7 +167,7 @@ function SubjectForm({ form, errors, onChange }) {
           </div>
 
           <PeriodSlider
-            label="Consecutive Periods per Lab Session (1–10)"
+            label="Consecutive periods per lab session (1–10)"
             value={form.lab_consecutive_periods}
             onChange={(v) => onChange('lab_consecutive_periods', v)}
             max={10}
@@ -145,21 +176,28 @@ function SubjectForm({ form, errors, onChange }) {
             <p className="form-error">{errors.lab_consecutive_periods}</p>
           )}
           <PeriodSlider
-            label="Weekly Lab Sessions Required (1–30)"
+            label="Weekly lab sessions required (1–30)"
             value={form.weekly_lab_sessions}
             onChange={(v) => onChange('weekly_lab_sessions', v)}
           />
           {errors.weekly_lab_sessions && (
             <p className="form-error">{errors.weekly_lab_sessions}</p>
           )}
-          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs">
-            <FlaskConical size={12} className="inline mr-1" />
+          <div style={{
+            padding: '10px 14px',
+            borderRadius: 10,
+            background: 'rgba(255,176,32,0.06)',
+            border: '1px solid rgba(255,176,32,0.18)',
+            fontSize: '0.8125rem',
+            color: '#A07010',
+          }}>
+            <FlaskConical size={12} style={{ display: 'inline', marginRight: 5 }} />
             Lab rooms matching category <strong>{form.required_lab_type || 'any lab'}</strong> will be assigned at generation time.
           </div>
         </>
       ) : (
         <PeriodSlider
-          label="Weekly Periods (1–30)"
+          label="Weekly periods (1–30)"
           value={form.weekly_periods}
           onChange={(v) => onChange('weekly_periods', v)}
         />
@@ -199,7 +237,7 @@ const COLUMNS = [
     key: 'weekly_periods',
     label: 'Scheduling',
     render: (_, row) => (
-      <span className="text-gray-400 text-xs">{subjectPeriodSummary(row)}</span>
+      <span style={{ color: 'var(--c-muted)', fontSize: '0.875rem' }}>{subjectPeriodSummary(row)}</span>
     ),
   },
   {
@@ -207,8 +245,8 @@ const COLUMNS = [
     label: 'Type',
     render: (v, r) => v
       ? (
-        <div className="flex items-center gap-1.5">
-          <Badge variant="warning"><FlaskConical size={10} className="inline mr-1" />Lab</Badge>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Badge variant="warning"><FlaskConical size={10} style={{ display: 'inline', marginRight: 3 }} />Lab</Badge>
           {r.required_lab_type && <Badge variant="warning">{r.required_lab_type}</Badge>}
         </div>
       )
@@ -301,32 +339,64 @@ export default function Subjects() {
     }
   }
 
+  const totalTheory = rows.filter((s) => !s.lab).length
+  const totalLabSubj = rows.filter((s) => s.lab).length
+  const totalWeeklyPeriods = rows.reduce((sum, s) => sum + (s.weekly_periods || 0), 0)
+
   return (
-    <div className="space-y-6 max-w-4xl">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-100">Subjects</h2>
-          <p className="text-xs text-gray-500 mt-0.5">Define subjects and their weekly period requirements</p>
+    <div className="page-wrapper">
+      {/* Page header */}
+      <div className="page-header">
+        <div className="page-header-left">
+          <h1 className="page-heading">Subjects</h1>
+          <p className="page-sub">Define academic subjects, weekly period requirements, and lab specifications</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="page-header-actions">
           <button
             id="subject-import-btn"
             onClick={() => setCsvOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-gray-200 bg-white/8 border border-white/10 hover:bg-white/12 transition-colors"
+            className="btn btn-secondary btn-sm"
           >
-            <Upload size={15} />
+            <Upload size={14} />
             Import CSV
           </button>
           <button
             id="subject-add-btn"
             onClick={openCreate}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-white bg-brand-600 hover:bg-brand-500 transition-colors"
+            className="btn btn-primary btn-sm"
           >
-            <Plus size={16} />
-            Add Subject
+            <Plus size={14} />
+            Add subject
           </button>
         </div>
       </div>
+
+      {/* Stats row */}
+      {rows.length > 0 && (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+          gap: 12,
+          marginBottom: 24,
+        }}>
+          {[
+            { label: 'Total subjects', val: rows.length, Icon: BookOpen, color: '#2E2A6B' },
+            { label: 'Theory courses', val: totalTheory, Icon: BookOpen, color: '#2E2A6B' },
+            { label: 'Lab practicals', val: totalLabSubj, Icon: Microscope, color: '#FFB020' },
+            { label: 'Weekly periods', val: `${totalWeeklyPeriods}`, Icon: Clock, color: '#8F8CD6' },
+          ].map((stat) => (
+            <div key={stat.label} className="stat-card">
+              <div className="stat-card-icon" style={{ background: `${stat.color}12` }}>
+                <stat.Icon size={18} style={{ color: stat.color }} />
+              </div>
+              <div>
+                <p className="stat-card-value">{stat.val}</p>
+                <p className="stat-card-label">{stat.label}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <DataTable
         columns={COLUMNS}
@@ -338,15 +408,15 @@ export default function Subjects() {
         emptyTitle="No subjects yet"
         emptyMessage="Add subjects that will be taught across departments."
         onAdd={openCreate}
-        addLabel="Add Subject"
+        addLabel="Add subject"
       />
 
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editing ? 'Edit Subject' : 'New Subject'}
+        title={editing ? 'Edit subject' : 'New subject'}
         onSubmit={handleSave}
-        submitLabel={editing ? 'Save Changes' : 'Create'}
+        submitLabel={editing ? 'Save changes' : 'Create'}
         loading={saving}
       >
         <SubjectForm form={form} errors={errors} onChange={handleChange} />
@@ -366,7 +436,7 @@ export default function Subjects() {
         onClose={() => setCsvOpen(false)}
         onSuccess={() => load()}
         importFn={subjectsApi.importCsv}
-        title="Import Subjects"
+        title="Import subjects"
         hint={SUBJ_CSV_HINT}
         templateRows={SUBJ_CSV_TEMPLATE}
         templateFilename="subjects_template.csv"

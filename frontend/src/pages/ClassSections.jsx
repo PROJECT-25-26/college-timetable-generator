@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Home, FlaskConical, Upload } from 'lucide-react'
+import { Plus, Trash2, Home, FlaskConical, Upload, Users, BookOpen, GraduationCap } from 'lucide-react'
 import { classSectionsApi, subjectsApi, roomsApi } from '../api'
 import { useToast } from '../hooks/useToast'
 import DataTable from '../components/DataTable'
@@ -61,39 +61,57 @@ function SectionSubjectLinks({ links, subjects, onChange }) {
   }
 
   return (
-    <div className="space-y-3">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {subjects.length === 0 ? (
-        <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs">
-          No subjects exist in the system yet. Please create subjects in the <strong>Subjects</strong> page first before assigning them to a class section.
+        <div style={{
+          padding: '12px 14px',
+          borderRadius: 10,
+          background: 'rgba(255,176,32,0.06)',
+          border: '1px solid rgba(255,176,32,0.20)',
+          fontSize: '0.8125rem',
+          color: '#A07010',
+        }}>
+          No subjects exist yet. Create subjects in the <strong>Subjects</strong> page first.
         </div>
       ) : links.length === 0 ? (
-        <p className="text-xs text-gray-400 italic">No subjects assigned to this section yet. Click "+ Add subject to section" below.</p>
+        <p style={{ fontSize: '0.875rem', color: 'var(--c-muted)', fontStyle: 'italic' }}>
+          No subjects assigned to this section. Click "Add subject" below.
+        </p>
       ) : null}
 
       {links.map((link, idx) => {
         const subject = subjects.find((s) => s.id === link.subject_id)
         const defaultPeriods = subjectWeeklyPeriods(subject) || 3
         return (
-          <div key={idx} className="flex items-center gap-2 p-2.5 rounded-xl bg-white/5 border border-white/10">
+          <div key={idx} style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '10px 12px',
+            borderRadius: 10,
+            background: 'rgba(46,42,107,0.03)',
+            border: '1px solid rgba(46,42,107,0.10)',
+          }}>
             <select
               value={link.subject_id}
               onChange={(e) => updateLink(idx, 'subject_id', e.target.value)}
-              className="form-input flex-1 text-sm"
+              className="form-input"
+              style={{ flex: 1 }}
             >
               <option value={link.subject_id}>
-                {subject ? `${subject.name} (${subject.code})` : 'Select a subject...'}
+                {subject ? `${subject.name} (${subject.code})` : 'Select a subject…'}
               </option>
               {available.map((s) => (
                 <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
               ))}
             </select>
             {subject?.lab && (
-              <span className="text-xs text-amber-400 shrink-0 flex items-center gap-1">
+              <span style={{ fontSize: '0.75rem', color: '#A07010', display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
                 <FlaskConical size={12} />Lab
               </span>
             )}
-            <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-xs text-gray-400 whitespace-nowrap">Periods/wk</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--c-muted)', whiteSpace: 'nowrap' }}>Periods/wk</span>
               <input
                 type="number"
                 min={1}
@@ -104,39 +122,60 @@ function SectionSubjectLinks({ links, subjects, onChange }) {
                   const v = e.target.value === '' ? null : Number(e.target.value)
                   updateLink(idx, 'weekly_periods_override', v)
                 }}
-                className="form-input w-20 text-center text-sm"
+                className="form-input"
+                style={{ width: 72, textAlign: 'center' }}
                 title={`Default: ${defaultPeriods}/week — leave blank to use subject default`}
               />
             </div>
             <button
               type="button"
               onClick={() => removeLink(idx)}
-              className="p-1.5 text-gray-400 hover:text-red-400 transition-colors shrink-0"
+              style={{
+                padding: 6,
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--c-muted)',
+                borderRadius: 6,
+                transition: 'color 0.15s',
+                flexShrink: 0,
+              }}
               title="Remove subject from section"
             >
-              <Trash2 size={15} />
+              <Trash2 size={14} />
             </button>
           </div>
         )
       })}
 
       {subjects.length > 0 && available.length === 0 && links.length > 0 && (
-        <p className="text-xs text-gray-500 italic">All available subjects have been assigned to this section.</p>
+        <p style={{ fontSize: '0.8125rem', color: 'var(--c-muted)', fontStyle: 'italic' }}>All available subjects have been assigned.</p>
       )}
 
-      <div className="flex items-center justify-between pt-1">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 4 }}>
         {subjects.length > 0 && available.length > 0 && (
           <button
             type="button"
             onClick={addLink}
-            className="flex items-center gap-1 text-xs font-medium text-brand-400 hover:text-brand-300 transition-colors"
+            style={{
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              color: '#2E2A6B',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              padding: 0,
+            }}
           >
-            + Add subject to section
+            <Plus size={14} /> Add subject to section
           </button>
         )}
         {links.length > 0 && (
-          <span className="text-xs text-gray-400 ml-auto">
-            Total: <span className="text-brand-300 font-semibold">{totalPeriods}</span> weekly periods
+          <span style={{ fontSize: '0.8125rem', color: 'var(--c-muted)', marginLeft: 'auto' }}>
+            Total: <strong style={{ color: '#2E2A6B' }}>{totalPeriods}</strong> weekly periods
           </span>
         )}
       </div>
@@ -148,7 +187,7 @@ function SectionSubjectLinks({ links, subjects, onChange }) {
    Form
 ────────────────────────────────────────────── */
 function SectionForm({ form, errors, onChange, onHomeroomChange, subjects, rooms }) {
-  // Only classroom / seminar rooms are eligible as homeroooms
+  // Only classroom / seminar rooms are eligible as homerooms
   const eligibleRooms = rooms.filter(
     (r) => r.room_type === 'classroom' || r.room_type === 'seminar'
   )
@@ -156,10 +195,10 @@ function SectionForm({ form, errors, onChange, onHomeroomChange, subjects, rooms
   const codeAutoFilled = selectedRoom && form.code === selectedRoom.code
 
   return (
-    <div className="space-y-5">
-      <div className="space-y-4">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>
-          <label className="form-label">Section Name *</label>
+          <label className="form-label">Section name *</label>
           <input
             className={`form-input ${errors.name ? 'error' : ''}`}
             placeholder="e.g. CS Batch 1"
@@ -182,14 +221,19 @@ function SectionForm({ form, errors, onChange, onHomeroomChange, subjects, rooms
           {errors.strength && <p className="form-error">{errors.strength}</p>}
         </div>
 
-        {/* Homeroom — primary identifier */}
-        <div className="p-4 rounded-xl bg-brand-500/5 border border-brand-500/20 space-y-3">
-          <div className="flex items-center gap-2">
-            <Home size={15} className="text-brand-400" />
-            <span className="text-xs font-semibold text-brand-300 uppercase tracking-widest">Homeroom</span>
-            <span className="text-xs text-gray-600 ml-1">— the section's fixed classroom identifier</span>
+        {/* Homeroom */}
+        <div style={{
+          padding: '14px 16px',
+          borderRadius: 14,
+          background: 'rgba(46,42,107,0.04)',
+          border: '1px solid rgba(46,42,107,0.14)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <Home size={14} style={{ color: '#2E2A6B' }} />
+            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#2E2A6B' }}>Homeroom</span>
+            <span style={{ fontSize: '0.8125rem', color: 'var(--c-muted)', marginLeft: 4 }}>— the section's fixed classroom</span>
           </div>
-          <p className="text-xs text-gray-500">
+          <p style={{ fontSize: '0.8125rem', color: 'var(--c-muted)', marginBottom: 12 }}>
             Selecting a homeroom auto-fills the section code with the room's code, linking them as one identity.
             Teachers travel here; lab rooms are assigned dynamically at generation time.
           </p>
@@ -206,18 +250,18 @@ function SectionForm({ form, errors, onChange, onHomeroomChange, subjects, rooms
             ))}
           </select>
           {eligibleRooms.length === 0 && (
-            <p className="text-xs text-amber-400">
+            <p style={{ fontSize: '0.8125rem', color: '#A07010', marginTop: 8 }}>
               No classrooms or seminar rooms exist yet. Add rooms first.
             </p>
           )}
 
-          {/* Section code — auto-filled from room, still editable */}
-          <div>
-            <label className="form-label flex items-center gap-2">
-              Section Code *
+          {/* Section code */}
+          <div style={{ marginTop: 14 }}>
+            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              Section code *
               {codeAutoFilled && (
-                <span className="text-xs font-normal text-brand-400/80 normal-case tracking-normal">
-                  ✓ auto-filled from room
+                <span style={{ fontSize: '0.75rem', fontWeight: 400, color: '#5F5A89' }}>
+                  Auto-filled from room
                 </span>
               )}
             </label>
@@ -229,14 +273,14 @@ function SectionForm({ form, errors, onChange, onHomeroomChange, subjects, rooms
               onChange={(e) => onChange('code', e.target.value.toUpperCase())}
             />
             {errors.code && <p className="form-error">{errors.code}</p>}
-            <p className="text-xs text-gray-600 mt-1">You can edit this if you need a different identifier.</p>
+            <p style={{ fontSize: '0.8125rem', color: 'var(--c-muted)', marginTop: 5 }}>You can edit this if you need a different identifier.</p>
           </div>
         </div>
       </div>
 
-      <div className="border-t border-white/10 pt-4">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">Subject Assignment</p>
-        <p className="text-xs text-gray-600 mb-3">
+      <div style={{ borderTop: '1px solid var(--c-border)', paddingTop: 16 }}>
+        <p style={{ fontSize: '0.875rem', fontWeight: 600, color: '#2E2A6B', marginBottom: 4 }}>Subject assignment</p>
+        <p style={{ fontSize: '0.8125rem', color: 'var(--c-muted)', marginBottom: 14 }}>
           Leave "Periods" blank to use the subject's default. Override to set a different count for this section.
         </p>
         <SectionSubjectLinks
@@ -261,11 +305,11 @@ function validate(form) {
    Table helpers
 ────────────────────────────────────────────── */
 function SubjectPills({ links, subjects }) {
-  if (!links?.length) return <span className="text-gray-600 text-xs">—</span>
+  if (!links?.length) return <span style={{ color: 'var(--c-muted)', fontSize: '0.875rem' }}>—</span>
   const show = links.slice(0, 3)
   const more = links.length - show.length
   return (
-    <div className="flex flex-wrap gap-1">
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
       {show.map((l) => {
         const sub = subjects.find((s) => s.id === l.subject_id)
         return <Badge key={l.subject_id} variant="brand">{sub?.code ?? '…'}</Badge>
@@ -342,7 +386,6 @@ export default function ClassSections() {
     setForm((f) => ({
       ...f,
       homeroom_id: roomId,
-      // Auto-fill code only if it's currently blank or was previously auto-filled from a room
       code: room ? room.code : f.code,
     }))
     if (errors.homeroom_id) setErrors((e) => ({ ...e, homeroom_id: undefined }))
@@ -401,10 +444,10 @@ export default function ClassSections() {
       label: 'Room',
       sortable: false,
       render: (homeroom, row) => (
-        <div className="flex items-center gap-2">
-          <Home size={12} className="text-brand-400 shrink-0" />
-          <span className="text-xs text-gray-300">
-            {homeroom ? homeroom.name : <span className="text-gray-600">—</span>}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Home size={12} style={{ color: '#2E2A6B', flexShrink: 0 }} />
+          <span style={{ fontSize: '0.875rem', color: 'var(--c-body)' }}>
+            {homeroom ? homeroom.name : <span style={{ color: 'var(--c-muted)' }}>—</span>}
           </span>
           <Badge variant="brand">
             {homeroom ? homeroom.code : row.code}
@@ -415,7 +458,7 @@ export default function ClassSections() {
     {
       key: 'strength',
       label: 'Students',
-      render: (v) => <span className="text-gray-400">{v}</span>,
+      render: (v) => <span style={{ color: 'var(--c-muted)' }}>{v}</span>,
     },
     {
       key: 'subject_links',
@@ -425,46 +468,62 @@ export default function ClassSections() {
     },
   ]
 
+  const assignedHomerooms = rows.filter((r) => r.homeroom_id).length
+  const totalSubjectLinks = rows.reduce((sum, r) => sum + (r.subject_links?.length || 0), 0)
+
   return (
-    <div className="space-y-6 max-w-5xl">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-100">Class Sections</h2>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Define class batches, assign a fixed homeroom, and map their subjects
-          </p>
+    <div className="page-wrapper">
+      {/* Page header */}
+      <div className="page-header">
+        <div className="page-header-left">
+          <h1 className="page-heading">Class sections</h1>
+          <p className="page-sub">Define student batches, assign designated homerooms, and map required academic curriculum</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="page-header-actions">
           <button
             id="section-import-csv-btn"
             onClick={() => setCsvOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-gray-300 bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+            className="btn btn-secondary btn-sm"
           >
-            <Upload size={15} />
+            <Upload size={14} />
             Import CSV
           </button>
           <button
             id="section-add-btn"
             onClick={openCreate}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-white bg-brand-600 hover:bg-brand-500 transition-colors"
+            className="btn btn-primary btn-sm"
           >
-            <Plus size={16} />
-            Add Section
+            <Plus size={14} />
+            Add section
           </button>
         </div>
       </div>
 
-      {/* Homeroom model info banner */}
-      <div className="p-4 rounded-2xl bg-white/3 border border-white/8 flex items-start gap-3">
-        <Home size={18} className="text-brand-400 mt-0.5 shrink-0" />
-        <div>
-          <p className="text-sm font-medium text-gray-200">Homeroom Model</p>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Each class section has a fixed <span className="text-brand-300">homeroom classroom</span> — teachers travel to the class for every non-lab period.
-            Lab rooms are <span className="text-amber-300">dynamically allocated</span> from the available pool of lab rooms at timetable generation time.
-          </p>
+      {/* Stats row */}
+      {rows.length > 0 && (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+          gap: 12,
+          marginBottom: 24,
+        }}>
+          {[
+            { label: 'Total sections', val: rows.length, Icon: GraduationCap, color: '#2E2A6B' },
+            { label: 'Homerooms assigned', val: `${assignedHomerooms} / ${rows.length}`, Icon: Home, color: '#8F8CD6' },
+            { label: 'Subject assignments', val: totalSubjectLinks, Icon: BookOpen, color: '#FFB020' },
+          ].map((stat) => (
+            <div key={stat.label} className="stat-card">
+              <div className="stat-card-icon" style={{ background: `${stat.color}12` }}>
+                <stat.Icon size={18} style={{ color: stat.color }} />
+              </div>
+              <div>
+                <p className="stat-card-value">{stat.val}</p>
+                <p className="stat-card-label">{stat.label}</p>
+              </div>
+            </div>
+          ))}
         </div>
-      </div>
+      )}
 
       <DataTable
         columns={COLUMNS}
@@ -476,15 +535,15 @@ export default function ClassSections() {
         emptyTitle="No class sections yet"
         emptyMessage="Create sections, assign their homeroom classroom, and map subjects to them."
         onAdd={openCreate}
-        addLabel="Add Section"
+        addLabel="Add section"
       />
 
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editing ? 'Edit Class Section' : 'New Class Section'}
+        title={editing ? 'Edit class section' : 'New class section'}
         onSubmit={handleSave}
-        submitLabel={editing ? 'Save Changes' : 'Create'}
+        submitLabel={editing ? 'Save changes' : 'Create'}
         loading={saving}
         size="lg"
       >
@@ -509,10 +568,10 @@ export default function ClassSections() {
 
       <CsvImportModal
         open={csvOpen}
-        onClose={() => setCsvOpen(false)}
+        onClose={() => { setCsvOpen(false); load() }}
         onSuccess={() => { setCsvOpen(false); load() }}
         importFn={classSectionsApi.importCsv}
-        title="Import Class Sections from CSV"
+        title="Import class sections from CSV"
         hint={SECTION_CSV_HINT}
         templateRows={SECTION_CSV_TEMPLATE}
         templateFilename="class_sections_template.csv"
