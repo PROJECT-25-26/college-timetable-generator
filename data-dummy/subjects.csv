@@ -1,0 +1,13 @@
+name,code,weekly_periods,lab,lab_consecutive_periods,weekly_lab_sessions,required_lab_type
+Engineering Mathematics,MATH101,8,false,,,
+Engineering Physics,PHY201,7,false,,,
+Communication Skills,ENG101,4,false,,,
+Programming Fundamentals,CS101,9,false,,,
+Data Structures,CS102,6,false,,,
+Programming Lab,CS103L,6,true,2,3,programming
+Circuit Theory,EE101,9,false,,,
+Digital Electronics,EE102,6,false,,,
+Electronics Lab,EE103L,6,true,2,3,electronics
+Engineering Mechanics,ME101,9,false,,,
+Thermodynamics,ME102,6,false,,,
+Workshop Practice,ME103L,6,true,3,2,workshop

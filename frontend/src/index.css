@@ -2088,7 +2088,7 @@ body.dark .fgp-root {
 .fgp-settings-panel,
 .fgp-blob-panel,
 .fgp-bg-panel {
-  width: 280px;
+  width: 272px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -2163,7 +2163,10 @@ body.dark .fgp-root {
 .fgp-settings-input,
 .fgp-blob-select {
   flex: 1;
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
+  box-sizing: border-box;
   padding: 0.35rem 0.6rem;
   font-size: 0.78rem;
   font-family: 'Figtree', sans-serif;
@@ -2173,6 +2176,11 @@ body.dark .fgp-root {
   color: #1F1B4D;
   outline: none;
   transition: border-color 0.13s ease;
+}
+
+.fgp-blob-select {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .fgp-settings-input:focus,
@@ -2527,7 +2535,7 @@ body.dark .fgp-root {
   top: var(--topbar-height);
   bottom: 0;
   left: var(--sidebar-width);
-  width: 290px;
+  width: 272px;
   pointer-events: none;
   display: flex;
   background: #FFFFFF;
@@ -2574,7 +2582,7 @@ body.dark .campus-side-drawer-overlay {
   top: var(--topbar-height);
   bottom: 0;
   left: var(--sidebar-width);
-  width: 290px;
+  width: 272px;
   max-height: calc(100vh - var(--topbar-height));
   border: 0;
   border-right: 1px solid rgba(46, 42, 107, 0.12);

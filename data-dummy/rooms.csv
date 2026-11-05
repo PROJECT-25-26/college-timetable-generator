@@ -1,0 +1,11 @@
+name,code,room_type,capacity,lab_type
+Room 101,R101,classroom,65,
+Room 102,R102,classroom,65,
+Room 103,R103,classroom,60,
+Room 201,R201,classroom,55,
+Room 202,R202,classroom,55,
+Room 301,R301,classroom,55,
+Room 302,R302,classroom,55,
+CS Programming Lab,CSLAB1,lab,70,programming
+EE Electronics Lab,EELAB1,lab,55,electronics
+ME Workshop,MELAB1,lab,55,workshop

@@ -131,7 +131,7 @@ const CELL_TYPES = {
     label: 'Staffroom',
     shortcut: 'T',
     icon: Users,
-    fill: '#EDE9FF',
+    fill: '#DDD6FE',
     accent: '#2E2A6B',
     pattern: 'staffroom-fill',
     linkable: true,
@@ -1340,6 +1340,8 @@ export default function FloorGridPainter({ floor, onSaved }) {
       if ((e.ctrlKey || e.metaKey) && key === 'I') {
         e.preventDefault()
         setBgPanelOpen(o => !o)
+        setBlobPanelOpen(false)
+        setSettingsOpen(false)
       }
     }
     window.addEventListener('keydown', handler)
@@ -1575,9 +1577,13 @@ export default function FloorGridPainter({ floor, onSaved }) {
 
         <div className="fgp-palette-divider" />
         <button
-          className="fgp-tool-pill"
-          style={blobPanelOpen ? { borderColor: '#6366f1', color: '#a5b4fc' } : {}}
-          onClick={() => setBlobPanelOpen(o => !o)}
+          className={`fgp-tool-pill ${blobPanelOpen && linkedBlobCount > 0 ? 'active' : ''}`}
+          style={blobPanelOpen && linkedBlobCount > 0 ? { borderColor: '#6366f1', color: '#a5b4fc' } : {}}
+          onClick={() => {
+            setBlobPanelOpen(o => !o)
+            setBgPanelOpen(false)
+            setSettingsOpen(false)
+          }}
           title="Open room linking panel"
         >
           <Link size={13} />
@@ -1610,8 +1616,12 @@ export default function FloorGridPainter({ floor, onSaved }) {
           {/* Blob panel toggle — ALWAYS VISIBLE */}
           <button
             id="fgp-blob-panel-toggle"
-            className={`fgp-icon-btn ${blobPanelOpen ? 'text-primary border-primary/40 bg-secondary/10' : ''}`}
-            onClick={() => setBlobPanelOpen(o => !o)}
+            className={`fgp-icon-btn ${blobPanelOpen && linkedBlobCount > 0 ? 'text-primary border-primary/40 bg-secondary/10' : ''}`}
+            onClick={() => {
+              setBlobPanelOpen(o => !o)
+              setBgPanelOpen(false)
+              setSettingsOpen(false)
+            }}
             title="Room link panel"
           >
             <Link size={13} />
@@ -1628,7 +1638,11 @@ export default function FloorGridPainter({ floor, onSaved }) {
           <button
             id="fgp-bg-toggle"
             className={`fgp-icon-btn ${bgPanelOpen ? 'text-primary border-primary/40 bg-secondary/10' : ''}`}
-            onClick={() => setBgPanelOpen(o => !o)}
+            onClick={() => {
+              setBgPanelOpen(o => !o)
+              setBlobPanelOpen(false)
+              setSettingsOpen(false)
+            }}
             title="Background image (Ctrl+I)"
           >
             <Image size={13} />
@@ -1643,7 +1657,11 @@ export default function FloorGridPainter({ floor, onSaved }) {
           <button
             id="fgp-settings-toggle"
             className={`fgp-icon-btn ${settingsOpen ? 'text-primary border-primary/40 bg-secondary/10' : ''}`}
-            onClick={() => setSettingsOpen(o => !o)}
+            onClick={() => {
+              setSettingsOpen(o => !o)
+              setBlobPanelOpen(false)
+              setBgPanelOpen(false)
+            }}
             title="Floor settings"
           >
             <Settings2 size={13} />
@@ -1797,8 +1815,8 @@ export default function FloorGridPainter({ floor, onSaved }) {
                         fontSize={Math.max(7, Math.min(cellPx * 0.36, 11))}
                         fontFamily="system-ui, -apple-system, sans-serif"
                         fontWeight="800"
-                        fill="#f59e0b"
-                        stroke="rgba(0,0,0,0.8)"
+                        fill="#1F1B4D"
+                        stroke="rgba(255,255,255,0.85)"
                         strokeWidth="0.8"
                         paintOrder="stroke fill"
                         style={{ pointerEvents: 'none', userSelect: 'none' }}
@@ -1815,8 +1833,8 @@ export default function FloorGridPainter({ floor, onSaved }) {
                         fontSize={Math.max(7, Math.min(cellPx * 0.36, 11))}
                         fontFamily="system-ui, -apple-system, sans-serif"
                         fontWeight="800"
-                        fill="#ffffff"
-                        stroke="rgba(0,0,0,0.6)"
+                        fill="#1F1B4D"
+                        stroke="rgba(255,255,255,0.75)"
                         strokeWidth="0.6"
                         paintOrder="stroke fill"
                         style={{ pointerEvents: 'none', userSelect: 'none' }}
